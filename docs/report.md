@@ -235,6 +235,89 @@ Each hypothesis maps onto a row:
 
 **Choice:** AdamW + cosine, kept because nothing beat it; Phase 6 re-checks v1's optimizer on the final model. As expected, physics does not choose the optimizer. The physics-guided choices of Phases 2–4 moved the error by 0.2–3 sites; the optimizer moves it by at most 0.1.
 
+## 10. The final model against v1 (Q5)
+
+The final model puts together the winners of Phases 2–5:
+- the whole-ring dilated CNN (Q2)
+- angle frames at τ = 0…4.5, the same observation window as v1 (Q1)
+- soft labels + 0.1 × expected distance + 0.1 × localization-time head (Q3)
+- AdamW + cosine (Q4)
+
+It trains for 30 epochs on the same 60,000 runs as v1.
+
+### Headline
+
+([results/headline.md](../results/headline.md); test pool of 20,000 runs; mean ± standard deviation over seeds)
+
+| Model | Parameters | Training | Mean distance | ±1 | ±3 | >10 off |
+|---|---|---|---|---|---|---|
+| v1 as published | 26.5M | | 1.44 | 94.4% | | |
+| v1 rebuilt (2 seeds) | 26.5M | 23 min | 3.14 ± 0.19 | 60.4% | 90.3% | 5.7% |
+| Floquet filter (physics, no training) | 0 | | 3.12 | 52.0% | 87.3% | 4.6% |
+| Learned linear ring filter | 200 | seconds | 2.17 | 67.4% | 95.3% | 3.1% |
+| **v2 final (5 seeds)** | **22,786** | **6 min** | **1.49 ± 0.03** | **77.2%** | **97.3%** | **1.5%** |
+
+Against the rebuilt v1, v2:
+- halves the mean distance (3.14 → 1.49) and cuts far misses (more than 10 sites off) from 5.7% to 1.5%
+- raises ±1 from 60% to 77%, and ±3 from 90% to 97%
+- uses 1/1,163 of the parameters and trains about 4× faster, on a laptop GPU
+- varies six times less between seeds, and no seed fails to train (one of three v1 seeds never left chance level)
+
+v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why that number could not be reproduced). The paper's mean distance of 1.44 does not say whether it wraps around the ring; v2 scores 1.49 around the ring and 2.43 without wrapping.
+
+*Pending: leave-one-out and data-efficiency results (Phase 6 is still running).*
+
+### When, as well as where
+
+The time head was added only as a training aid (H3.4), but it is accurate on its own ([results/time_head.json](../results/time_head.json); test pool):
+
+| Predictor of the localization time | Median error | Within 10% |
+|---|---|---|
+| A constant (the training median, τ = 55) | 13.4% (7.0 time units) | 39.7% |
+| The amplitude alone (median time in each amplitude bin) | 5.1% (3.0) | 83.0% |
+| **v2 time head (5 seeds)** | **1.5% (0.8)** | **99.4%** |
+
+From 4.5 time units of observation, v2 predicts when localization will happen to within about 0.8 time units (0.12 s for a 20 cm pendulum), roughly 50 time units ahead.
+
+## 11. Robustness and real-world sensing
+
+### Shifted chains, without retraining
+
+([Fig. 16](../figures/fig16_robustness.png); both models trained on the nominal chain; shifted pools of 5,000 runs)
+
+| Test condition | v1 rebuilt | v2 final | What changes in the growth spectrum at A = 1.75 |
+|---|---|---|---|
+| Nominal chain | 3.14 | 1.49 | 5 growing modes, σ₁ = 0.1185 |
+| Neighbour coupling g −10% / +10% | 3.26 / 3.39 | 1.97 / 1.97 | σ₁ within 0.3%; the same 5 modes grow |
+| Twice the initial spread | 3.62 | 1.96 | Nothing; perturbations start twice as large |
+| Global coupling h −10% | 4.36 | 4.25 | σ₁ +21%; 6 modes grow; A_c falls to 1.50 |
+| Global coupling h +10% | 5.91 | 5.53 | σ₁ −33%; 3 modes grow; A_c rises to 1.68 |
+| 80 pendulums | n/a | 1.31 | 4 modes grow |
+| 150 pendulums | n/a | 6.32 | 8 modes grow |
+| One pendulum 1% weaker (about 2 mm longer) | 18.9 | 22.9 | The weak pendulum pins the site (within ±3 of it in 92% of runs) |
+
+The pattern follows the Floquet spectrum:
+- **Shifts that leave the spectrum alone cost v2 about half a site** (g ±10%, a doubled initial spread). It stays far ahead of v1.
+- **Shifts that change the spectrum hurt both models alike.** A 10% change in the global coupling h moves the fastest growth rate by +21% or −33% and changes how many modes grow, and both models lose 3–4 sites. In a real chain, h must be known to a few percent, or the model trained over a range of h.
+- **v2 works on rings of other sizes; v1's dense head cannot.** At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 vs 1.49 of 100). At 150 it degrades (6.3): eight modes compete instead of five, and the ring outgrows the 129-site receptive field.
+- **A single slightly weaker pendulum defeats both models.** A 1% weaker restoring force pins the localization site, which neither model saw in training (Sec. 11.3).
+
+### Sensor noise
+
+Test-time sensor noise on every pendulum and frame, mean distance:
+
+| Noise (rad) | v1 rebuilt | v2 final, trained noise-free |
+|---|---|---|
+| none | 3.14 | 1.49 |
+| 10⁻⁴ | 3.20 | 1.51 |
+| 3×10⁻⁴ | 3.58 | 1.62 |
+| 10⁻³ | 6.24 | 2.26 |
+| 3×10⁻³ | 13.86 | 4.63 |
+
+- v2 degrades about three times more slowly than v1. Even untrained for noise, v2 at 10⁻³ rad (2.26) beats the noise-free v1 (3.14).
+
+*Pending: noise-trained, impurity and real-world sensing results (Phase 6 is still running).*
+
 ## 12. Limitations and next steps
 
 ### Limitations

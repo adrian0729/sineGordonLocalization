@@ -10,3 +10,5 @@ trajectory cache ready in 63s
 [8/48  1511s mps] leave_one_out/no_dilation seed 2: mean 2.578  ±1 59.12%  ±3 90.31%  >10 3.50%  (368s, 22786 params)
 [9/48  1886s mps] leave_one_out/zero_padding seed 0: mean 2.430  ±1 66.54%  ±3 91.59%  >10 3.96%  (361s, 22786 params)
 [10/48  1886s mps] leave_one_out/zero_padding seed 1: mean 2.482  ±1 66.77%  ±3 91.46%  >10 4.18%  (362s, 22786 params)
+[11/48  2240s mps] leave_one_out/dense_head seed 0: mean 1.771  ±1 71.50%  ±3 96.48%  >10 2.20%  (337s, 231013 params)
+[12/48  2244s mps] leave_one_out/zero_padding seed 2: mean 2.337  ±1 66.78%  ±3 91.92%  >10 3.72%  (342s, 22786 params)

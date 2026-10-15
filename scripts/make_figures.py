@@ -609,7 +609,7 @@ def fig_robustness():
     ax.tick_params(axis="y", length=0)
     ax.grid(axis="y", visible=False)
     ax.set_xlabel("Mean distance on test (sites, log scale); no retraining. v1 cannot take other chain lengths")
-    ax.legend(loc="lower right")
+    ax.legend(loc="upper right")
     ax.set_title("Trained on the nominal chain, tested on shifted ones", loc="left")
     save(fig, "fig16_robustness")
 
