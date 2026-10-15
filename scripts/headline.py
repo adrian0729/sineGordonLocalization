@@ -21,7 +21,7 @@ COLUMNS = [("mae", "Mean distance", 2, 1), ("acc_0", "Exact", 1, 100), ("acc_1",
 CONDITIONS = [("pool_test", "nominal test pool"), ("robust_g-10", "coupling g 10% low"), ("robust_g+10", "coupling g 10% high"),
               ("robust_h-10", "global coupling h 10% low"), ("robust_h+10", "global coupling h 10% high"),
               ("robust_noise2x", "twice the initial spread"), ("robust_N80", "N = 80 pendulums"), ("robust_N150", "N = 150 pendulums"),
-              ("robust_impurity1", "one pendulum 1% off"), ("test_noise0.0001", "sensor noise 1e-4 rad (untrained)"),
+              ("robust_impurity1", "one pendulum 1% weaker (2 mm longer)"), ("test_noise0.0001", "sensor noise 1e-4 rad (untrained)"),
               ("test_noise0.0003", "sensor noise 3e-4 rad (untrained)"), ("test_noise0.001", "sensor noise 1e-3 rad (untrained)"),
               ("test_noise0.003", "sensor noise 3e-3 rad (untrained)")]
 
@@ -163,10 +163,10 @@ def main():
     tests = [robust[(d, "robust_impurity_test")] for d in v1_dirs if (d, "robust_impurity_test") in robust]
     rows.insert(0, ["v1, trained on uniform chains", len(tests)] + cells(tests))
     for name, label in (("impurity_trained", "v2 recipe, trained with impurities, no map"),
-                        ("impurity_trained_with_map", "v2 recipe, trained with impurities, given each pendulum's measured frequency")):
+                        ("impurity_trained_with_map", "v2 recipe, trained with impurities, given a measured map of every pendulum")):
         recs = p6.get(name, [])
         rows.append([label, len(recs)] + cells([r["test"] for r in recs]))
-    out += ["## 6. Chains with one impurity (0–2% frequency error at a random pendulum; 10,000 test runs)", "",
+    out += ["## 6. Chains with one impurity (one random pendulum's restoring force 0–2% weaker; 10,000 test runs)", "",
             table(["Model", "Seeds", *[c[1] for c in COLUMNS]], rows), ""]
 
     # 7. deployable sensing setups

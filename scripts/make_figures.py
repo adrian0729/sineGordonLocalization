@@ -368,6 +368,37 @@ def fig_noise_collapse():
     save(fig, "fig13_noise_collapse")
 
 
+def fig_warning_tradeoff():
+    """Q1 deliverable: accuracy against the warning time left after the last frame, per sensing setup."""
+    recs = phase_records("phase3")
+    from sgloc import data
+    t_loc = float(np.median(data.load_pool(ROOT / "data" / "pool_test.npz")["time_right"]))
+    unit = (0.2 / 9.81) ** 0.5  # seconds per time unit for a 20 cm pendulum
+    setups = [("S1", 3.5, "camera: angles, 8 frames"), ("S2", 0.0, "camera + gyros: angles and velocities"),
+              ("S3", 0.0, "energies from camera + gyros")]
+    if not recs.get(("noise_time", "S1_t0_noise0.001")):
+        raise FileNotFoundError("no noise/time runs yet")
+    fig, axes = plt.subplots(1, 2, figsize=(10.5, 3.6), sharey=True, layout="constrained")
+    for ax, noise, title in zip(axes, (1e-3, 1e-2), ("(a) Precise sensors: 1e-3 rad", "(b) Coarse sensors: 1e-2 rad")):
+        for slot, (kind, window, label) in enumerate(setups):
+            pts = [(t_loc - start - window, recs.get(("noise_time", f"{kind}_t{start}_noise{noise:g}"))) for start in (0, 10, 20, 30)]
+            pts = [(w, r[0]["test"]["mae"]) for w, r in pts if r]
+            ax.plot(*zip(*pts), color=SLOT[slot], marker="o", markeredgecolor=SURFACE, markeredgewidth=1.0, label=label)
+        ax.set_title(title, loc="left", fontsize=9)
+        ax.set_xlabel("Median warning left after the last frame (time units)")
+        ax.set_yscale("log")
+        top = ax.secondary_xaxis("top", functions=(lambda t: t * unit, lambda s: s / unit))
+        top.set_xlabel("seconds, for a 20 cm pendulum", color=INK2)
+        top.tick_params(colors=MUTED, labelcolor=INK2)
+    axes[0].set_yticks([1.5, 2, 3, 5, 8, 12], ["1.5", "2", "3", "5", "8", "12"])
+    axes[0].yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    axes[0].set_ylabel("Mean distance on test (sites)")
+    axes[0].legend(loc="upper left")
+    fig.suptitle("Warning time against accuracy: watch later with a worse sensor (start times 30, 20, 10, 0 from left)",
+                 x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig17_warning_tradeoff")
+
+
 def fig_inputs():
     recs = phase_records("phase3")
     names = [("I0_v1_inputs", "E at τ = 0…4.5 + θ(0) (v1's inputs)"), ("I1_theta0", "θ(0) only"), ("I2_E0", "E(0) only"),
@@ -534,7 +565,7 @@ ROBUST_LABELS = [("pool_test", "nominal test pool"), ("robust_g-10", "neighbour 
                  ("robust_g+10", "neighbour coupling g +10%"), ("robust_h-10", "global coupling h −10%"),
                  ("robust_h+10", "global coupling h +10%"), ("robust_noise2x", "twice the initial spread"),
                  ("robust_N80", "80 pendulums"), ("robust_N150", "150 pendulums"),
-                 ("robust_impurity1", "one pendulum's frequency 1% off"),
+                 ("robust_impurity1", "one pendulum 1% weaker (2 mm longer)"),
                  ("test_noise0.0003", "sensor noise 3e-4 rad"), ("test_noise0.001", "sensor noise 1e-3 rad"),
                  ("test_noise0.003", "sensor noise 3e-3 rad")]
 
@@ -586,7 +617,7 @@ def fig_robustness():
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
-               fig_leave_one_out, fig_final_data, fig_robustness):
+               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff):
         try:
             fn()
         except FileNotFoundError as err:

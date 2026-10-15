@@ -74,7 +74,10 @@ There is one deliberate change: the input scaler is fit on the training split on
 | More than 10 off | n/a | 5.5% | 4.6% |
 | Training | n/a | 19 epochs, best at epoch 9; 24 min on the M3 Pro GPU | none |
 
-Seeds 1 and 2 are queued to measure seed-to-seed spread.
+Seed-to-seed spread:
+- Seed 1 reaches 59.1% within ±1 and a mean distance of 3.27 (16 epochs, best at epoch 6).
+- Seed 2 never trained. Its loss stayed at ln 100 = 4.61, the value of a uniform guess, for 14 epochs. A rerun followed the identical trajectory, so this is a property of the seed and not a glitch.
+- v1 statistics below therefore use seeds 0 and 1.
 
 **Reproduction gate: not met.** The plan asked for v1 to land within about 10% of the paper's numbers. It is far off: 61.7% vs 94.4% within ±1, and a mean distance of 3.00 vs 1.44.
 - The simulator matches the paper's own pipeline exactly (above), so the gap comes from the ML side.

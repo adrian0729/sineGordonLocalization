@@ -1,1 +1,4 @@
 phase6_deploy: 9 configs, 9 still to run
+trajectory cache ready in 143s
+[1/9   383s mps] deploy/deploy_camera_every2_noise1e-3 seed 0: mean 1.932  ±1 72.25%  ±3 95.98%  >10 2.72%  (370s, 22882 params)
+[2/9   751s mps] deploy/deploy_camera_every2_noise1e-3 seed 1: mean 1.929  ±1 73.33%  ±3 95.84%  >10 2.77%  (351s, 22882 params)

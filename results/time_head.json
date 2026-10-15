@@ -23,6 +23,24 @@
    "p90_rel_error": 0.038971178233623505,
    "median_abs_error": 0.7791347503662109,
    "within_10pct": 0.99455
+  },
+  "runs/v2_final_s2_56c8feb70f": {
+   "median_rel_error": 0.013972500339150429,
+   "p90_rel_error": 0.03816579654812813,
+   "median_abs_error": 0.7804374694824219,
+   "within_10pct": 0.9936
+  },
+  "runs/v2_final_s3_191455b5bb": {
+   "median_rel_error": 0.012907790951430798,
+   "p90_rel_error": 0.036503762006759644,
+   "median_abs_error": 0.7279472351074219,
+   "within_10pct": 0.99565
+  },
+  "runs/v2_final_s4_3de9d2d666": {
+   "median_rel_error": 0.013837626203894615,
+   "p90_rel_error": 0.03869308531284332,
+   "median_abs_error": 0.7804641723632812,
+   "within_10pct": 0.99355
   }
  }
 }
