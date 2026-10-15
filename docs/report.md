@@ -139,3 +139,59 @@ All models below see v1's information and get the same training budget ([Fig. 7]
 - about 5 minutes to train on a laptop GPU
 
 Combining it with the Fourier branch, the MLP front or the GRU front, or doubling its width, does not improve it (1.57–1.61).
+
+## 7. Which inputs to measure (Q1)
+
+Every input set was tested with the Phase 2 architecture on 15-epoch screening runs ([Fig. 9](../figures/fig9_inputs.png), [Fig. 8](../figures/fig8_noise_vs_time.png)).
+
+### Information (noise-free, observed from release)
+
+| Inputs | Mean distance | ±1 |
+|---|---|---|
+| **Angles at τ = 0…4.5** | **1.56** | **76.7%** |
+| θ(0) only | 1.66 | 71.7% |
+| v1's energy frames + θ(0) | 1.75 | 71.5% |
+
+Energies never beat angles, and they need velocities plus the model's parameters to compute. In clean data θ(0) is the complete state; the extra angle frames simply make the same information easier to learn.
+
+### Unknown start in the swing
+
+If observation starts at an unknown point in the swing, raw angles need about one full swing of frames (16 frames, 8 time units) to recover: 1.85, against 2.87 with one frame.
+
+A single frame of energy reaches 1.80. Energy barely changes along the swing, so it removes the unknown phase. The network does worse with the angle-and-velocity pair that contains the same information (2.03).
+
+### Sensor noise and when to watch
+
+- **Camera alone (8 angle frames), watching from release:** fine up to about 10⁻³ rad of noise (about 95% within ±3, mean distance 2.2), then degrades. At 10⁻² rad it reaches a mean distance of 7.0.
+- **Later observation recovers that loss.** At 10⁻² rad, watching from τ = 10, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 noise-free.
+- Watching from τ = 30 still leaves about 23 time units of warning (about 3 s for a 20 cm pendulum).
+- This is the trade-off predicted from the growth rate: each 10× worse sensor costs about 19 time units of waiting.
+- **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window.
+
+### Recommendation
+
+One camera tracking all pendulums at 30–60 frames per second, predicting from a short window of angle frames.
+- With a precise camera (≲10⁻³ rad), predict right after release.
+- With a coarser one, wait until the long-wave modes have grown above the sensor noise.
+
+## 8. Loss function (Q3)
+
+([Fig. 10](../figures/fig10_losses.png); 15-epoch screening runs, 3 seeds, v1's inputs)
+
+| Loss | Mean distance | ±1 |
+|---|---|---|
+| Cross-entropy (v1) | 1.75 ± 0.09 | 71.5% |
+| Circular regression | 1.94 ± 0.11 | 63.2% |
+| Soft labels, σ = 1 | 1.58 ± 0.02 | 75.0% |
+| + 0.1 × expected distance + localization-time head | **1.55 ± 0.02** | 74.6% |
+| + later-energy-profile head (instead of the time head) | 1.52 ± 0.04 | 74.7% |
+| + v1's binary "localizes" head | 1.61 ± 0.06 | 72.6% |
+
+Each hypothesis maps onto a row:
+- **H3.1, supported.** Circular regression averages competing humps and does worst.
+- **H3.2, supported.** Soft labels that credit neighbouring sites help most, and cut the seed-to-seed spread fourfold.
+- **H3.3, refuted as a gain.** An explicit expected-distance term adds nothing at small weight, and at 0.3 it makes the model hedge.
+- **H3.4, supported.** Predicting when localization happens helps predict where.
+- **H3.5, supported.** v1's binary head adds nothing: every run localizes.
+
+**Choice:** soft labels + 0.1 × expected distance + time head. It ties the profile variant and needs no extra simulation.
