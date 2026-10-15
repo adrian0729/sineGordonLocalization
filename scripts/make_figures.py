@@ -397,6 +397,8 @@ def seed_dots(ax, rows, ref=None):
     """One row per config: small dots for seeds, a large dot for their mean, the mean as a label."""
     y = np.arange(len(rows))[::-1]
     for yi, (lab, v) in zip(y, rows):
+        if not len(v):  # label only; the caller draws this row
+            continue
         ax.plot(v, [yi] * len(v), linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
         ax.plot([np.mean(v)], [yi], linestyle="none", marker="o", markersize=7, color=SLOT[0],
                 markeredgecolor=SURFACE, markeredgewidth=1.5)
@@ -438,9 +440,16 @@ def fig_optimizers():
     if not rows:
         raise FileNotFoundError("no optimizer runs yet")
     ref = [v for lab, v in rows if lab == "AdamW + cosine"]
+    cut = 2.3  # runs that did not train are drawn at the right edge with their value
     fig, ax = plt.subplots(figsize=(7.0, 0.36 * len(rows) + 1.0))
-    seed_dots(ax, rows, ref=np.mean(ref[0]) if ref else None)
-    ax.set_xlabel("Mean distance on test (sites); line = AdamW + cosine")
+    seed_dots(ax, [(lab, v) if np.mean(v) < cut else (lab, []) for lab, v in rows], ref=np.mean(ref[0]) if ref else None)
+    y = np.arange(len(rows))[::-1]
+    for yi, (lab, v) in zip(y, rows):
+        if np.mean(v) >= cut:
+            ax.plot([cut - 0.02], [yi], linestyle="none", marker=">", markersize=7, color=SLOT[0])
+            ax.text(cut - 0.06, yi, f"{np.mean(v):.1f}: did not train (off scale)", va="center", ha="right", fontsize=7.5, color=INK)
+    ax.set_xlim(1.4, cut)
+    ax.set_xlabel("Mean distance on test (sites); line = AdamW + cosine; small dots are seeds")
     ax.set_title("Phase 5: optimizers and schedules (15-epoch screening runs)", loc="left")
     save(fig, "fig11_optimizers")
 
@@ -472,9 +481,112 @@ def fig_sparse():
     save(fig, "fig12_sparse_sensors")
 
 
+def fig_leave_one_out():
+    recs = phase_records("phase6")
+    final = [r["test"]["mae"] for r in recs.get(("final", "v2_final"), [])]
+    if not final:
+        raise FileNotFoundError("no final runs yet")
+    labels = {"no_dilation": "no dilation (sees 17 sites)", "zero_padding": "zero padding instead of circular",
+              "dense_head": "flatten + dense head (like v1)", "plain_cross_entropy": "plain cross-entropy (v1's loss)",
+              "no_soft_labels": "hard labels (other loss terms kept)", "no_time_head": "no localization-time head",
+              "v1_inputs": "v1's inputs (energy frames + θ(0))", "adam_constant": "v1's optimizer (Adam, constant 1e-3)"}
+    rows = [("v2 final model", final)] + [(lab, [r["test"]["mae"] for r in recs.get(("leave_one_out", n), [])])
+                                          for n, lab in labels.items()]
+    rows = [(lab, v) for lab, v in rows if v]
+    fig, ax = plt.subplots(figsize=(7.0, 0.36 * len(rows) + 1.0))
+    seed_dots(ax, rows, ref=np.mean(final))
+    ax.set_xlabel("Mean distance on test (sites); line = final model; small dots are seeds")
+    ax.set_title("Phase 6: take one choice out of the final model (30 epochs)", loc="left")
+    save(fig, "fig14_leave_one_out")
+
+
+def fig_final_data():
+    recs = phase_records("phase6")
+    pts = []
+    for n in (1000, 3000, 10_000, 30_000, 60_000, 100_000):
+        v = [r["test"]["mae"] for r in recs.get(("final", "v2_final") if n == 60_000 else ("data", f"final_n{n}"), [])]
+        if v:
+            pts.append((n, v))
+    if len(pts) < 2:
+        raise FileNotFoundError("not enough data-efficiency runs yet")
+    fig, ax = plt.subplots(figsize=(5.8, 3.5))
+    for n, v in pts:
+        ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
+    ax.plot([n for n, _ in pts], [np.mean(v) for _, v in pts], color=SLOT[0], marker="o", markeredgecolor=SURFACE,
+            markeredgewidth=1.2, label="v2 final recipe (23k parameters)")
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    title = "Data efficiency of the final recipe"
+    if v1:
+        ax.axhline(np.mean(v1), color=INK2, linewidth=0.8, linestyle="--", label="v1 rebuilt, 60,000 runs (26.5M parameters)")
+        beat = [n for n, v in pts if np.mean(v) < np.mean(v1)]
+        if beat:
+            title = f"v2 beats v1 from {min(beat):,} training runs, {60_000 // min(beat)}× less data"
+    ax.set_xscale("log")
+    ax.set_xticks([n for n, _ in pts], [f"{n // 1000}k" for n, _ in pts])
+    ax.set_xlabel("Training runs (same number of gradient steps)")
+    ax.set_ylabel("Mean distance on test (sites)")
+    ax.legend(loc="upper right", handlelength=3.2)
+    ax.set_title(title, loc="left")
+    save(fig, "fig15_final_data_efficiency")
+
+
+ROBUST_LABELS = [("pool_test", "nominal test pool"), ("robust_g-10", "neighbour coupling g −10%"),
+                 ("robust_g+10", "neighbour coupling g +10%"), ("robust_h-10", "global coupling h −10%"),
+                 ("robust_h+10", "global coupling h +10%"), ("robust_noise2x", "twice the initial spread"),
+                 ("robust_N80", "80 pendulums"), ("robust_N150", "150 pendulums"),
+                 ("robust_impurity1", "one pendulum's frequency 1% off"),
+                 ("test_noise0.0003", "sensor noise 3e-4 rad"), ("test_noise0.001", "sensor noise 1e-3 rad"),
+                 ("test_noise0.003", "sensor noise 3e-3 rad")]
+
+
+def fig_robustness():
+    from sgloc import ablations, experiment
+    path = ROOT / "results" / "robustness.jsonl"
+    if not path.exists():
+        raise FileNotFoundError("no robustness results yet")
+    latest = {}
+    for line in path.read_text().splitlines():
+        if line.strip():
+            r = json.loads(line)
+            latest[(r["run_dir"], r["condition"])] = r["test"]["mae"]
+    groups = {"v2 final": [f"runs/v2_final_s{c['seed']}_{experiment.config_id(c)}" for c in ablations.phase6()
+                           if c["name"] == "v2_final"],
+              "v1 rebuilt": [f"runs/{r['run_id']}" for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]}
+    rows = []
+    for cond, label in ROBUST_LABELS:
+        means = {g: np.mean([latest[(d, cond)] for d in dirs if (d, cond) in latest]) if any((d, cond) in latest for d in dirs)
+                 else None for g, dirs in groups.items()}
+        if means["v2 final"] is not None:
+            rows.append((label, means))
+    if not rows:
+        raise FileNotFoundError("no v2 robustness results yet")
+    fig, ax = plt.subplots(figsize=(7.0, 0.34 * len(rows) + 1.2))
+    y = np.arange(len(rows))[::-1]
+    for yi, (label, means) in zip(y, rows):
+        vals = [v for v in means.values() if v is not None]
+        if len(vals) == 2:
+            ax.plot(vals, [yi, yi], color=GRID, linewidth=2.0, zorder=1)
+    for slot, group in enumerate(groups):
+        pts = [(means[group], yi) for yi, (_, means) in zip(y, rows) if means[group] is not None]
+        if pts:
+            ax.plot(*zip(*pts), linestyle="none", marker="o", markersize=7, color=SLOT[slot], markeredgecolor=SURFACE,
+                    markeredgewidth=1.5, label=group, zorder=2)
+    ax.set_xscale("log")
+    ax.set_xticks([1, 2, 5, 10, 20], ["1", "2", "5", "10", "20"])
+    ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax.set_yticks(y, [label for label, _ in rows])
+    ax.tick_params(axis="y", length=0)
+    ax.grid(axis="y", visible=False)
+    ax.set_xlabel("Mean distance on test (sites, log scale); no retraining. v1 cannot take other chain lengths")
+    ax.legend(loc="lower right")
+    ax.set_title("Trained on the nominal chain, tested on shifted ones", loc="left")
+    save(fig, "fig16_robustness")
+
+
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
-               fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse):
+               fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
+               fig_leave_one_out, fig_final_data, fig_robustness):
         try:
             fn()
         except FileNotFoundError as err:

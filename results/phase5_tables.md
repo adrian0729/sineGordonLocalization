@@ -25,5 +25,5 @@ Validation mean distance (used for choices) and test-pool metrics (20,000 runs; 
 
 | Config | Seeds | Params | Val mean distance | Mean distance | Exact | ±1 | ±3 | >10 off | Train time |
 |---|---|---|---|---|---|---|---|---|---|
-| adamw_wd0 | 0 | | |  |  |  |  |  | pending |
-| adamw_wd0.01 | 0 | | |  |  |  |  |  | pending |
+| adamw_wd0 | 3 | 22,849 | 1.76 ± 0.03 | 1.72 ± 0.04 | 27.8 ± 1.6 | 72.1 ± 0.9 | 96.8 ± 0.2 | 2.0 ± 0.1 | 3 min |
+| adamw_wd0.01 | 3 | 22,849 | 1.72 ± 0.07 | 1.67 ± 0.08 | 28.5 ± 0.2 | 72.5 ± 1.2 | 97.0 ± 0.3 | 1.9 ± 0.2 | 3 min |

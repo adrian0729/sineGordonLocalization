@@ -214,3 +214,42 @@ Each hypothesis maps onto a row:
 - **H3.5, supported.** v1's binary head adds nothing: every run localizes.
 
 **Choice:** soft labels + 0.1 × expected distance + time head. It ties the profile variant and needs no extra simulation.
+
+## 9. Optimizer (Q4)
+
+([Fig. 11](../figures/fig11_optimizers.png); 15-epoch screening runs, 3 seeds, v1's inputs, plain cross-entropy)
+
+| Optimizer or setting | Mean distance | ±1 |
+|---|---|---|
+| Adam, constant 10⁻³ (v1) | 1.68 ± 0.05 | 71.8% |
+| AdamW + cosine | 1.75 ± 0.09 | 71.5% |
+| AdamW + one-cycle | 1.65 ± 0.08 | 72.9% |
+| Lion + cosine | 1.74 ± 0.01 | 71.4% |
+| SGD-Nesterov + cosine | 20.65 ± 2.62 | 4.8% |
+| Batch 64 / 1024 (learning rate scaled by √batch) | 1.68 ± 0.17 / 1.74 ± 0.02 | 72.3% / 71.2% |
+| Weight decay 0 / 10⁻² | 1.72 ± 0.04 / 1.67 ± 0.08 | 72.1% / 72.5% |
+
+- **H4.1, refuted at this budget.** Every adaptive optimizer and schedule lands within the seed-to-seed spread; v1's constant-rate Adam is as good as AdamW + cosine. SGD barely trains at the one learning rate tried, as the plan warned it would without a finer search.
+- **H4.2, supported.** Batch 1024 matches batch 256, varies less between seeds, and trains about 2× faster (the plan predicted 3–5×).
+- **Weight decay** makes no difference.
+
+**Choice:** AdamW + cosine, kept because nothing beat it; Phase 6 re-checks v1's optimizer on the final model. As expected, physics does not choose the optimizer. The physics-guided choices of Phases 2–4 moved the error by 0.2–3 sites; the optimizer moves it by at most 0.1.
+
+## 12. Limitations and next steps
+
+### Limitations
+
+- **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 61.7% within ±1, not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 is smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
+- **Simulation only, without damping.** Real pendulums lose energy to friction and air drag. A damped uniform swing drifts toward the instability threshold (A_c = 1.577), and below it nothing localizes. This study keeps the paper's conservative model.
+- **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
+- **Manufacturing tolerances.** The impurity tests detune one pendulum per chain. A real chain has small differences at every pendulum. A single 1% impurity already pins the site within ±3 in 92% of runs, so realistic tolerances would make a measured frequency map essential.
+- **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
+- **The label.** The site is the first one to cross 10% of the energy, with each spring's energy booked to its left pendulum. In 21% of runs the exact site depends on that bookkeeping, so exact-site accuracy mostly measures it. Within ±1 and the mean distance are the meaningful metrics.
+
+### Next steps
+
+1. Add damping to the simulator, retrain, and test whether early warning survives.
+2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
+3. Report prediction sets instead of one site. The soft-label model outputs a distribution over sites, so it can name the smallest set of sites that holds 90% of the probability.
+4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
+5. If the original v1 notebook resurfaces, rerun the comparison against it and check its data for train/test overlap.

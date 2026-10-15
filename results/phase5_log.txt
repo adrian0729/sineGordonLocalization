@@ -19,3 +19,8 @@ trajectory cache ready in 8s
 [17/24  3891s mps] batch/adamw_batch1024 seed 1: mean 1.740  ±1 70.81%  ±3 96.86%  >10 2.12%  (137s, 22849 params)
 [18/24  4009s mps] batch/adamw_batch1024 seed 2: mean 1.717  ±1 70.73%  ±3 96.91%  >10 2.00%  (104s, 22849 params)
 [19/24  4210s mps] weight_decay/adamw_wd0 seed 0: mean 1.755  ±1 71.14%  ±3 96.71%  >10 2.14%  (185s, 22849 params)
+[20/24  4402s mps] weight_decay/adamw_wd0 seed 1: mean 1.725  ±1 72.86%  ±3 96.79%  >10 2.04%  (174s, 22849 params)
+[21/24  4609s mps] weight_decay/adamw_wd0 seed 2: mean 1.684  ±1 72.37%  ±3 97.02%  >10 1.94%  (186s, 22849 params)
+[22/24  4799s mps] weight_decay/adamw_wd0.01 seed 0: mean 1.761  ±1 71.09%  ±3 96.67%  >10 2.12%  (173s, 22849 params)
+[23/24  5002s mps] weight_decay/adamw_wd0.01 seed 1: mean 1.604  ±1 73.36%  ±3 97.20%  >10 1.75%  (186s, 22849 params)
+[24/24  5184s mps] weight_decay/adamw_wd0.01 seed 2: mean 1.633  ±1 72.97%  ±3 97.11%  >10 1.80%  (166s, 22849 params)

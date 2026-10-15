@@ -1,0 +1,28 @@
+{
+ "baseline_constant": {
+  "median_rel_error": 0.1340206116437912,
+  "p90_rel_error": 0.2666666805744171,
+  "median_abs_error": 7.0,
+  "within_10pct": 0.39675
+ },
+ "baseline_amplitude": {
+  "median_rel_error": 0.050847455859184265,
+  "p90_rel_error": 0.12087912112474442,
+  "median_abs_error": 3.0,
+  "within_10pct": 0.8305
+ },
+ "runs": {
+  "runs/v2_final_s0_864be0d3c4": {
+   "median_rel_error": 0.018070001155138016,
+   "p90_rel_error": 0.04581587016582489,
+   "median_abs_error": 1.016571044921875,
+   "within_10pct": 0.9925
+  },
+  "runs/v2_final_s1_8e67e7f749": {
+   "median_rel_error": 0.01380266435444355,
+   "p90_rel_error": 0.038971178233623505,
+   "median_abs_error": 0.7791347503662109,
+   "within_10pct": 0.99455
+  }
+ }
+}

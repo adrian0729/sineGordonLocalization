@@ -37,10 +37,10 @@ def phase_log(phase):
 
 def running_jobs(phase):
     jobs = []
-    number = int(phase.replace("phase", ""))
+    ids = {experiment.config_id(c) for c in ablations.PHASES[phase]()}
     for cfg_path in sorted((ROOT / "runs" / "_queue").glob("*.json")):
         cfg = json.loads(cfg_path.read_text())
-        if cfg.get("phase") != number:
+        if cfg_path.stem not in ids:
             continue
         cid = cfg_path.stem
         run_log = ROOT / "runs" / f"{cfg['name']}_s{cfg['seed']}_{cid}" / "log.txt"

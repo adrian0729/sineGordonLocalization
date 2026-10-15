@@ -226,7 +226,7 @@ def phase5(lrs=None):
           " the range test was inconclusive for SGD)", three, optim={**adamw, "name": "sgd", "lr": lrs["sgd"], "clip": 1.0})
     t.add("optimizer", "O5_lion_cosine", "H4.1: Lion + cosine", three,
           optim={**adamw, "name": "lion", "lr": lrs["lion"], "weight_decay": 1e-2})
-    for batch in (64, 1024):  # same 30 epochs; learning rate scaled with the square root of the batch size
+    for batch in (64, 1024):  # same number of epochs; learning rate scaled with the square root of the batch size
         t.add("batch", f"adamw_batch{batch}", f"H4.2: batch size {batch} (lr scaled by sqrt(batch/256), same epochs)",
               three, optim={**adamw, "batch_size": batch, "lr": 3e-3 * (batch / 256) ** 0.5, "steps": SCREEN_STEPS * 256 // batch})
     for wd in (0.0, 1e-2):
@@ -278,7 +278,25 @@ def phase6():
           three, pools=impurity_pools)
     t.add("impurity", "impurity_trained_with_map", "Q5: trained on chains with a random impurity, given a measured map of each pendulum",
           three, pools=impurity_pools, view={"calibration": True})
+    add_deploy(t)
     return t.configs
 
 
-PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6}
+def add_deploy(t):
+    """The final recipe on the sensing setups Phase 3 recommends for a real chain."""
+    three = (0, 1, 2)
+    t.add("deploy", "deploy_camera_every2_noise1e-3", "Q1/Q5: final recipe, camera on every 2nd pendulum with 1e-3 rad noise, from release",
+          three, view={"noise": 1e-3, "stride": 2})
+    t.add("deploy", "deploy_camera_noise1e-2_t20", "Q1/Q5: final recipe, a coarse camera (1e-2 rad) watching from tau = 20",
+          three, view={"noise": 1e-2, "start": 20})
+    t.add("deploy", "deploy_energy_t30", "Q1/Q5: final recipe, energies at tau = 30 (one frame, noise-free): the late-warning ceiling",
+          three, view={"channels": ["E"], "frames": [0], "start": 30})
+
+
+def phase6_deploy():
+    """Only the deploy group of Phase 6, so it can run beside the main Phase 6 sweep."""
+    return [c for c in phase6() if c["group"] == "deploy"]
+
+
+PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
+          "phase6_deploy": phase6_deploy}

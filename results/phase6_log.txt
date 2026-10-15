@@ -1,2 +1,8 @@
 phase6: 48 configs, 48 still to run
 trajectory cache ready in 63s
+[1/48   379s mps] final/v2_final seed 0: mean 1.530  ±1 76.69%  ±3 97.21%  >10 1.67%  (367s, 22786 params)
+[2/48   379s mps] final/v2_final seed 1: mean 1.472  ±1 77.18%  ±3 97.39%  >10 1.50%  (368s, 22786 params)
+[3/48   752s mps] final/v2_final seed 3: mean 1.459  ±1 77.75%  ±3 97.39%  >10 1.47%  (361s, 22786 params)
+[4/48   754s mps] final/v2_final seed 2: mean 1.513  ±1 76.75%  ±3 97.18%  >10 1.59%  (361s, 22786 params)
+[5/48  1125s mps] final/v2_final seed 4: mean 1.479  ±1 77.86%  ±3 97.34%  >10 1.50%  (361s, 22786 params)
+[6/48  1125s mps] leave_one_out/no_dilation seed 0: mean 2.599  ±1 58.76%  ±3 89.91%  >10 3.56%  (359s, 22786 params)

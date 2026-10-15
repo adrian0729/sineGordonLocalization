@@ -408,3 +408,38 @@ The camera tracks only every s-th pendulum; a mask channel marks where the senso
 - It ties the profile-head variant within one validation standard error (1.54 vs 1.52).
 - It is simpler: the time target comes free with every label, while the profile target needs an extra simulation for each training run.
 - Physics reading: the hotspot spans a few sites, so neighbouring sites are partly right, and soft labels encode that. When and where localization happens are set by the same growing modes, so predicting the time helps predict the site.
+
+---
+
+## Phase 5: optimizer (Q4), 15 October 2026
+
+**Setup**
+- Base: the Phase 2 architecture with v1's inputs and plain cross-entropy; 15-epoch screening runs, 3 seeds each.
+- Learning rates come from a range test (`results/lr_range.json`): a 2.3×10⁻³ peak for one-cycle and 7.9×10⁻⁴ for Lion. The test was inconclusive for SGD (its loss never fell during the sweep), so SGD used 0.03 with gradients clipped at 1.
+- Tables: `results/phase5_tables.md`. Figure: [Fig. 11](../figures/fig11_optimizers.png).
+
+| Optimizer or setting | Mean distance | ±1 | ±3 |
+|---|---|---|---|
+| Adam, constant 10⁻³ (v1's optimizer) | 1.68 ± 0.05 | 71.8% | 96.9% |
+| AdamW + cosine (the default) | 1.75 ± 0.09 | 71.5% | 96.7% |
+| AdamW + one-cycle | 1.65 ± 0.08 | 72.9% | 97.1% |
+| SGD-Nesterov + cosine | 20.65 ± 2.62 | 4.8% | 11.2% |
+| Lion + cosine | 1.74 ± 0.01 | 71.4% | 96.8% |
+| Batch 64 (learning rate × ½) | 1.68 ± 0.17 | 72.3% | 96.9% |
+| Batch 1024 (learning rate × 2) | 1.74 ± 0.02 | 71.2% | 96.8% |
+| Weight decay 0 | 1.72 ± 0.04 | 72.1% | 96.8% |
+| Weight decay 10⁻² | 1.67 ± 0.08 | 72.5% | 97.0% |
+
+**H4.1 (the schedule matters more than the optimizer): refuted at this budget.**
+- Every adaptive optimizer and schedule lands at 1.65–1.75, inside the seed-to-seed spread of 0.05–0.09. v1's constant-rate Adam does as well as AdamW + cosine.
+- The second half of the prediction held, in a stronger form: at the one learning rate tried, SGD with Nesterov momentum barely trains in 15 epochs (20.7; chance is 25). Per-parameter step sizes matter for this network.
+
+**H4.2 (bigger batches are free): supported.**
+- Batch 1024 with the learning rate scaled by √(1024/256) matches batch 256 (1.74 vs 1.75), varies less between seeds, and trains about 2× faster in wall time. The predicted 3–5× did not materialize; with a model this small, data handling and evaluation take a large share of each run.
+- Batch 64 is 1.5× slower and three times noisier between seeds.
+
+**Weight decay** (0, 10⁻⁴, 10⁻²) makes no difference.
+
+**Decision (Q4).** Keep AdamW + cosine (3% warmup, peak 3×10⁻³, weight decay 10⁻⁴, batch 256).
+- No alternative beat it beyond seed noise. Phase 6 re-checks the choice at the full budget by swapping v1's constant-rate Adam into the final model.
+- As the plan expected, physics does not pick the optimizer. Once the inputs, architecture and loss respect the problem's structure (Phases 2–4, worth 0.2–3 sites), any reasonable adaptive optimizer finds the same solution (differences ≤ 0.1 sites).
