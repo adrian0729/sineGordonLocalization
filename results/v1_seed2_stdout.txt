@@ -1,0 +1,7 @@
+v1_seed2_20261015-111001 on mps: inputs built in 88s; train 60000, val 20000, test 20000; channel mean [1.1782 1.75  ], std [0.0594 0.0596]
+epoch   1  train 4.6208  val 4.6162  best 4.6162 (epoch 1)  105s
+epoch   2  train 4.6110  val 4.6080  best 4.6080 (epoch 2)  97s
+epoch   3  train 4.6097  val 4.6082  best 4.6080 (epoch 2)  82s
+epoch   4  train 4.6089  val 4.6090  best 4.6080 (epoch 2)  85s
+epoch   5  train 4.6083  val 4.6080  best 4.6080 (epoch 2)  101s
+epoch   6  train 4.6078  val 4.6083  best 4.6080 (epoch 2)  132s

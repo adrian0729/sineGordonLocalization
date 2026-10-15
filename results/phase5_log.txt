@@ -1,0 +1,5 @@
+phase5: 27 configs, 24 still to run
+trajectory cache ready in 8s
+[1/24   229s mps] optimizer/O1_adam_constant seed 0: mean 1.623  ±1 70.22%  ±3 96.97%  >10 1.83%  (203s, 22849 params)
+[2/24   453s mps] optimizer/O1_adam_constant seed 1: mean 1.701  ±1 72.98%  ±3 96.77%  >10 2.00%  (198s, 22849 params)
+[3/24   659s mps] optimizer/O1_adam_constant seed 2: mean 1.703  ±1 72.20%  ±3 96.93%  >10 2.02%  (187s, 22849 params)
