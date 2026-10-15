@@ -1,0 +1,420 @@
+"""Report figures from the saved results, written to figures/ as PNG and PDF.
+
+    python scripts/make_figures.py            # every figure whose inputs exist
+
+Style follows the data-viz rules used for the report: one hue per job, the reference categorical
+order (blue, orange, aqua), a single-hue sequential ramp, thin marks, hairline grids, text in ink
+colors (never series colors), and a legend whenever two or more series share a plot.
+"""
+import json
+import sys
+from collections import defaultdict
+from pathlib import Path
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+import numpy as np  # noqa: E402
+from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+FIG = ROOT / "figures"
+
+SURFACE, INK, INK2, MUTED, GRID, AXIS = "#fcfcfb", "#0b0b0b", "#52514e", "#898781", "#e1e0d9", "#c3c2b7"
+SLOT = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]  # categorical order: blue, orange, aqua, yellow
+RAMP = ["#fcfcfb", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+
+plt.rcParams.update({
+    "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
+    "font.family": "sans-serif", "font.sans-serif": ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans"],
+    "font.size": 9, "axes.titlesize": 10, "axes.labelsize": 9, "axes.titleweight": "bold",
+    "text.color": INK, "axes.labelcolor": INK2, "xtick.color": MUTED, "ytick.color": MUTED,
+    "xtick.labelcolor": INK2, "ytick.labelcolor": INK2, "axes.edgecolor": AXIS, "axes.linewidth": 0.8,
+    "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.6, "grid.linestyle": "-",
+    "axes.spines.top": False, "axes.spines.right": False, "axes.axisbelow": True,
+    "legend.frameon": False, "legend.fontsize": 8, "lines.linewidth": 1.6, "lines.solid_capstyle": "round",
+    "lines.markersize": 6,
+})
+
+
+def save(fig, name):
+    FIG.mkdir(exist_ok=True)
+    for ext in ("png", "pdf"):
+        fig.savefig(FIG / f"{name}.{ext}", dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    print("wrote", f"figures/{name}.png")
+
+
+def hbars(ax, labels, values, color=SLOT[0], fmt="{:.2f}", xmax=None, highlight=None):
+    """Thin horizontal bars from one baseline, value at the tip."""
+    y = np.arange(len(labels))[::-1]
+    xmax = xmax or max(values) * 1.18
+    colors = [SLOT[1] if highlight and lab in highlight else color for lab in labels]
+    ax.barh(y, values, height=0.56, color=colors, linewidth=0)
+    for yi, v in zip(y, values):
+        ax.text(v + 0.012 * xmax, yi, fmt.format(v), va="center", ha="left", color=INK, fontsize=8)
+    ax.set_yticks(y, labels)
+    ax.set_xlim(0, xmax)
+    ax.set_ylim(-0.7, len(labels) - 0.3)
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(axis="y", length=0)
+
+
+def fig_growth():
+    p1 = json.loads((ROOT / "results" / "phase1.json").read_text())
+    g = p1["growth"]
+    A, modes, sigma = np.array(g["A"]), np.array(g["modes"]), np.array(g["sigma"])
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10.0, 3.6), gridspec_kw={"width_ratios": [1.5, 1]},
+                               layout="constrained")
+    fig.get_layout_engine().set(wspace=0.08)
+    cmap = LinearSegmentedColormap.from_list("blue_seq", RAMP)
+    dA = A[1] - A[0]
+    mesh = a.pcolormesh(np.r_[A - dA / 2, A[-1] + dA / 2], np.r_[modes - 0.5, modes[-1] + 0.5],
+                        np.clip(sigma, 0, None).T, cmap=cmap, vmin=0, vmax=sigma.max(), shading="flat")
+    cb = fig.colorbar(mesh, ax=a, pad=0.02)
+    cb.set_label("Growth rate σ (per time unit)", color=INK2)
+    cb.outline.set_visible(False)
+    a.axvline(g["threshold"], color=INK2, linewidth=0.8)
+    a.text(g["threshold"] + 0.004, 11.6, f"threshold\nA_c = {g['threshold']:.3f}", va="top", fontsize=8, color=INK)
+    a.plot([1.65, 1.85], [12.2, 12.2], color=INK2, linewidth=1.2, solid_capstyle="butt")
+    a.text(1.75, 11.9, "amplitudes in the data", ha="center", va="top", fontsize=8, color=INK2)
+    a.set_xlabel("Swing amplitude A (rad)")
+    a.set_ylabel("Ring mode m (wavelength 100/m sites)")
+    a.set_yticks(modes)
+    a.grid(False)
+    a.set_title("(a) Which ring modes grow", loc="left")
+
+    j = int(np.argmin(np.abs(A - 1.75)))
+    s175 = sigma[j]
+    b.bar(modes, np.clip(s175, 0, None), width=0.55, color=[SLOT[0] if v > 1e-6 else GRID for v in s175], linewidth=0)
+    for m, v in zip(modes, s175):
+        if v > 1e-6:
+            b.text(m, v + 0.003, f"{1 / v:.1f}", ha="center", va="bottom", fontsize=7, color=INK2)
+    b.text(5.6, 0.118, "labels: e-folding time\n(time units)", fontsize=7.5, color=INK2, va="top")
+    b.set_ylim(0, 0.137)
+    b.text(9.2, 0.012, "stable (σ = 0)", ha="center", fontsize=8, color=INK2)
+    b.set_xticks(modes)
+    b.set_xlabel("Ring mode m")
+    b.set_ylabel("Growth rate σ")
+    b.grid(axis="x", visible=False)
+    b.set_title("(b) A = 1.75: only modes 1-5 grow", loc="left")
+    save(fig, "fig1_growth_spectrum")
+
+
+def fig_best_width():
+    p1 = json.loads((ROOT / "results" / "phase1.json").read_text())
+    rows = p1["best_width"]
+    A = np.array([r["A"] for r in rows])
+    pred = np.array([r["predicted_K"] for r in rows])
+    meas = np.array([r["measured_K"] for r in rows])
+    lo = np.array([r["measured_K_16_84"][0] for r in rows])
+    hi = np.array([r["measured_K_16_84"][1] for r in rows])
+    fig, ax = plt.subplots(figsize=(5.4, 3.4))
+    ax.plot(A, pred, color=SLOT[0], marker="o", markersize=5, markeredgecolor=SURFACE, markeredgewidth=1.2,
+            label="Predicted: K* = N / (first stable mode)")
+    ax.errorbar(A, meas, yerr=[meas - lo, hi - meas], fmt="none", ecolor=SLOT[1], elinewidth=1.2, capsize=0)
+    ax.plot(A, meas, linestyle="none", marker="o", markersize=7, color=SLOT[1], markeredgecolor=SURFACE,
+            markeredgewidth=1.5, label="Measured best width (16-84% bootstrap range)")
+    ax.annotate("paper's empirical optimum, K = 17", xy=(1.75, 17), xytext=(1.775, 27), fontsize=8, color=INK,
+                arrowprops=dict(arrowstyle="-", color=INK2, linewidth=0.8))
+    ax.set_xlabel("Swing amplitude A (rad)")
+    ax.set_ylabel("Box-car width K (sites)")
+    ax.set_ylim(8, 44)
+    ax.legend(loc="upper right")
+    ax.set_title("Best smoothing width follows the Floquet band edge", loc="left")
+    save(fig, "fig2_best_width")
+
+
+def fig_sensitivity():
+    p1 = json.loads((ROOT / "results" / "phase1.json").read_text())
+    pert = p1["sensitivity"]["perturbations"]
+    knock = p1["sensitivity"]["knockouts"]
+    rms = [1e-6, 1e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
+    m1 = [100 * pert[f"white {r:g}"]["moved_over_1"] for r in rms]
+    m3 = [100 * pert[f"white {r:g}"]["moved_over_3"] for r in rms]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10.4, 3.7), gridspec_kw={"width_ratios": [1.35, 1]},
+                               layout="constrained")
+    a.plot(rms, m1, color=SLOT[0], marker="o", markeredgecolor=SURFACE, markeredgewidth=1.2, label="moved by more than 1 site")
+    a.plot(rms, m3, color=SLOT[1], marker="o", markeredgecolor=SURFACE, markeredgewidth=1.2, label="moved by more than 3 sites")
+    band_lo = 100 * pert["band m<=5 0.001"]["moved_over_1"]
+    band_hi = 100 * pert["band m>=6 0.001"]["moved_over_1"]
+    a.plot([1e-3], [band_lo], marker="D", linestyle="none", markersize=6, color=SLOT[2], markeredgecolor=SURFACE,
+           label=f"1e-3 error only in growing modes m ≤ 5 (>1 site): {band_lo:.0f}%")
+    a.plot([1e-3], [band_hi], marker="D", linestyle="none", markersize=6, color=INK2, markeredgecolor=SURFACE,
+           label=f"1e-3 error only in stable modes m ≥ 6 (>1 site): {band_hi:.1f}%")
+    a.set_xscale("log")
+    a.set_xlabel("Error in the initial angles (rad, rms per pendulum)")
+    a.set_ylabel("Labels that change (%)")
+    a.set_ylim(0, 80)
+    a.legend(loc="upper left")
+    a.set_title("(a) How precisely the start must be known", loc="left")
+
+    names = ["keep m ≤ 2", "keep m ≤ 3", "keep m ≤ 5", "keep m ≤ 6", "keep m ≤ 8", "keep m ≤ 12", "keep m ≤ 25", "remove m ≤ 5"]
+    keys = ["keep m<=2", "keep m<=3", "keep m<=5", "keep m<=6", "keep m<=8", "keep m<=12", "keep m<=25", "remove m<=5"]
+    hbars(b, names, [100 * knock[k]["moved_over_3"] for k in keys], fmt="{:.0f}%", xmax=112)
+    b.set_xlabel("Labels moved by more than 3 sites (%)")
+    b.set_title("(b) Removing parts of the initial noise", loc="left")
+    save(fig, "fig3_label_sensitivity")
+
+
+def load_runs():
+    recs = []
+    with open(ROOT / "results" / "runs.jsonl") as f:
+        for line in f:
+            if line.strip():
+                recs.append(json.loads(line))
+    return recs
+
+
+def fig_baselines():
+    recs = load_runs()
+    by_model = defaultdict(list)
+    for r in recs:
+        if r.get("phase") in (0, 1):
+            by_model[r["model"]].append(r["test"])
+    order = [("boxcar", "Box-car K = 17 on E (no training)"), ("floquet_filter", "Floquet filter (no training)"),
+             ("linear_dtheta0", "Linear ring filter on δθ(0)"), ("v1_cnn_bilstm", "v1 CNN-BiLSTM, rebuilt (mean of 2 seeds)"),
+             ("linear_dtheta0_amp", "Linear filter, amplitude-dependent"), ("linear_v1_inputs", "Linear filters on v1's inputs")]
+    order = [(k, lab) for k, lab in order if k in by_model]
+    labels = [lab for _, lab in order]
+    mae = [np.mean([t["mae"] for t in by_model[k]]) for k, _ in order]
+    acc = [100 * np.mean([t["acc_1"] for t in by_model[k]]) for k, _ in order]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9.4, 2.9), sharey=True)
+    hbars(a, labels, mae, fmt="{:.2f}", xmax=7.0, highlight={"v1 CNN-BiLSTM, rebuilt (mean of 2 seeds)"})
+    a.set_xlabel("Mean distance to the true site (lower is better)")
+    hbars(b, labels, acc, fmt="{:.1f}%", xmax=100, highlight={"v1 CNN-BiLSTM, rebuilt (mean of 2 seeds)"})
+    b.set_xlabel("Within ±1 site (%, higher is better)")
+    a.set_title("Baselines on the test pool (20,000 runs)", loc="left")
+    save(fig, "fig4_baselines")
+
+
+def phase_records(phase):
+    """{(group, name): [records]} for one ablation table, matched by config id."""
+    from sgloc import ablations, experiment
+    by_id = {}
+    for r in load_runs():
+        if r.get("config_id"):
+            by_id[r["config_id"]] = r
+    out = defaultdict(list)
+    for cfg in ablations.PHASES[phase]():
+        rec = by_id.get(experiment.config_id(cfg))
+        if rec:
+            out[(cfg["group"], cfg["name"])].append(rec)
+    return out
+
+
+def fig_receptive_field():
+    recs = phase_records("phase2")
+    rfs = [9, 17, 33, 65, 129]
+    pts = [(rf, [r["test"]["mae"] for r in recs.get(("receptive_field", f"local_rf{rf}"), [])]) for rf in rfs]
+    pts = [(rf, v) for rf, v in pts if v]
+    if not pts:
+        raise FileNotFoundError("no receptive-field runs yet")
+    fig, ax = plt.subplots(figsize=(5.4, 3.3))
+    x = [rf for rf, _ in pts]
+    y = [np.mean(v) for _, v in pts]
+    for rf, v in pts:
+        ax.plot([rf] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.45)
+    ax.plot(x, y, color=SLOT[0], marker="o", markeredgecolor=SURFACE, markeredgewidth=1.2, label="local-only dilated CNN")
+    lin = [r["test"]["mae"] for r in load_runs() if r.get("model") == "linear_dtheta0_amp"]
+    if lin:
+        ax.axhline(lin[0], color=INK2, linewidth=0.9)
+        ax.text(9, lin[0] + 0.08, "linear ring filter, amplitude-dependent (200 parameters)", fontsize=7.5, color=INK2)
+    ax.axvline(100, color=GRID, linewidth=0.9)
+    ax.text(102, ax.get_ylim()[1] * 0.92 if ax.get_ylim()[1] < 6 else 5.2, "whole ring", fontsize=7.5, color=INK2)
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(rfs, [str(r) for r in rfs])
+    ax.set_xlabel("Receptive field (sites)")
+    ax.set_ylabel("Mean distance on test (sites)")
+    ax.set_title("A site must see most of the ring", loc="left")
+    save(fig, "fig5_receptive_field")
+
+
+def fig_data_efficiency():
+    recs = phase_records("phase2")
+    ns = [1000, 3000, 10_000, 30_000, 60_000]
+    fig, ax = plt.subplots(figsize=(5.6, 3.4))
+    plotted = False
+    for slot, (name, label) in enumerate((("circular", "circular padding, one score per site"),
+                                          ("zero_pad", "zero padding"),
+                                          ("dense_head", "flatten + dense head (like v1)"))):
+        pts = [(n, [r["test"]["mae"] for r in recs.get(("symmetry", f"{name}_n{n}"), [])]) for n in ns]
+        pts = [(n, v) for n, v in pts if v]
+        if not pts:
+            continue
+        plotted = True
+        ax.plot([n for n, _ in pts], [np.mean(v) for _, v in pts], color=SLOT[slot], marker="o",
+                markeredgecolor=SURFACE, markeredgewidth=1.2, label=label)
+    if not plotted:
+        raise FileNotFoundError("no symmetry runs yet")
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    if v1:
+        ax.plot([60_000], [np.mean(v1)], marker="D", linestyle="none", color=INK2, markeredgecolor=SURFACE,
+                label="v1 rebuilt (26.5M parameters)")
+    ax.set_xscale("log")
+    ax.set_xlabel("Training runs")
+    ax.set_ylabel("Mean distance on test (sites)")
+    ax.legend(loc="upper right")
+    ax.set_title("Respecting the ring's symmetry saves data", loc="left")
+    save(fig, "fig6_data_efficiency")
+
+
+def fig_architectures():
+    recs = phase_records("phase2")
+    picks = [("time", "single_frame", "single frame, Fourier + local (early fusion)"),
+             ("time", "early_fusion", "10 frames stacked (early fusion)"),
+             ("time", "conv2d", "2D (time x site) convolution front"),
+             ("time", "pointwise_mlp", "per-site MLP front"),
+             ("time", "frame_gru", "per-site GRU front"),
+             ("scales", "global_only", "Fourier branch only"),
+             ("scales", "local_only", "local branch only (sees 11 sites)"),
+             ("receptive_field", "local_rf33", "dilated, sees 33 sites"),
+             ("receptive_field", "local_rf65", "dilated, sees 65 sites"),
+             ("receptive_field", "local_rf129", "dilated, sees the whole ring"),
+             ("combine", "dilated129_plus_fourier", "whole-ring dilated + Fourier"),
+             ("combine", "dilated129_mlp_front", "whole-ring dilated + MLP front"),
+             ("combine", "dilated129_gru_front", "whole-ring dilated + GRU front"),
+             ("combine", "dilated129_w64", "whole-ring dilated, width 64"),
+             ("symmetry", "dense_head_n60000", "flatten + dense head (like v1)")]
+    rows = [(lab, [r["test"]["mae"] for r in recs.get((g, n), [])]) for g, n, lab in picks]
+    rows = [(lab, v) for lab, v in rows if v]
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    if v1:
+        rows.append(("v1 rebuilt (26.5M parameters)", v1))
+    rows.sort(key=lambda r: -np.mean(r[1]))
+    fig, ax = plt.subplots(figsize=(7.6, 0.32 * len(rows) + 1.0))
+    y = np.arange(len(rows))
+    for yi, (lab, v) in zip(y, rows):
+        c = SLOT[1] if lab.startswith("v1") else SLOT[0]
+        ax.plot(v, [yi] * len(v), linestyle="none", marker="o", markersize=4, color=c, alpha=0.4)
+        ax.plot([np.mean(v)], [yi], linestyle="none", marker="o", markersize=7, color=c, markeredgecolor=SURFACE,
+                markeredgewidth=1.5)
+        ax.text(max(v) + 0.06, yi, f"{np.mean(v):.2f}", va="center", fontsize=7.5, color=INK)
+    ax.set_yticks(y, [lab for lab, _ in rows])
+    ax.tick_params(axis="y", length=0)
+    ax.grid(axis="y", visible=False)
+    ax.set_xlabel("Mean distance on test (sites); small dots are seeds, large dots their mean")
+    ax.set_title("Phase 2: architectures (same data and training budget)", loc="left")
+    save(fig, "fig7_architectures")
+
+
+ORDINAL4 = ["#86b6ef", "#3987e5", "#1c5cab", "#0d366b"]  # validated ordinal ramp (scripts/validate_palette.js --ordinal)
+
+
+def fig_noise_time():
+    recs = phase_records("phase3")
+    noises = [0.0, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
+    starts = [0, 10, 20, 30]
+    setups = [("S1", "(a) Camera: angles, 8 frames (4 time units)"), ("S2", "(b) Camera + gyros: angles and velocities, 1 frame"),
+              ("S3", "(c) Energies computed from (b), 1 frame")]
+    if not any(recs.get(("noise_time", f"S1_t0_noise{n:g}")) for n in noises):
+        raise FileNotFoundError("no noise/time runs yet")
+    fig, axes = plt.subplots(2, 3, figsize=(11.5, 6.4), sharex=True, sharey="row", layout="constrained")
+    x_plot = [3e-5] + noises[1:]  # noise-free plotted at the left edge of the log axis
+    for col, (kind, title) in enumerate(setups):
+        for color, start in zip(ORDINAL4, starts):
+            runs = [(xp, recs.get(("noise_time", f"{kind}_t{start}_noise{n:g}"))) for xp, n in zip(x_plot, noises)]
+            runs = [(xp, r[0]["test"]) for xp, r in runs if r]
+            if not runs:
+                continue
+            for row, (key, scale) in enumerate((("acc_3", 100), ("mae", 1))):
+                axes[row, col].plot([xp for xp, _ in runs], [scale * t[key] for _, t in runs], color=color, marker="o",
+                                    markeredgecolor=SURFACE, markeredgewidth=1.0, label=f"watch from τ = {start}")
+        axes[0, col].set_title(title, loc="left", fontsize=9)
+        axes[1, col].set_xscale("log")
+        axes[1, col].set_xticks(x_plot, ["none", "1e-4", "3e-4", "1e-3", "3e-3", "1e-2"])
+        axes[1, col].set_xlabel("Sensor noise (rad)")
+    axes[0, 0].set_ylabel("Within ±3 sites (%)")
+    axes[1, 0].set_ylabel("Mean distance (sites)")
+    axes[0, 0].legend(loc="lower left")
+    fig.suptitle("Sensor precision against how long you wait (test pool; localization happens at τ ≈ 57)",
+                 x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig8_noise_vs_time")
+
+
+def fig_inputs():
+    recs = phase_records("phase3")
+    names = [("I0_v1_inputs", "E at τ = 0…4.5 + θ(0) (v1's inputs)"), ("I1_theta0", "θ(0) only"), ("I2_E0", "E(0) only"),
+             ("I3_theta_frames", "θ at τ = 0…4.5"), ("I4_E_frames", "E at τ = 0…4.5"),
+             ("I5_theta_omega_random_start", "θ and θ' at a random time in the first swing"),
+             ("I6_dtheta0_amplitude", "θ(0) minus chain mean + amplitude")]
+    rows = [(lab, [r["test"]["mae"] for r in recs.get(("information", n), [])]) for n, lab in names]
+    rows = [(lab, v) for lab, v in rows if v]
+    if not rows:
+        raise FileNotFoundError("no information runs yet")
+    fig, ax = plt.subplots(figsize=(7.4, 0.36 * len(rows) + 1.0))
+    y = np.arange(len(rows))[::-1]
+    for yi, (lab, v) in zip(y, rows):
+        ax.plot(v, [yi] * len(v), linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
+        ax.plot([np.mean(v)], [yi], linestyle="none", marker="o", markersize=7, color=SLOT[0], markeredgecolor=SURFACE,
+                markeredgewidth=1.5)
+        ax.text(max(v) + 0.03, yi, f"{np.mean(v):.2f}", va="center", fontsize=7.5, color=INK)
+    ax.set_yticks(y, [lab for lab, _ in rows])
+    ax.tick_params(axis="y", length=0)
+    ax.grid(axis="y", visible=False)
+    ax.set_xlabel("Mean distance on test (sites); 15-epoch screening runs, small dots are seeds")
+    ax.set_title("Which measurements carry the information (noise-free)", loc="left")
+    save(fig, "fig9_inputs")
+
+
+def seed_dots(ax, rows, ref=None):
+    """One row per config: small dots for seeds, a large dot for their mean, the mean as a label."""
+    y = np.arange(len(rows))[::-1]
+    for yi, (lab, v) in zip(y, rows):
+        ax.plot(v, [yi] * len(v), linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
+        ax.plot([np.mean(v)], [yi], linestyle="none", marker="o", markersize=7, color=SLOT[0],
+                markeredgecolor=SURFACE, markeredgewidth=1.5)
+        ax.text(max(v) + 0.02, yi, f"{np.mean(v):.2f}", va="center", fontsize=7.5, color=INK)
+    if ref is not None:
+        ax.axvline(ref, color=INK2, linewidth=0.8)
+    ax.set_yticks(y, [lab for lab, _ in rows])
+    ax.tick_params(axis="y", length=0)
+    ax.grid(axis="y", visible=False)
+
+
+def fig_losses():
+    recs = phase_records("phase4")
+    names = [("L1_ce", "cross-entropy (v1's site loss)"), ("L2_angle", "circular regression (angle)"),
+             ("L3_soft0.5", "soft labels, σ = 0.5"), ("L3_soft1", "soft labels, σ = 1"), ("L3_soft2", "soft labels, σ = 2"),
+             ("L4_soft1_dist0.03", "σ = 1 + 0.03 × expected distance"), ("L4_soft1_dist0.1", "σ = 1 + 0.1 × expected distance"),
+             ("L4_soft1_dist0.3", "σ = 1 + 0.3 × expected distance"), ("L5_soft1_dist0.1_time", "+ localization-time head"),
+             ("L6_soft1_dist0.1_profile", "+ later-energy-profile head"), ("L7_soft1_dist0.1_localizes", "+ v1's binary head")]
+    rows = [(lab, [r["test"]["mae"] for r in recs.get(("loss", n), [])]) for n, lab in names]
+    rows = [(lab, v) for lab, v in rows if v]
+    if not rows:
+        raise FileNotFoundError("no loss runs yet")
+    fig, ax = plt.subplots(figsize=(7.2, 0.36 * len(rows) + 1.0))
+    seed_dots(ax, rows, ref=np.mean(rows[0][1]))
+    ax.set_xlabel("Mean distance on test (sites); line = plain cross-entropy")
+    ax.set_title("Phase 4: loss functions (15-epoch screening runs)", loc="left")
+    save(fig, "fig10_losses")
+
+
+def fig_optimizers():
+    recs = phase_records("phase5")
+    names = [("optimizer", "O1_adam_constant", "Adam, constant 1e-3 (v1)"), ("optimizer", "O2_adamw_cosine", "AdamW + cosine"),
+             ("optimizer", "O3_adamw_onecycle", "AdamW + one-cycle"), ("optimizer", "O4_sgd_nesterov_cosine", "SGD-Nesterov + cosine"),
+             ("optimizer", "O5_lion_cosine", "Lion + cosine"), ("batch", "adamw_batch64", "batch 64"),
+             ("batch", "adamw_batch1024", "batch 1024"), ("weight_decay", "adamw_wd0", "no weight decay"),
+             ("weight_decay", "adamw_wd0.01", "weight decay 0.01")]
+    rows = [(lab, [r["test"]["mae"] for r in recs.get((g, n), [])]) for g, n, lab in names]
+    rows = [(lab, v) for lab, v in rows if v]
+    if not rows:
+        raise FileNotFoundError("no optimizer runs yet")
+    ref = [v for lab, v in rows if lab == "AdamW + cosine"]
+    fig, ax = plt.subplots(figsize=(7.0, 0.36 * len(rows) + 1.0))
+    seed_dots(ax, rows, ref=np.mean(ref[0]) if ref else None)
+    ax.set_xlabel("Mean distance on test (sites); line = AdamW + cosine")
+    ax.set_title("Phase 5: optimizers and schedules (15-epoch screening runs)", loc="left")
+    save(fig, "fig11_optimizers")
+
+
+if __name__ == "__main__":
+    for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
+               fig_architectures, fig_noise_time, fig_inputs, fig_losses, fig_optimizers):
+        try:
+            fn()
+        except FileNotFoundError as err:
+            print(f"skipped {fn.__name__}: {err}")

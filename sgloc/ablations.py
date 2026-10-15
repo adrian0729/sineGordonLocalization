@@ -1,0 +1,281 @@
+"""The ablation tables of the improvement plan, one function per phase.
+
+Each config's `note` records the hypothesis it tests, so results/runs.jsonl says why every run
+exists. Defaults for later phases are set from earlier results; each such choice is commented.
+"""
+import copy
+
+STEPS = 7050  # 30 epochs of 60k runs at batch 256; fixed so data-size comparisons use the same budget
+SCREEN_STEPS = 3525  # 15-epoch screening budget for Phases 3-5; Phase 6 retrains the final choices at STEPS
+
+V1_INFO = {"channels": ["E"], "frames": list(range(10)), "theta0": True, "layout": "channels"}
+
+BASE = {
+    "phase": 2, "group": "", "name": "", "note": "", "seed": 0, "n_train": 60_000,
+    "view": V1_INFO,
+    "model": {"kind": "ring", "front": "early", "width": 32, "depth": 2, "kernel": 5, "modes": 6,
+              "local": True, "spectral": True, "padding": "circular", "head": "site"},
+    "loss": {"kind": "ce"},
+    "optim": {"name": "adamw", "lr": 3e-3, "weight_decay": 1e-4, "schedule": "cosine",
+              "warmup_fraction": 0.03, "steps": STEPS, "batch_size": 256},
+}
+
+
+def merge(base, override):
+    out = copy.deepcopy(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = merge(out[key], value)
+        else:
+            out[key] = copy.deepcopy(value)
+    return out
+
+
+class Table:
+    def __init__(self, base, phase):
+        self.base, self.phase, self.configs = base, phase, []
+
+    def add(self, group, name, note, seeds=(0, 1), **override):
+        for seed in seeds:
+            cfg = merge(self.base, override)
+            cfg.update(phase=self.phase, group=group, name=name, note=note, seed=seed)
+            self.configs.append(cfg)
+
+
+def phase2():
+    t = Table(BASE, 2)
+    three = (0, 1, 2)
+    # H2.1: how should the 10 frames be combined?
+    t.add("time", "early_fusion", "H2.1: frames stacked as input channels, so every kernel sees all 10 frames at once", three)
+    t.add("time", "frame_gru", "H2.1: per-site GRU over the 10 frames (a recurrent model of time) before the ring backbone",
+          three, view={"layout": "frames"}, model={"front": "gru"})
+    t.add("time", "conv2d", "H2.1: one 2D convolution over (time, site) before the ring backbone",
+          three, view={"layout": "frames"}, model={"front": "conv2d"})
+    t.add("time", "single_frame", "H2.1: only the tau = 0 frame (E and theta(0)); do later frames add anything?",
+          three, view={"frames": [0]})
+    t.add("time", "pointwise_mlp", "H2.1 follow-up: a per-site MLP over the stacked frames (no recurrence) before the "
+          "ring backbone; does it match the GRU at lower cost?", three, model={"front": "mlp"})
+    # follow-up after the first results: a deep dilated stack that sees the whole ring was best;
+    # combine it with the other winning ideas before fixing the architecture
+    ring = {"spectral": False, "kernel": 3, "dilations": [1, 2, 4, 8, 16, 32, 1]}
+    t.add("combine", "dilated129_plus_fourier", "H2 follow-up: whole-ring dilated stack plus the Fourier branch",
+          three, model={**ring, "spectral": True})
+    t.add("combine", "dilated129_mlp_front", "H2 follow-up: whole-ring dilated stack behind the per-site MLP front end",
+          three, model={**ring, "front": "mlp"})
+    t.add("combine", "dilated129_gru_front", "H2 follow-up: whole-ring dilated stack behind the per-site GRU front end",
+          three, view={"layout": "frames"}, model={**ring, "front": "gru"})
+    t.add("combine", "dilated129_w64", "H2 follow-up: whole-ring dilated stack, width 64", three, model={**ring, "width": 64})
+    # H2.2: how much of the ring must a site see? (local-only stacks, kernel 3, growing dilations)
+    for rf, dil in [(9, [1, 1, 1, 1]), (17, [1, 2, 4, 1]), (33, [1, 2, 4, 8, 1]), (65, [1, 2, 4, 8, 16, 1]),
+                    (129, [1, 2, 4, 8, 16, 32, 1])]:
+        t.add("receptive_field", f"local_rf{rf}", f"H2.2: local-only circular CNN seeing {rf} sites (kernel 3, dilations {dil})",
+              (0, 1, 2) if rf == 129 else (0, 1), model={"spectral": False, "kernel": 3, "dilations": dil})
+    # H2.3: global (Fourier) branch, local branch, or both; how many ring modes?
+    t.add("scales", "global_only", "H2.3: Fourier branch only (ring modes 1-6), no local convolutions", model={"local": False})
+    t.add("scales", "local_only", "H2.3: local branch only (2 layers, kernel 5)", model={"spectral": False})
+    for modes in (3, 6, 12, 25):
+        t.add("scales", f"both_modes{modes}", f"H2.3: both branches, Fourier branch keeps ring modes 1-{modes}", model={"modes": modes})
+    # H2.4: kernel size and width
+    for k in (3, 5, 9, 17):
+        for w in (8, 16, 32, 64):
+            t.add("size", f"k{k}_w{w}", f"H2.4: kernel {k}, width {w}, depth 2", (0,), model={"kernel": k, "width": w})
+    for k, w in ((5, 16), (5, 32), (3, 32)):
+        t.add("size", f"k{k}_w{w}_d4", f"H2.4: kernel {k}, width {w}, depth 4", (0,), model={"kernel": k, "width": w, "depth": 4})
+    # H2.5: does respecting the ring's symmetry save data?
+    for n in (1000, 3000, 10_000, 30_000, 60_000):
+        for name, over, why in (("circular", {}, "circular padding, one score per site (shift-equivariant)"),
+                                ("zero_pad", {"padding": "zeros"}, "zero padding at sites 0 and 99"),
+                                ("dense_head", {"head": "dense"}, "flatten + dense head like v1 (not shift-equivariant)")):
+            t.add("symmetry", f"{name}_n{n}", f"H2.5: {why}, {n} training runs", n_train=n, model=over)
+    # H2.6: does feeding in the linear-physics prediction help, especially with little data?
+    for n in (3000, 60_000):
+        t.add("prior", f"floquet_channel_n{n}", f"H2.6: add the Floquet-propagated field (6 periods) as an input channel, {n} training runs",
+              n_train=n, view={"floquet": 6})
+    return t.configs
+
+
+# ---- choices carried forward; each is set from the previous phase's results (see docs/progress.md) ----
+# Phase 2 winner: the whole-ring dilated CNN (local_rf129). It ties the best validation score (1.561 vs
+# 1.570 for dilated + Fourier and 1.571 for the per-site GRU, all within one standard error) and is the
+# cheapest and simplest of the three: 23k parameters, no Fourier layer, no recurrence.
+ARCH = merge(BASE["model"], {"spectral": False, "kernel": 3, "dilations": [1, 2, 4, 8, 16, 32, 1]})
+# Phase 3 winner: angles only at tau = 0..4.5 (I3). Best mean distance and best ±1 of the noise-free input
+# sets (1.56 ± 0.01, 76.7%), and the cheapest to measure: one camera, no velocities, no model parameters.
+VIEW = {"channels": ["theta"], "frames": list(range(10)), "theta0": False, "layout": "channels"}
+# Phase 4 winner: soft labels (sigma 1) + 0.1 x expected distance + 0.1 x log-time head (L5). It ties the
+# profile-head variant within one standard error (val 1.54 vs 1.52) and is simpler: its extra target comes free.
+LOSS = {"kind": "ce", "soft_sigma": 1.0, "distance": 0.1, "time": 0.1}
+OPTIM = BASE["optim"]         # Phase 5 winner (placeholder until Phase 5 is analysed)
+
+
+def fit_view(view, arch=None):
+    """Give a view the layout the architecture needs: multi-frame front ends read (frames, C, N)."""
+    arch = arch or ARCH
+    view = dict(view)
+    view["layout"] = "frames" if arch.get("front") in ("gru", "conv2d") else "channels"
+    return view
+
+
+def fit_arch(view, arch=None):
+    """A 2D (time x site) front end needs at least 3 frames; use early fusion for shorter views."""
+    arch = dict(arch or ARCH)
+    if arch.get("front") == "conv2d" and len(view.get("frames", [0])) < 3:
+        arch["front"] = "early"
+    return arch
+
+
+def sensor_view(kind, start, noise=0.0, stride=1):
+    """Real-world sensing setups: S1 camera (angles, 8 frames = 4 time units), S2 camera + gyros
+    (angles and angular velocities, one frame), S3 energies computed from S2's measurements."""
+    channels, frames = {"S1": (["theta"], list(range(8))), "S2": (["theta", "omega"], [0]),
+                        "S3": (["E"], [0])}[kind]
+    return {"channels": channels, "frames": frames, "start": start, "noise": noise, "stride": stride,
+            "theta0": False, "layout": "channels"}
+
+
+class FittedTable(Table):
+    """A Table whose views get the layout the current architecture needs."""
+
+    def add(self, group, name, note, seeds=(0, 1), **override):
+        view = merge(self.base["view"], override.get("view", {}))
+        override = dict(override, view=fit_view(view), model=merge(fit_arch(view), override.get("model", {})))
+        super().add(group, name, note, seeds, **override)
+
+
+def phase3():
+    t = FittedTable(merge(BASE, {"model": ARCH, "optim": {"steps": SCREEN_STEPS}}), 3)
+    three = (0, 1, 2)
+    # H1.1 / H1.6: which quantities carry the information (noise-free, observed from release)?
+    sets = {
+        "I0_v1_inputs": ("v1's inputs: E at tau = 0..4.5 plus theta(0)", V1_INFO),
+        "I1_theta0": ("theta(0) alone, one frame, one channel", {"channels": ["theta"], "frames": [0], "theta0": False}),
+        "I2_E0": ("E(0) alone", {"channels": ["E"], "frames": [0], "theta0": False}),
+        "I3_theta_frames": ("theta at tau = 0..4.5", {"channels": ["theta"], "frames": list(range(10)), "theta0": False}),
+        "I4_E_frames": ("E at tau = 0..4.5", {"channels": ["E"], "frames": list(range(10)), "theta0": False}),
+        "I5_theta_omega_random_start": ("theta and omega at one random time within the first swing",
+                                        {"channels": ["theta", "omega"], "frames": [0], "random_phase": True, "theta0": False}),
+        "I6_dtheta0_amplitude": ("theta(0) minus the chain mean, plus the amplitude as a separate channel",
+                                 {"channels": ["dtheta"], "frames": [0], "amplitude": True, "theta0": False}),
+    }
+    for name, (why, view) in sets.items():
+        t.add("information", name, f"H1.1/H1.6: {why}", three, view=dict(view, layout="channels"))
+    # H1.2: observation starting at an unknown point of the swing
+    for w in (1, 2, 4, 8, 16):
+        t.add("phase", f"theta_random_start_w{w}", f"H1.2: angles only, {w} frame(s) ({w * 0.5:g} time units) from a random start within the first swing",
+              view={"channels": ["theta"], "frames": list(range(w)), "random_phase": True, "theta0": False})
+    t.add("phase", "E_random_start_w1", "H1.2: energy, one frame at a random start within the first swing",
+          view={"channels": ["E"], "frames": [0], "random_phase": True, "theta0": False})
+    t.add("phase", "theta_omega_random_start_w1", "H1.2: angles and velocities, one frame at a random start",
+          view={"channels": ["theta", "omega"], "frames": [0], "random_phase": True, "theta0": False})
+    # H1.3 / H1.4: sensor noise against how long we watch
+    for kind in ("S1", "S2", "S3"):
+        for start in (0, 10, 20, 30):
+            for noise in (0.0, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2):
+                t.add("noise_time", f"{kind}_t{start}_noise{noise:g}",
+                      f"H1.3/H1.4: sensing setup {kind} starting at tau = {start}, sensor noise {noise:g}",
+                      (0,), view=sensor_view(kind, start, noise))
+    # H1.5: only every s-th pendulum instrumented (camera angles)
+    for kind, start in (("S1", 0), ("S1", 20)):
+        for noise in (0.0, 1e-3):
+            for stride in (1, 2, 4, 8):
+                t.add("sparse", f"{kind}_t{start}_noise{noise:g}_every{stride}",
+                      f"H1.5: angles from every {stride}th pendulum, start tau = {start}, noise {noise:g}",
+                      (0,), view=sensor_view(kind, start, noise, stride))
+    return t.configs
+
+
+def phase4():
+    # one factor at a time around a fixed base (v1's inputs), so Phases 3-5 can run in parallel;
+    # Phase 6 combines the winners and checks for interactions with a leave-one-out pass
+    t = Table(merge(BASE, {"model": ARCH, "view": V1_INFO, "optim": {"steps": SCREEN_STEPS}}), 4)
+    three = (0, 1, 2)
+    t.add("loss", "L1_ce", "H3: baseline cross-entropy on the site (v1's site loss)", three, loss={"kind": "ce"})
+    t.add("loss", "L2_angle", "H3.1: circular regression (1 - cos of the angle error); should average competing humps",
+          three, loss={"kind": "angle"})
+    for sigma in (0.5, 1.0, 2.0):
+        t.add("loss", f"L3_soft{sigma:g}", f"H3.2: circular-Gaussian soft labels, sigma {sigma:g} site(s)",
+              three, loss={"kind": "ce", "soft_sigma": sigma})
+    for lam in (0.03, 0.1, 0.3):
+        t.add("loss", f"L4_soft1_dist{lam:g}", f"H3.3: soft labels (sigma 1) + {lam:g} x expected ring distance",
+              three, loss={"kind": "ce", "soft_sigma": 1.0, "distance": lam})
+    t.add("loss", "L5_soft1_dist0.1_time", "H3.4: + 0.1 x log-localization-time head",
+          three, loss={"kind": "ce", "soft_sigma": 1.0, "distance": 0.1, "time": 0.1})
+    t.add("loss", "L6_soft1_dist0.1_profile", "H3.4: + 0.1 x energy-profile head (period-averaged energy at tau = 30)",
+          three, loss={"kind": "ce", "soft_sigma": 1.0, "distance": 0.1, "profile": 0.1})
+    t.add("loss", "L7_soft1_dist0.1_localizes", "H3.5: + v1's binary 'does it localize' head (weight 0.5)",
+          three, loss={"kind": "ce", "soft_sigma": 1.0, "distance": 0.1, "localizes": 0.5})
+    return t.configs
+
+
+def phase5(lrs=None):
+    """Optimizer ablations. Learning rates for O3-O5 come from scripts/lr_range_test.py."""
+    lrs = lrs or LR_FROM_RANGE_TEST
+    t = Table(merge(BASE, {"model": ARCH, "view": V1_INFO, "loss": {"kind": "ce"}}), 5)
+    three = (0, 1, 2)
+    adamw = {"name": "adamw", "lr": 3e-3, "weight_decay": 1e-4, "schedule": "cosine", "warmup_fraction": 0.03,
+             "steps": SCREEN_STEPS, "batch_size": 256}
+    t.add("optimizer", "O1_adam_constant", "H4.1: v1's optimizer: Adam, constant learning rate 1e-3, no weight decay",
+          three, optim={**adamw, "name": "adam", "lr": 1e-3, "schedule": "constant", "warmup_fraction": 0.0})
+    t.add("optimizer", "O2_adamw_cosine", "H4.1: AdamW + cosine decay with 3% warmup (the default so far)", three, optim=adamw)
+    t.add("optimizer", "O3_adamw_onecycle", "H4.1: AdamW + one-cycle schedule", three,
+          optim={**adamw, "schedule": "onecycle", "lr": lrs["adamw_max"], "warmup_fraction": 0.0})
+    t.add("optimizer", "O4_sgd_nesterov_cosine", "H4.1: SGD with Nesterov momentum + cosine (gradients clipped at 1;"
+          " the range test was inconclusive for SGD)", three, optim={**adamw, "name": "sgd", "lr": lrs["sgd"], "clip": 1.0})
+    t.add("optimizer", "O5_lion_cosine", "H4.1: Lion + cosine", three,
+          optim={**adamw, "name": "lion", "lr": lrs["lion"], "weight_decay": 1e-2})
+    for batch in (64, 1024):  # same 30 epochs; learning rate scaled with the square root of the batch size
+        t.add("batch", f"adamw_batch{batch}", f"H4.2: batch size {batch} (lr scaled by sqrt(batch/256), same epochs)",
+              three, optim={**adamw, "batch_size": batch, "lr": 3e-3 * (batch / 256) ** 0.5, "steps": SCREEN_STEPS * 256 // batch})
+    for wd in (0.0, 1e-2):
+        t.add("weight_decay", f"adamw_wd{wd:g}", f"H4: AdamW weight decay {wd:g}", three, optim={**adamw, "weight_decay": wd})
+    return t.configs
+
+
+# from scripts/lr_range_test.py (results/lr_range.json): loss minimum at 6.8e-3 for AdamW and 7.9e-3 for Lion;
+# peak = minimum / 3 for one-cycle, start = minimum / 10 for Lion with cosine. SGD never improved before
+# diverging in the range test, so it gets a conventional 0.03 with gradient clipping.
+LR_FROM_RANGE_TEST = {"adamw_max": 2.3e-3, "sgd": 0.03, "lion": 7.9e-4}
+
+PLAIN = {"model": BASE["model"], "view": V1_INFO, "loss": {"kind": "ce"}, "optim": BASE["optim"]}
+
+
+def phase6():
+    full = dict(OPTIM, steps=STEPS * 256 // OPTIM.get("batch_size", 256))  # back to the full 30-epoch budget
+    final = merge(BASE, {"model": ARCH, "view": VIEW, "loss": LOSS, "optim": full})
+    t = Table(final, 6)
+    three = (0, 1, 2)
+    t.add("final", "v2_final", "Q5: the assembled v2 model (winners of Phases 2-5)", (0, 1, 2, 3, 4))
+    # leave one choice out at a time (only choices the final model actually makes)
+    removals = [
+        ("no_fourier_branch", "without the global Fourier branch", {"model": {"spectral": False}}, ARCH.get("spectral", True)),
+        ("no_dilation", "the same layers without dilation (sees 17 sites instead of the whole ring)",
+         {"model": {"dilations": [1] * len(ARCH.get("dilations") or [])}}, bool(ARCH.get("dilations"))),
+        ("zero_padding", "zero padding instead of circular", {"model": {"padding": "zeros"}}, ARCH.get("padding") == "circular"),
+        ("dense_head", "flatten + dense head instead of one score per site", {"model": {"head": "dense"}}, ARCH.get("head") == "site"),
+        ("plain_cross_entropy", "plain cross-entropy instead of the chosen loss",
+         {"loss": {"kind": "ce", "soft_sigma": 0.0, "distance": 0.0, "time": 0.0, "profile": 0.0}}, LOSS != {"kind": "ce"}),
+        ("no_soft_labels", "hard labels instead of soft (other loss terms kept)", {"loss": {"soft_sigma": 0.0}},
+         bool(LOSS.get("soft_sigma"))),
+        ("no_time_head", "without the auxiliary time head", {"loss": {"time": 0.0}}, bool(LOSS.get("time"))),
+        ("v1_inputs", "v1's inputs (energy frames + theta(0)) instead of the chosen inputs", {"view": V1_INFO},
+         VIEW != V1_INFO),
+        ("no_floquet_channel", "without the Floquet input channel", {"view": {"floquet": 0}}, bool(VIEW.get("floquet"))),
+        ("adam_constant", "v1's optimizer (Adam, constant 1e-3)", {"optim": {"name": "adam", "lr": 1e-3, "schedule": "constant",
+                                                                             "warmup_fraction": 0.0}}, OPTIM.get("name") != "adam"),
+    ]
+    for name, why, override, applies in removals:
+        if applies:
+            t.add("leave_one_out", name, f"Q5 leave-one-out: final model {why}", three, **override)
+    for n in (1000, 3000, 10_000, 30_000, 100_000):
+        t.add("data", f"final_n{n}", f"Q5: final model trained on {n} runs (data efficiency)", (0, 1), n_train=n)
+    t.add("noise", "final_trained_noise1e-3", "Q5: final model trained and tested with 1e-3 rad sensor noise",
+          three, view={"noise": 1e-3})
+    impurity_pools = {"train": "robust_impurity_train", "val": "robust_impurity_val", "test": "robust_impurity_test"}
+    t.add("impurity", "impurity_trained", "Q5: trained on chains with a random impurity (0-2%), no map of the chain",
+          three, pools=impurity_pools)
+    t.add("impurity", "impurity_trained_with_map", "Q5: trained on chains with a random impurity, given a measured map of each pendulum",
+          three, pools=impurity_pools, view={"calibration": True})
+    return t.configs
+
+
+PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6}
