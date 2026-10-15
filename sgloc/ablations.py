@@ -105,7 +105,10 @@ VIEW = {"channels": ["theta"], "frames": list(range(10)), "theta0": False, "layo
 # Phase 4 winner: soft labels (sigma 1) + 0.1 x expected distance + 0.1 x log-time head (L5). It ties the
 # profile-head variant within one standard error (val 1.54 vs 1.52) and is simpler: its extra target comes free.
 LOSS = {"kind": "ce", "soft_sigma": 1.0, "distance": 0.1, "time": 0.1}
-OPTIM = BASE["optim"]         # Phase 5 winner (placeholder until Phase 5 is analysed)
+# Phase 5: no optimizer beat AdamW + cosine beyond seed noise at the screening budget (Adam constant 1.68 ± 0.05,
+# AdamW one-cycle 1.65 ± 0.08, AdamW cosine 1.75 ± 0.09; SGD failed to train), so the final model keeps the
+# recipe used for every full-budget run in Phase 2.
+OPTIM = BASE["optim"]
 
 
 def fit_view(view, arch=None):

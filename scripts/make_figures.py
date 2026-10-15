@@ -334,6 +334,40 @@ def fig_noise_time():
     save(fig, "fig8_noise_vs_time")
 
 
+def fig_noise_collapse():
+    """H1.4 test: if waiting only helps by amplifying the growing modes, the error depends on sensor noise
+    and start time only through the noise relative to the grown signal, sigma_s * exp(-sigma_1 * tau_obs)."""
+    recs = phase_records("phase3")
+    sigma1 = 0.118  # fastest Floquet growth rate at A = 1.75 (Phase 1)
+    noises = [1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
+    setups = [("S1", "(a) Camera: angles, 8 frames"), ("S2", "(b) Angles and velocities, 1 frame"),
+              ("S3", "(c) Energies, 1 frame")]
+    if not any(recs.get(("noise_time", f"S1_t0_noise{n:g}")) for n in noises):
+        raise FileNotFoundError("no noise/time runs yet")
+    fig, axes = plt.subplots(1, 3, figsize=(11.5, 3.5), sharey=True, layout="constrained")
+    for ax, (kind, title) in zip(axes, setups):
+        clean = recs.get(("noise_time", f"{kind}_t0_noise0"))
+        if clean:
+            ax.axhline(clean[0]["test"]["mae"], color=INK2, linewidth=0.8)
+        for color, start in zip(ORDINAL4, (0, 10, 20, 30)):
+            pts = [(n * np.exp(-sigma1 * start), recs.get(("noise_time", f"{kind}_t{start}_noise{n:g}"))) for n in noises]
+            pts = [(x, r[0]["test"]["mae"]) for x, r in pts if r]
+            if pts:
+                ax.plot(*zip(*pts), color=color, marker="o", markeredgecolor=SURFACE, markeredgewidth=1.0,
+                        label=f"watch from τ = {start}")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.set_title(title, loc="left", fontsize=9)
+        ax.set_xlabel("Sensor noise ÷ growth since release, σ_s·exp(−σ₁τ) (rad)")
+    axes[0].set_yticks([1.5, 2, 3, 5, 8, 12], ["1.5", "2", "3", "5", "8", "12"])
+    axes[0].yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    axes[0].set_ylabel("Mean distance on test (sites)")
+    axes[0].legend(loc="upper left")
+    fig.suptitle("Waiting divides the sensor noise by the growth of the unstable modes (line: noise-free, from release)",
+                 x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig13_noise_collapse")
+
+
 def fig_inputs():
     recs = phase_records("phase3")
     names = [("I0_v1_inputs", "E at τ = 0…4.5 + θ(0) (v1's inputs)"), ("I1_theta0", "θ(0) only"), ("I2_E0", "E(0) only"),
@@ -411,9 +445,36 @@ def fig_optimizers():
     save(fig, "fig11_optimizers")
 
 
+def fig_sparse():
+    recs = phase_records("phase3")
+    strides = [1, 2, 4, 8]
+    fig, ax = plt.subplots(figsize=(5.8, 3.5))
+    plotted = False
+    for color, start in ((SLOT[0], 0), (SLOT[1], 20)):
+        for style, noise in (("-", 0.0), ("--", 1e-3)):
+            pts = []
+            for s in strides:
+                r = recs.get(("sparse", f"S1_t{start}_noise{noise:g}_every{s}"))
+                if r:
+                    pts.append((s, r[0]["test"]["mae"]))
+            if pts:
+                plotted = True
+                ax.plot(*zip(*pts), color=color, linestyle=style, marker="o", markeredgecolor=SURFACE,
+                        markeredgewidth=1.0, label=f"watch from τ = {start}, noise {'none' if noise == 0 else '1e-3 rad'}")
+    if not plotted:
+        raise FileNotFoundError("no sparse-sensor runs yet")
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(strides, ["all 100", "every 2nd (50)", "every 4th (25)", "every 8th (13)"])
+    ax.set_xlabel("Pendulums tracked by the camera")
+    ax.set_ylabel("Mean distance on test (sites)")
+    ax.legend(loc="upper left", fontsize=7.5, handlelength=3.2)
+    ax.set_title("Tracking every 2nd or 4th pendulum costs little; every 8th aliases", loc="left")
+    save(fig, "fig12_sparse_sensors")
+
+
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
-               fig_architectures, fig_noise_time, fig_inputs, fig_losses, fig_optimizers):
+               fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse):
         try:
             fn()
         except FileNotFoundError as err:

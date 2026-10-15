@@ -163,16 +163,35 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 ### Sensor noise and when to watch
 
 - **Camera alone (8 angle frames), watching from release:** fine up to about 10⁻³ rad of noise (about 95% within ±3, mean distance 2.2), then degrades. At 10⁻² rad it reaches a mean distance of 7.0.
-- **Later observation recovers that loss.** At 10⁻² rad, watching from τ = 10, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 noise-free.
-- Watching from τ = 30 still leaves about 23 time units of warning (about 3 s for a 20 cm pendulum).
-- This is the trade-off predicted from the growth rate: each 10× worse sensor costs about 19 time units of waiting.
-- **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window.
+- **Noise first causes far misses, not one-site slips.** ±1 accuracy stays at 64–67% up to 3×10⁻³ rad, while the share of runs more than 10 sites off triples. Noise picks the wrong hump before it blurs the right one.
+- **Later observation recovers the loss.** At 10⁻² rad, watching from τ = 10, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 noise-free.
+- **The trade-off follows the Floquet growth rate exactly** ([Fig. 13](../figures/fig13_noise_collapse.png)):
+  - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, the noise relative to the grown signal.
+  - Each 10× worse sensor costs about 20 time units of waiting; the prediction was ln 10 / σ₁ = 19.5.
+- **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window, and gain less from waiting.
+- **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate.
+- Watching from τ = 30 still leaves a median of 21.5 time units of warning (about 3 s for a 20 cm pendulum). The earliest test run localizes at τ = 37.
+
+### Fewer sensors
+
+([Fig. 12](../figures/fig12_sparse_sensors.png); camera from release, noise-free)
+
+| Pendulums tracked | Mean distance | ±3 |
+|---|---|---|
+| all 100 | 1.60 | 96.3% |
+| every 2nd (50) | 1.68 | 96.3% |
+| every 4th (25) | 1.86 | 96.3% |
+| every 8th (13) | 5.27 | 78.0% |
+
+- Every 2nd pendulum costs nothing, with or without noise and at either start time.
+- Every 8th fails even though 13 sensors satisfy Nyquist for the five growing modes. At release the stable modes hold about 90% of the perturbation, and they alias onto the growing modes' wavenumbers.
+- Watching later partly rescues the sparse camera (5.27 → 3.60 from τ = 20), as the growing modes rise above their aliases.
 
 ### Recommendation
 
-One camera tracking all pendulums at 30–60 frames per second, predicting from a short window of angle frames.
+One camera tracking every pendulum, or every 2nd, at 30–60 frames per second, predicting from a short window of angle frames.
 - With a precise camera (≲10⁻³ rad), predict right after release.
-- With a coarser one, wait until the long-wave modes have grown above the sensor noise.
+- With a coarser one, start about 8.5·ln(σ_s / 10⁻³) time units later, once the long-wave modes have grown above the sensor noise.
 
 ## 8. Loss function (Q3)
 

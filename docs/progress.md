@@ -314,6 +314,73 @@ When the observation starts at a random point within the first swing:
 - The energy barely changes along the swing, so it removes the unknown phase. With one frame it does better than angles and velocities together, even though both contain the same information.
 - With a camera only, about one full swing of frames is needed. Half a swing, as predicted, is not enough.
 
+**H1.3 (sensor precision decides ±1 accuracy): partly supported.**
+
+Three sensing setups, each trained and tested with the same white sensor noise on every pendulum and frame (one seed each):
+- S1, camera: angles, 8 frames (4 time units)
+- S2, camera + gyroscopes: angles and velocities, 1 frame
+- S3, energies computed from S2's noisy measurements, 1 frame
+
+Mean distance for the camera setup (S1), by sensor noise and by when watching starts ([Fig. 8](../figures/fig8_noise_vs_time.png)):
+
+| Noise (rad) | from τ = 0 | τ = 10 | τ = 20 | τ = 30 |
+|---|---|---|---|---|
+| none | 1.60 | 1.55 | 1.53 | 1.53 |
+| 10⁻⁴ | 1.67 | 1.53 | 1.54 | 1.47 |
+| 3×10⁻⁴ | 1.72 | 1.59 | 1.52 | 1.52 |
+| 10⁻³ | 2.20 | 1.68 | 1.54 | 1.55 |
+| 3×10⁻³ | 2.97 | 2.21 | 1.68 | 1.53 |
+| 10⁻² | 6.98 | 4.01 | 2.29 | 1.69 |
+
+Single-frame setups from τ = 0, noise none / 10⁻⁴ / 3×10⁻⁴ / 10⁻³ / 3×10⁻³ / 10⁻²:
+- S2: 1.60 / 1.75 / 1.81 / 2.46 / 4.95 / 12.20
+- S3: 1.64 / 1.67 / 1.92 / 2.44 / 4.91 / 12.01
+
+What this shows:
+- Precision matters, but the threshold is about three times higher than predicted.
+  - From release, the camera keeps 95% within ±3 up to 10⁻³ rad, and is badly hurt only at 10⁻² rad (mean 7.0).
+  - The single-frame setups start losing at 10⁻³ rad and collapse at 3×10⁻³. The 8 frames average the noise down by about √8.
+- Noise first causes far misses, not one-site slips. For the camera, ±1 stays at 64–67% up to 3×10⁻³ rad, while runs more than 10 sites off grow from 1.7% to 5.7%. Noise flips the choice between competing humps before it blurs the position of the right one.
+
+**H1.4 (watching longer buys robustness): supported, quantitatively for the camera.**
+
+If waiting helps only because the growing modes rise above a fixed sensor noise, the error should depend on noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, with σ₁ = 0.118 the fastest growth rate ([Fig. 13](../figures/fig13_noise_collapse.png)).
+- For the camera this holds:
+  - 10⁻³ rad from τ = 0, 3×10⁻³ from τ = 10 and 10⁻² from τ = 20 all give 2.2–2.3.
+  - 10⁻³ from τ = 10, 3×10⁻³ from τ = 20 and 10⁻² from τ = 30 all give 1.68–1.69.
+- Each 10× worse sensor costs about 20 time units of waiting. The prediction was ln 10 / σ₁ = 19.5.
+- The single-frame setups gain less from waiting than this. At the same scaled noise, later frames do worse than τ = 0 once it passes 10⁻⁴. Two likely reasons (not tested separately):
+  - At τ = 0 the chain is at rest, so velocity noise barely matters. Later it enters at first order.
+  - One frame at a fixed later time lands at a different point of the swing for each amplitude, because the period depends on A. This is the H1.2 problem again.
+- Waiting also helps without noise: energies at τ = 30 give 1.24 (82% within ±1), the best single result of Phase 3, against 1.64 from release. There is less left to extrapolate.
+- The cost is warning time. In the test pool the earliest run localizes at τ = 37 and the median at τ = 55.
+  - The camera window starting at τ = 30 ends at τ = 33.5.
+  - That leaves a median warning of 21.5 time units (about 3 s for a 20 cm pendulum), and at least 3.5.
+
+**H1.5 (sparse sensors are enough for the coarse location): partly supported.**
+
+The camera tracks only every s-th pendulum; a mask channel marks where the sensors are ([Fig. 12](../figures/fig12_sparse_sensors.png)). Mean distance:
+
+| Pendulums tracked | τ = 0, no noise | τ = 0, 10⁻³ rad | τ = 20, no noise | τ = 20, 10⁻³ rad |
+|---|---|---|---|---|
+| all 100 | 1.60 | 2.20 | 1.53 | 1.54 |
+| every 2nd (50) | 1.68 | 2.06 | 1.40 | 1.49 |
+| every 4th (25) | 1.86 | 3.29 | 1.65 | 2.49 |
+| every 8th (13) | 5.27 | 10.25 | 3.60 | 4.19 |
+
+- Every 2nd pendulum costs nothing beyond seed noise in all four conditions.
+- Every 4th keeps ±3 at 96.3% (the same as full coverage, noise-free from release), as predicted. Under 10⁻³ rad of noise it costs more (3.29 vs 2.20): fewer sensors average less noise out of the long waves.
+- Every 8th fails (78% within ±3, mean 5.3), even though 13 sensors satisfy Nyquist for m ≤ 6.
+  - Nyquist is necessary but not enough. At release the stable modes hold about 90% of the perturbation, and with 13 sensors each growing mode shares its sampled wavenumber with about 8 aliased stable modes.
+  - Waiting until τ = 20 partly rescues it (5.27 → 3.60): the growing modes rise above their aliases just as they rise above sensor noise.
+
+**Decision (Q1).**
+- The final model uses angles from all pendulums at τ = 0…4.5. This is the cheapest best input, and it matches v1's observation window for a fair comparison.
+- Recommendation for a real chain:
+  - One camera; every 2nd pendulum is enough.
+  - With ≲10⁻³ rad precision, predict right after release.
+  - With a coarser sensor, start watching about ln(σ_s / 10⁻³)/σ₁ ≈ 8.5·ln(σ_s / 10⁻³) time units later.
+
 ---
 
 ## Phase 4: loss function (Q3), 15 October 2026
