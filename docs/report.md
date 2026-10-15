@@ -279,6 +279,20 @@ The time head was added only as a training aid (H3.4), but it is accurate on its
 
 From 4.5 time units of observation, v2 predicts when localization will happen to within about 0.8 time units (0.12 s for a 20 cm pendulum), roughly 50 time units ahead.
 
+### A set of sites instead of one
+
+The model outputs a probability for every site, so it can name the smallest set of sites that holds a chosen share of the probability ([results/prediction_sets.json](../results/prediction_sets.json); 5 seeds, test pool):
+
+| Probability held by the set | Sites in the set (mean) | True site inside |
+|---|---|---|
+| 50% | 2.5 | 66.6% |
+| 80% | 4.4 | 93.3% |
+| 90% | 5.6 | 98.0% |
+| 95% | 6.6 | 99.3% |
+
+- The sets are conservative: each covers more often than its nominal level. This is expected from training on soft labels, which spread probability over neighbouring sites.
+- For a warning system, about five sites (5% of the ring) contain the true site 98% of the time.
+
 ## 11. Robustness and real-world sensing
 
 ### Shifted chains, without retraining
@@ -333,6 +347,6 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 1. Add damping to the simulator, retrain, and test whether early warning survives.
 2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
-3. Report prediction sets instead of one site. The soft-label model outputs a distribution over sites, so it can name the smallest set of sites that holds 90% of the probability.
+3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. If the original v1 notebook resurfaces, rerun the comparison against it and check its data for train/test overlap.

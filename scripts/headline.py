@@ -177,6 +177,15 @@ def main():
             rows.append([note.replace("Q1/Q5: final recipe, ", ""), len(recs)] + cells([r["test"] for r in recs]))
     out += ["## 7. The final recipe on real-world sensing setups", "", table(["Setup", "Seeds", *[c[1] for c in COLUMNS]], rows), ""]
 
+    # 8. the period-averaged label
+    recs = p6.get("final_avg_label", [])
+    rows = [["v2 final: trained and scored on v1's label (first site over 10%)", len(final)] + cells([r["test"] for r in final]),
+            ["v2 recipe: trained and scored on the period-averaged label", len(recs)] + cells([r["test"] for r in recs]),
+            ["the same model, scored on v1's label", len(recs)] +
+            cells([r["test"]["right_label"] for r in recs if "right_label" in r["test"]])]
+    out += ["## 8. A smoother target: where the energy sits on average over a swing", "",
+            table(["Model", "Seeds", *[c[1] for c in COLUMNS]], rows), ""]
+
     text = "\n".join(out)
     (ROOT / "results" / "headline.md").write_text(text)
     print(text)

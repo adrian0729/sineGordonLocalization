@@ -279,7 +279,15 @@ def phase6():
     t.add("impurity", "impurity_trained_with_map", "Q5: trained on chains with a random impurity, given a measured map of each pendulum",
           three, pools=impurity_pools, view={"calibration": True})
     add_deploy(t)
+    add_label(t)
     return t.configs
+
+
+def add_label(t):
+    """Which pendulum crosses 10% first depends on the phase of the swing at the crossing; the
+    hotspot's period-averaged position (the "avg" label) does not. Is that target easier to predict?"""
+    t.add("label", "final_avg_label", "Q5: final recipe trained and tested on the period-averaged, symmetric label",
+          (0, 1, 2), label="avg")
 
 
 def add_deploy(t):
@@ -298,5 +306,10 @@ def phase6_deploy():
     return [c for c in phase6() if c["group"] == "deploy"]
 
 
+def phase6_label():
+    """Only the label group of Phase 6, so it can run beside the main Phase 6 sweep."""
+    return [c for c in phase6() if c["group"] == "label"]
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
-          "phase6_deploy": phase6_deploy}
+          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label}

@@ -96,13 +96,14 @@ def prepare(cfg, pools, workers=1):
     if cfg.get("loss", {}).get("profile", 0):
         profiles = {s: views.profile_target(s, pools[s]["theta0"], workers) for s in pools}
         p_mean, p_std = profiles["train"].mean(), profiles["train"].std()
+    label = cfg.get("label", "right")  # which localization-site convention to learn (sim.LABELS)
     out = {}
     for s, x in xs.items():
         x = np.nan_to_num((x - mean) / std, nan=0.0).astype(np.float32)
-        t = pools[s]["time_right"].astype(np.float64)
+        t = pools[s][f"time_{label}"].astype(np.float64)
         split = {"x": torch.from_numpy(x),
-                 "site": torch.from_numpy(pools[s]["site_right"].astype(np.int64)),
-                 "localizes": torch.from_numpy((pools[s]["site_right"] >= 0).astype(np.float32)),
+                 "site": torch.from_numpy(pools[s][f"site_{label}"].astype(np.int64)),
+                 "localizes": torch.from_numpy((pools[s][f"site_{label}"] >= 0).astype(np.float32)),
                  "log_time": torch.from_numpy(((np.log(np.nan_to_num(t, nan=150.0)) - TIME_MEAN) / TIME_STD).astype(np.float32))}
         if profiles is not None:
             split["profile"] = torch.from_numpy(((profiles[s] - p_mean) / p_std).astype(np.float32))
@@ -153,7 +154,10 @@ def run(cfg, workers=1, threads=None, device="cpu", log=print):
     results = {}
     for s in ("val", "test"):
         pred = train.predict_sites(model, loss_fn, splits[s]["x"])
-        results[s] = metrics.site_metrics(pred, pools[s]["site_right"])
+        label = cfg.get("label", "right")
+        results[s] = metrics.site_metrics(pred, pools[s][f"site_{label}"])
+        if label != "right":  # also score against v1's label, for comparison
+            results[s]["right_label"] = metrics.site_metrics(pred, pools[s]["site_right"])
         if loss_spec.get("kind", "ce") == "ce":
             model.eval()
             with torch.no_grad():

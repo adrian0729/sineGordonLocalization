@@ -5,6 +5,22 @@ Localization" (J. Appl. Nonlinear Dyn. 15(2), 2026). The original Colab exports 
 files at the top level) are kept unchanged. The plan for v2 is in
 [docs/improvement_plan.md](docs/improvement_plan.md).
 
+## Results so far
+
+Full write-up: [docs/report.md](docs/report.md). Tables: [results/headline.md](results/headline.md).
+Test pool of 20,000 runs; mean distance in pendulums around the ring.
+
+| Model | Parameters | Training | Mean distance | Within ±1 | Within ±3 |
+|---|---|---|---|---|---|
+| v1 as published | 26.5M | | 1.44 | 94.4% | |
+| v1 rebuilt from the paper (2 seeds) | 26.5M | 23 min | 3.14 | 60.4% | 90.3% |
+| Floquet filter (physics, no training) | 0 | | 3.12 | 52.0% | 87.3% |
+| v2: whole-ring dilated CNN (5 seeds) | 22,786 | 6 min | 1.49 | 77.2% | 97.3% |
+
+The published v1 numbers could not be reproduced from the paper's description (see the report, Sec. 2).
+v2 also predicts when localization happens (1.5% median error), and degrades about three times
+more slowly than v1 under sensor noise.
+
 ## Setup
 
 ```
@@ -26,8 +42,14 @@ python3 -m venv .venv
 .venv/bin/python scripts/summarize.py phase2            # tables: results/phase2_tables.md
 .venv/bin/python scripts/lr_range_test.py               # Phase 5 learning-rate range test
 .venv/bin/python scripts/robustness.py --runs runs/<dir> --v1   # Phase 6 shifted-condition tests
+.venv/bin/python scripts/eval_final.py --runs runs/<dir>   # time head and prediction sets of final models
+.venv/bin/python scripts/headline.py                    # v1 vs v2 tables: results/headline.md
 .venv/bin/python scripts/make_figures.py                # report figures into figures/
+.venv/bin/python scripts/watch.py phase6                # live terminal dashboard for a running sweep
 ```
+
+`scripts/chain.sh <pid> <phase>` starts a sweep once another process exits, and
+`scripts/checkpoint.sh 30` commits and pushes progress every 30 minutes while sweeps run.
 
 Long jobs can be started detached so they survive the terminal closing, for example
 `nohup .venv/bin/python scripts/sweep.py phase3 > results/phase3_log.txt 2>&1 &`.

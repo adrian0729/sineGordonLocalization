@@ -1,0 +1,130 @@
+{
+ "levels": [
+  0.5,
+  0.8,
+  0.9,
+  0.95
+ ],
+ "runs": {
+  "runs/v2_final_s0_864be0d3c4": {
+   "0.5": {
+    "coverage": 0.66785,
+    "mean_size": 2.5641,
+    "median_size": 3.0
+   },
+   "0.8": {
+    "coverage": 0.9316,
+    "mean_size": 4.48105,
+    "median_size": 4.0
+   },
+   "0.9": {
+    "coverage": 0.97985,
+    "mean_size": 5.62565,
+    "median_size": 5.0
+   },
+   "0.95": {
+    "coverage": 0.9936,
+    "mean_size": 6.6145,
+    "median_size": 6.0
+   },
+   "top3": 0.771,
+   "top5": 0.9501
+  },
+  "runs/v2_final_s1_8e67e7f749": {
+   "0.5": {
+    "coverage": 0.66265,
+    "mean_size": 2.51695,
+    "median_size": 2.0
+   },
+   "0.8": {
+    "coverage": 0.93215,
+    "mean_size": 4.4207,
+    "median_size": 4.0
+   },
+   "0.9": {
+    "coverage": 0.97975,
+    "mean_size": 5.54855,
+    "median_size": 5.0
+   },
+   "0.95": {
+    "coverage": 0.99295,
+    "mean_size": 6.5185,
+    "median_size": 6.0
+   },
+   "top3": 0.7784,
+   "top5": 0.95085
+  },
+  "runs/v2_final_s2_56c8feb70f": {
+   "0.5": {
+    "coverage": 0.67665,
+    "mean_size": 2.5889,
+    "median_size": 3.0
+   },
+   "0.8": {
+    "coverage": 0.9371,
+    "mean_size": 4.52925,
+    "median_size": 4.0
+   },
+   "0.9": {
+    "coverage": 0.9794,
+    "mean_size": 5.68625,
+    "median_size": 5.0
+   },
+   "0.95": {
+    "coverage": 0.9934,
+    "mean_size": 6.67805,
+    "median_size": 6.0
+   },
+   "top3": 0.7781,
+   "top5": 0.94855
+  },
+  "runs/v2_final_s3_191455b5bb": {
+   "0.5": {
+    "coverage": 0.66395,
+    "mean_size": 2.49405,
+    "median_size": 2.0
+   },
+   "0.8": {
+    "coverage": 0.93505,
+    "mean_size": 4.3916,
+    "median_size": 4.0
+   },
+   "0.9": {
+    "coverage": 0.9795,
+    "mean_size": 5.50735,
+    "median_size": 5.0
+   },
+   "0.95": {
+    "coverage": 0.99305,
+    "mean_size": 6.4787,
+    "median_size": 6.0
+   },
+   "top3": 0.78585,
+   "top5": 0.9524
+  },
+  "runs/v2_final_s4_3de9d2d666": {
+   "0.5": {
+    "coverage": 0.66245,
+    "mean_size": 2.4977,
+    "median_size": 2.0
+   },
+   "0.8": {
+    "coverage": 0.93225,
+    "mean_size": 4.4025,
+    "median_size": 4.0
+   },
+   "0.9": {
+    "coverage": 0.9786,
+    "mean_size": 5.52985,
+    "median_size": 5.0
+   },
+   "0.95": {
+    "coverage": 0.9931,
+    "mean_size": 6.50495,
+    "median_size": 6.0
+   },
+   "top3": 0.7815,
+   "top5": 0.95125
+  }
+ }
+}

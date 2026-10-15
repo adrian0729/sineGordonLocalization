@@ -122,3 +122,43 @@ The paper's training notebook is not available, so v1 was rebuilt from Sec. 2.3 
   - plain
   - with an amplitude-dependent filter
   - on v1's inputs
+
+## Final model and Phase 6 tests
+
+**Final model.** The whole-ring dilated CNN: 7 circular convolutions with kernel 3, dilations 1-2-4-8-16-32-1 and width 32, and one score per site (22,786 parameters). Its input is the angles of all pendulums at τ = 0, 0.5, …, 4.5. Its loss is circular-Gaussian soft labels (σ = 1 site) + 0.1 × expected ring distance + 0.1 × squared error of a log-localization-time head. It trains with the recipe above for 30 epochs, with five seeds.
+
+**Leave-one-out.** Each removal retrains the final model with one choice reverted, with three seeds:
+- no dilation
+- zero padding instead of circular
+- a flatten + dense head instead of one score per site
+- plain cross-entropy
+- hard labels (other loss terms kept)
+- no time head
+- v1's inputs
+- v1's optimizer
+
+**Data efficiency.** The final recipe on 1k–100k training runs, two seeds each, with the same number of gradient steps.
+
+**Robustness pools** (`scripts/make_robustness_pools.py`). Each is simulated with its own true chain. Trained models are applied without retraining, and any energies are still computed with the nominal g̃ and h̃.
+
+| Pool | Runs | What differs from the nominal chain |
+|---|---|---|
+| g −10% / +10% | 5,000 each | g̃ = 0.675 / 0.825 |
+| h −10% / +10% | 5,000 each | h̃ = 0.45 / 0.55 |
+| Twice the initial spread | 5,000 | offsets U(−0.05, 0.05) rad |
+| N = 80 / 150 | 5,000 each | a shorter or longer ring |
+| One weak pendulum | 5,000 | one random pendulum's gravity term 1% weaker |
+| Impurity train / val / test | 60,000 / 10,000 / 10,000 | one random pendulum's gravity term weaker by U(0, 2%) |
+
+Sensor noise at test time is added to the nominal test pool (`scripts/robustness.py`).
+
+**Impurities with and without a map.** The final recipe is retrained on the impurity pools, with three seeds:
+- with angles only
+- with an extra input channel that maps each pendulum's gravity term, as a one-time calibration of a real chain would
+
+**Real-world sensing setups.** The final recipe is retrained on three setups from Phase 3, with three seeds each:
+- a camera on every 2nd pendulum with 10⁻³ rad of noise, from release
+- a coarse camera (10⁻² rad) watching from τ = 20
+- energies at τ = 30, noise-free
+
+**Time head and prediction sets** (`scripts/eval_final.py`). The predicted log-time is compared with the true localization time on the test pool. Baselines are the training median and the median time within each of 20 amplitude bins.
