@@ -288,6 +288,8 @@ def add_label(t):
     hotspot's period-averaged position (the "avg" label) does not. Is that target easier to predict?"""
     t.add("label", "final_avg_label", "Q5: final recipe trained and tested on the period-averaged, symmetric label",
           (0, 1, 2), label="avg")
+    t.add("label", "final_sym_label", "Q5: final recipe trained and tested on the symmetric label (springs split "
+          "between both pendulums, not period-averaged)", (0, 1, 2), label="sym")
 
 
 def add_deploy(t):

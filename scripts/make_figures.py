@@ -172,7 +172,7 @@ def fig_baselines():
     recs = load_runs()
     by_model = defaultdict(list)
     for r in recs:
-        if r.get("phase") in (0, 1):
+        if r.get("phase") in (0, 1) and r.get("label", "right") == "right":
             by_model[r["model"]].append(r["test"])
     order = [("boxcar", "Box-car K = 17 on E (no training)"), ("floquet_filter", "Floquet filter (no training)"),
              ("linear_dtheta0", "Linear ring filter on δθ(0)"), ("v1_cnn_bilstm", "v1 CNN-BiLSTM, rebuilt (mean of 2 seeds)"),
@@ -249,7 +249,7 @@ def fig_data_efficiency():
                 markeredgecolor=SURFACE, markeredgewidth=1.2, label=label)
     if not plotted:
         raise FileNotFoundError("no symmetry runs yet")
-    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     if v1:
         ax.plot([60_000], [np.mean(v1)], marker="D", linestyle="none", color=INK2, markeredgecolor=SURFACE,
                 label="v1 rebuilt (26.5M parameters)")
@@ -280,7 +280,7 @@ def fig_architectures():
              ("symmetry", "dense_head_n60000", "flatten + dense head (like v1)")]
     rows = [(lab, [r["test"]["mae"] for r in recs.get((g, n), [])]) for g, n, lab in picks]
     rows = [(lab, v) for lab, v in rows if v]
-    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     if v1:
         rows.append(("v1 rebuilt (26.5M parameters)", v1))
     rows.sort(key=lambda r: -np.mean(r[1]))
@@ -545,7 +545,7 @@ def fig_final_data():
         ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
     ax.plot([n for n, _ in pts], [np.mean(v) for _, v in pts], color=SLOT[0], marker="o", markeredgecolor=SURFACE,
             markeredgewidth=1.2, label="v2 final recipe (23k parameters)")
-    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]
+    v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     title = "Data efficiency of the final recipe"
     if v1:
         ax.axhline(np.mean(v1), color=INK2, linewidth=0.8, linestyle="--", label="v1 rebuilt, 60,000 runs (26.5M parameters)")
@@ -582,7 +582,7 @@ def fig_robustness():
             latest[(r["run_dir"], r["condition"])] = r["test"]["mae"]
     groups = {"v2 final": [f"runs/v2_final_s{c['seed']}_{experiment.config_id(c)}" for c in ablations.phase6()
                            if c["name"] == "v2_final"],
-              "v1 rebuilt": [f"runs/{r['run_id']}" for r in load_runs() if r.get("model") == "v1_cnn_bilstm"]}
+              "v1 rebuilt": [f"runs/{r['run_id']}" for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]}
     rows = []
     for cond, label in ROBUST_LABELS:
         means = {g: np.mean([latest[(d, cond)] for d in dirs if (d, cond) in latest]) if any((d, cond) in latest for d in dirs)

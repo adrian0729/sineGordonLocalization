@@ -52,7 +52,7 @@ def load():
                 rec = json.loads(line)
                 if rec.get("config_id"):
                     by_id[rec["config_id"]] = rec
-                elif rec.get("model") == "v1_cnn_bilstm":
+                elif rec.get("model") == "v1_cnn_bilstm" and rec.get("label", "right") == "right":
                     v1.append(rec)
     phase6 = defaultdict(list)  # name -> records
     dirs = defaultdict(list)    # name -> run dirs

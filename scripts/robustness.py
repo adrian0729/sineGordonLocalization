@@ -77,7 +77,7 @@ def main():
             print(f"{run_dir:48s} {name:20s} mean {m['mae']:.3f}  ±1 {m['acc_1']:.2%}  ±3 {m['acc_3']:.2%}", flush=True)
     if args.v1:
         with open(experiment.RESULTS) as f:
-            v1_runs = [json.loads(l) for l in f if '"v1_cnn_bilstm"' in l]
+            v1_runs = [r for r in (json.loads(l) for l in f if '"v1_cnn_bilstm"' in l) if r.get("label", "right") == "right"]
         for rec in v1_runs:
             for name, pool, override in conditions(args.only):
                 m = evaluate_v1(rec, pool, override, args.device)

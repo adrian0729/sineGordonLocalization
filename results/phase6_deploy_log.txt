@@ -7,3 +7,5 @@ trajectory cache ready in 143s
 [5/9  1865s mps] deploy/deploy_camera_noise1e-2_t20 seed 1: mean 2.037  ±1 72.74%  ±3 95.20%  >10 3.06%  (359s, 22786 params)
 [6/9  2242s mps] deploy/deploy_camera_noise1e-2_t20 seed 2: mean 2.050  ±1 72.78%  ±3 95.14%  >10 3.10%  (364s, 22786 params)
 [7/9  2619s mps] deploy/deploy_energy_t30 seed 0: mean 1.218  ±1 83.02%  ±3 95.34%  >10 1.47%  (366s, 21922 params)
+[8/9  2988s mps] deploy/deploy_energy_t30 seed 1: mean 1.223  ±1 83.09%  ±3 95.37%  >10 1.43%  (357s, 21922 params)
+[9/9  3359s mps] deploy/deploy_energy_t30 seed 2: mean 1.276  ±1 81.14%  ±3 96.05%  >10 1.44%  (360s, 21922 params)
