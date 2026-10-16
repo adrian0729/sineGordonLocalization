@@ -1,0 +1,14 @@
+phase6_damping: 12 configs, 12 still to run
+trajectory cache ready in 30s
+[1/12   497s mps] damping/damped_trained seed 0: mean 1.305  ±1 81.98%  ±3 97.86%  >10 1.20%  (481s, 22786 params)
+[2/12   500s mps] damping/damped_trained seed 1: mean 1.278  ±1 81.57%  ±3 98.06%  >10 1.14%  (483s, 22786 params)
+[3/12   943s mps] damping/damped_trained seed 2: mean 1.320  ±1 82.42%  ±3 97.96%  >10 1.20%  (432s, 22786 params)
+[4/12   951s mps] damping/damped_trained_localizes_head seed 0: mean 1.327  ±1 81.29%  ±3 97.96%  >10 1.26%  (436s, 22819 params)
+[5/12  1397s mps] damping/damped_trained_localizes_head seed 1: mean 1.305  ±1 82.65%  ±3 98.00%  >10 1.24%  (437s, 22819 params)
+[6/12  1415s mps] damping/damped_trained_localizes_head seed 2: mean 1.310  ±1 82.05%  ±3 97.99%  >10 1.20%  (441s, 22819 params)
+[7/12  1858s mps] damping/damped_trained_avg_label seed 0: mean 0.515  ±1 97.16%  ±3 99.01%  >10 0.69%  (437s, 22819 params)
+[8/12  1875s mps] damping/damped_trained_avg_label seed 1: mean 0.485  ±1 97.27%  ±3 99.09%  >10 0.54%  (441s, 22819 params)
+[9/12  2300s mps] damping/damped_trained_avg_label seed 2: mean 0.495  ±1 97.18%  ±3 99.05%  >10 0.59%  (422s, 22819 params)
+[10/12  2326s mps] damping/damped_deploy_camera_every2_noise1e-3 seed 0: mean 1.814  ±1 78.26%  ±3 96.26%  >10 2.60%  (425s, 22915 params)
+[11/12  2714s mps] damping/damped_deploy_camera_every2_noise1e-3 seed 1: mean 1.822  ±1 77.61%  ±3 96.37%  >10 2.59%  (396s, 22915 params)
+[12/12  2732s mps] damping/damped_deploy_camera_every2_noise1e-3 seed 2: mean 1.836  ±1 77.98%  ±3 96.22%  >10 2.65%  (390s, 22915 params)

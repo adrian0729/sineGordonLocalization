@@ -1,0 +1,35 @@
+growth spectrum grid
+best box-car width vs amplitude
+  A=1.60: localized 100.0%, unstable m=[1, 2], predicted K*=33.3, measured K*=35 (16-84%: [35.0, 41.0])
+  A=1.65: localized 100.0%, unstable m=[1, 2, 3], predicted K*=25.0, measured K*=25 (16-84%: [23.0, 25.0])
+  A=1.70: localized 100.0%, unstable m=[1, 2, 3, 4], predicted K*=20.0, measured K*=21 (16-84%: [19.0, 23.0])
+  A=1.75: localized 100.0%, unstable m=[1, 2, 3, 4, 5], predicted K*=16.7, measured K*=17 (16-84%: [17.0, 17.0])
+  A=1.80: localized 100.0%, unstable m=[1, 2, 3, 4, 5, 6], predicted K*=14.3, measured K*=15 (16-84%: [15.0, 15.0])
+  A=1.85: localized 100.0%, unstable m=[1, 2, 3, 4, 5, 6], predicted K*=14.3, measured K*=15 (16-84%: [15.0, 15.0])
+  A=1.90: localized 100.0%, unstable m=[1, 2, 3, 4, 5, 6, 7], predicted K*=12.5, measured K*=15 (16-84%: [11.0, 15.0])
+sensitivity of the label to the initial state
+  knockout keep m<=2    {'mean_shift': 8.831, 'moved_over_1': 0.8095, 'moved_over_3': 0.588, 'moved_over_10': 0.19}
+  knockout keep m<=3    {'mean_shift': 4.9915, 'moved_over_1': 0.6085, 'moved_over_3': 0.312, 'moved_over_10': 0.0845}
+  knockout keep m<=5    {'mean_shift': 1.7145, 'moved_over_1': 0.2495, 'moved_over_3': 0.086, 'moved_over_10': 0.026}
+  knockout keep m<=6    {'mean_shift': 1.4635, 'moved_over_1': 0.1955, 'moved_over_3': 0.0665, 'moved_over_10': 0.023}
+  knockout keep m<=8    {'mean_shift': 1.2805, 'moved_over_1': 0.185, 'moved_over_3': 0.059, 'moved_over_10': 0.019}
+  knockout keep m<=12   {'mean_shift': 1.2035, 'moved_over_1': 0.172, 'moved_over_3': 0.0565, 'moved_over_10': 0.017}
+  knockout keep m<=25   {'mean_shift': 1.2355, 'moved_over_1': 0.17, 'moved_over_3': 0.058, 'moved_over_10': 0.018}
+  knockout remove m<=5  {'mean_shift': 26.332, 'moved_over_1': 0.975, 'moved_over_3': 0.9425, 'moved_over_10': 0.821}
+  white noise rms 1e-09: {'mean_shift': 0.0, 'moved_over_1': 0.0, 'moved_over_3': 0.0, 'moved_over_10': 0.0}
+  white noise rms 1e-06: {'mean_shift': 0.0, 'moved_over_1': 0.0, 'moved_over_3': 0.0, 'moved_over_10': 0.0}
+  white noise rms 1e-05: {'mean_shift': 0.0285, 'moved_over_1': 0.0055, 'moved_over_3': 0.0015, 'moved_over_10': 0.0005}
+  white noise rms 0.0001: {'mean_shift': 0.3195, 'moved_over_1': 0.044, 'moved_over_3': 0.0165, 'moved_over_10': 0.005}
+  white noise rms 0.0003: {'mean_shift': 0.7125, 'moved_over_1': 0.098, 'moved_over_3': 0.034, 'moved_over_10': 0.012}
+  white noise rms 0.001: {'mean_shift': 1.981, 'moved_over_1': 0.245, 'moved_over_3': 0.0805, 'moved_over_10': 0.035}
+  white noise rms 0.003: {'mean_shift': 5.2445, 'moved_over_1': 0.4645, 'moved_over_3': 0.194, 'moved_over_10': 0.1205}
+  white noise rms 0.01: {'mean_shift': 11.9245, 'moved_over_1': 0.7505, 'moved_over_3': 0.5005, 'moved_over_10': 0.3175}
+  band m<=5 rms 1e-3: {'mean_shift': 5.051, 'moved_over_1': 0.5025, 'moved_over_3': 0.195, 'moved_over_10': 0.1155}
+  band m>=6 rms 1e-3: {'mean_shift': 0.3875, 'moved_over_1': 0.045, 'moved_over_3': 0.0195, 'moved_over_10': 0.0075}
+baselines on the test pool
+  box-car best: tau 4.0 K 17: mean 5.07 ±1 38.0%
+  Floquet filter (6 periods): mean 3.12 ±1 52.0%
+  linear_dtheta0: mean 3.07 ±1 59.9% ±3 89.6% (l2 0.0, 7s)
+  linear_dtheta0_amp: mean 2.17 ±1 67.4% ±3 95.3% (l2 0.0, 13s)
+  linear_v1_inputs: mean 2.02 ±1 68.2% ±3 95.7% (236s)
+wrote results/phase1.json

@@ -1,0 +1,2 @@
+phase2: 87 configs, 81 still to run
+trajectory cache ready in 43s

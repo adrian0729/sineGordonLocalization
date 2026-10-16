@@ -1,0 +1,4 @@
+adamw : loss minimum at lr 6.81e-03 -> peak 2.27e-03, start 6.81e-04
+adam  : loss minimum at lr 6.81e-03 -> peak 2.27e-03, start 6.81e-04
+sgd   : loss minimum at lr 1.08e-05 -> peak 3.60e-06, start 1.08e-06
+lion  : loss minimum at lr 7.94e-03 -> peak 2.65e-03, start 7.94e-04

@@ -1,0 +1,20 @@
+label definition check on 600 runs
+  code vs symmetric: same site 78.7%, |diff|<=1 83.8%
+  among |diff|>=2: mean crossing-time gap (sym - code) = 0.14 time units
+  among |diff|<=1: mean crossing-time gap (sym - code) = 0.03 time units
+  hotspot drift over the 10 time units after formation (period-averaged): |drift|<=1 68.9%, mean |drift| 3.43 sites
+  symmetric instantaneous      vs code label: MAE 0.85, <=1 83.8%
+  symmetric period-averaged    vs code label: MAE 2.08, <=1 55.2%
+band knockouts (re-simulate with part of the initial noise removed; shift of the site label):
+  keep m<=5 only (unstable band)     MAE   1.68  <=1  76.0%  <=3  91.3%  >10   2.4%
+  keep m<=12                         MAE   1.32  <=1  81.8%  <=3  93.3%  >10   2.1%
+  keep m<=25                         MAE   1.32  <=1  81.3%  <=3  93.5%  >10   1.8%
+  remove m<=5 (stable band only)     MAE  25.41  <=1   2.0%  <=3   5.2%  >10  82.9%
+band-limited perturbations, rms 1e-3 rad (like sensor error on the initial state):
+  only in m<=5     moved>1  52.1%  moved>3  21.8%  MAE 5.72
+  only in m>=6     moved>1   4.8%  moved>3   2.4%  MAE 0.39
+  white (all m)    moved>1  24.4%  moved>3   9.2%  MAE 2.14
+best box-car width vs amplitude (prediction K* = N/(m_max+1)):
+  A=1.65: predicted K*=25.0, measured K*=25 (MAE 5.57); 5:16.1 7:14.4 9:12.6 11:11.0 13:10.4 15:8.9 17:7.8 19:6.9 21:6.2 23:5.8 25:5.6 27:5.8 29:6.4 31:6.7 33:7.5 35:7.9 37:8.8 39:9.4
+  A=1.75: predicted K*=16.7, measured K*=17 (MAE 5.19); 5:14.0 7:11.6 9:9.8 11:8.1 13:6.5 15:5.6 17:5.2 19:5.5 21:6.0 23:7.2 25:7.6 27:8.6 29:9.4 31:10.6 33:10.7 35:11.5 37:11.9 39:12.3
+  A=1.85: predicted K*=14.3, measured K*=13 (MAE 5.62); 5:13.5 7:10.6 9:8.6 11:6.9 13:5.6 15:5.7 17:6.3 19:7.3 21:8.4 23:9.2 25:10.3 27:10.7 29:11.4 31:11.7 33:12.1 35:12.7 37:12.8 39:13.7

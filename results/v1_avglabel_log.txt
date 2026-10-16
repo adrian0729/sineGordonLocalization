@@ -1,0 +1,48 @@
+v1_seed0_avglabel_20261015-194642 on mps: inputs built in 73s; train 60000, val 20000, test 20000; channel mean [1.1782 1.75  ], std [0.0594 0.0596]
+epoch   1  train 4.5644  val 3.5468  best 3.5468 (epoch 1)  129s
+epoch   2  train 2.4164  val 2.0069  best 2.0069 (epoch 2)  126s
+epoch   3  train 1.9282  val 1.7944  best 1.7944 (epoch 3)  126s
+epoch   4  train 1.7510  val 1.6826  best 1.6826 (epoch 4)  126s
+epoch   5  train 1.6268  val 1.6614  best 1.6614 (epoch 5)  127s
+epoch   6  train 1.5365  val 1.6019  best 1.6019 (epoch 6)  128s
+epoch   7  train 1.4559  val 1.6939  best 1.6019 (epoch 6)  127s
+epoch   8  train 1.3855  val 1.5771  best 1.5771 (epoch 8)  127s
+epoch   9  train 1.3235  val 1.5764  best 1.5764 (epoch 9)  125s
+epoch  10  train 1.2659  val 1.5587  best 1.5587 (epoch 10)  127s
+epoch  11  train 1.1981  val 1.5986  best 1.5587 (epoch 10)  128s
+epoch  12  train 1.1412  val 1.6062  best 1.5587 (epoch 10)  127s
+epoch  13  train 1.0851  val 1.6338  best 1.5587 (epoch 10)  126s
+epoch  14  train 1.0293  val 1.7273  best 1.5587 (epoch 10)  126s
+epoch  15  train 0.9711  val 1.7340  best 1.5587 (epoch 10)  131s
+epoch  16  train 0.9181  val 1.7681  best 1.5587 (epoch 10)  130s
+epoch  17  train 0.8557  val 1.8297  best 1.5587 (epoch 10)  127s
+epoch  18  train 0.8038  val 1.9118  best 1.5587 (epoch 10)  128s
+epoch  19  train 0.7484  val 1.9580  best 1.5587 (epoch 10)  127s
+epoch  20  train 0.7045  val 2.0092  best 1.5587 (epoch 10)  129s
+val: mean distance 2.219 (linear 3.320)  ±1 83.36% (linear 83.02%)  ±3 93.85%  >10 4.41%  localizes 99.73%  nll 1.550
+test: mean distance 2.245 (linear 3.371)  ±1 83.40% (linear 83.08%)  ±3 94.09%  >10 4.40%  localizes 99.74%  nll 1.545
+saved runs/v1_seed0_avglabel_20261015-194642 and appended results/runs.jsonl
+v1_seed1_avglabel_20261015-203043 on mps: inputs built in 66s; train 60000, val 20000, test 20000; channel mean [1.1782 1.75  ], std [0.0594 0.0596]
+epoch   1  train 4.6265  val 4.6193  best 4.6193 (epoch 1)  126s
+epoch   2  train 2.9797  val 2.1447  best 2.1447 (epoch 2)  128s
+epoch   3  train 2.0394  val 1.9226  best 1.9226 (epoch 3)  128s
+epoch   4  train 1.7991  val 1.7422  best 1.7422 (epoch 4)  128s
+epoch   5  train 1.6595  val 1.6287  best 1.6287 (epoch 5)  126s
+epoch   6  train 1.5562  val 1.6028  best 1.6028 (epoch 6)  125s
+epoch   7  train 1.4732  val 1.5782  best 1.5782 (epoch 7)  127s
+epoch   8  train 1.3898  val 1.5594  best 1.5594 (epoch 8)  130s
+epoch   9  train 1.3435  val 1.5838  best 1.5594 (epoch 8)  125s
+epoch  10  train 1.2717  val 1.5504  best 1.5504 (epoch 10)  126s
+epoch  11  train 1.2169  val 1.6122  best 1.5504 (epoch 10)  129s
+epoch  12  train 1.1528  val 1.6115  best 1.5504 (epoch 10)  128s
+epoch  13  train 1.0938  val 1.6679  best 1.5504 (epoch 10)  128s
+epoch  14  train 1.0445  val 1.7263  best 1.5504 (epoch 10)  109s
+epoch  15  train 0.9894  val 1.7437  best 1.5504 (epoch 10)  112s
+epoch  16  train 0.9371  val 1.7826  best 1.5504 (epoch 10)  129s
+epoch  17  train 0.8885  val 1.7990  best 1.5504 (epoch 10)  128s
+epoch  18  train 0.8329  val 1.8728  best 1.5504 (epoch 10)  128s
+epoch  19  train 0.7877  val 1.9511  best 1.5504 (epoch 10)  121s
+epoch  20  train 0.7312  val 1.9669  best 1.5504 (epoch 10)  102s
+val: mean distance 2.267 (linear 3.382)  ±1 83.34% (linear 82.98%)  ±3 93.90%  >10 4.56%  localizes 99.73%  nll 1.541
+test: mean distance 2.249 (linear 3.381)  ±1 83.72% (linear 83.32%)  ±3 94.05%  >10 4.49%  localizes 99.74%  nll 1.544
+saved runs/v1_seed1_avglabel_20261015-203043 and appended results/runs.jsonl
