@@ -434,6 +434,26 @@ def phase8():
     return t.configs
 
 
+def phase9():
+    """Is one pendulum the right target? When v1's label fires, the hotspot is a hump about 8 pendulums wide, and the
+    label jitters by 1-3 sites within a swing. The swing-averaged label removes the jitter but fires later (median tau
+    60 against 55), once one pendulum's averaged energy passes 10%. The hump label marks the event at the hump's scale:
+    the first sample where the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, which fires at
+    about v1's median time (tau 54.5 against 55); its site is the window's centre (sim.localize). Final recipe, full
+    budget, 3 seeds."""
+    t = Table(final_recipe(), 9)
+    # Predictions, written before the runs started:
+    # - The hump label has no within-swing jitter (it is averaged over a swing like the "avg" label), so it should be
+    #   about as predictable as that label (0.58, 96.4% within +-1) and far more than v1's (1.49, 77.2%).
+    # - Summing 3 pendulums finds the hump's centre even when its top is flat, which should help a little. Firing 5
+    #   time units earlier, when rival humps are closer in size, should hurt a little. Expect 0.5-0.7 and 95-97%.
+    # - The two labels agree within +-1 in 93% of runs (validation pool), so this is a different target, not a copy.
+    t.add("label", "final_hump_label", "Phase 9: final recipe trained and tested on the hump label: the first sample where "
+          "the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total; the label is the window's centre",
+          (0, 1, 2), label="hump")
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
-          "phase7": phase7, "phase8": phase8}
+          "phase7": phase7, "phase8": phase8, "phase9": phase9}

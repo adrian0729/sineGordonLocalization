@@ -25,6 +25,9 @@ class Params:
 
 BONDS = ("right", "left", "sym")
 LABELS = ("right", "left", "sym", "avg")
+EXTRA_LABELS = ("hump",)  # computed only when asked for; scripts/add_labels.py adds them to existing pools
+HUMP_SITES = 3            # the "hump" label sums the swing-averaged energy over this many neighbouring pendulums
+HUMP_THRESHOLD = 0.15     # and fires when they hold this share of the total (median time then matches "right": tau = 55)
 
 
 def accel(theta, g, h, onsite=None, gamma=0.0, omega=None):
@@ -81,6 +84,11 @@ def site_energy(theta, omega, g, h, bond="right", onsite=None):
             + 0.5 * h * (theta - theta.mean(axis=-1, keepdims=True)) ** 2)
 
 
+def hump_energy(E, sites=HUMP_SITES):
+    """Energy of the `sites` neighbouring pendulums centred on each pendulum (`sites` odd), around the ring."""
+    return sum(np.roll(E, s, axis=-1) for s in range(-(sites // 2), sites // 2 + 1))
+
+
 def evolve(theta0, n_samples, params=Params(), omega0=None, onsite=None, gamma=0.0):
     """Return theta and omega at samples k = 0 .. n_samples-1, each of shape (runs, n_samples, N).
     `gamma` is the damping, a scalar or one value per run."""
@@ -106,10 +114,14 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
     "left" and "sym" labels use the instantaneous site energy with that bond convention. "avg"
     uses the symmetric energy averaged over the last `avg_window` samples, which removes the
     within-swing exchange between kinetic and spring energy; its time is the end of the window.
+    "hump" (in EXTRA_LABELS, computed only when asked for) marks the event at the hump's scale:
+    the first sample where that averaged energy, summed over HUMP_SITES neighbouring pendulums,
+    passes HUMP_THRESHOLD of the total. Its site is the centre of that window and its time, as
+    for "avg", the end of the averaging window.
 
     With damping (`gamma`, a scalar or one value per run) the total energy decays, so the
-    threshold is a fraction of the energy the chain holds at that sample (for "avg", averaged
-    over the same window); without damping it is the conserved initial energy.
+    threshold is a fraction of the energy the chain holds at that sample (for "avg" and "hump",
+    averaged over the same window); without damping it is the conserved initial energy.
     """
     p = params
     theta = np.array(theta0, dtype=float)
@@ -119,10 +131,12 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
     damped = np.broadcast_to(gamma != 0, (runs, 1))[:, 0]  # runs whose chain loses energy
     stride = round(p.sample / p.dt)
     n_samples = round(p.t_final / p.sample)
-    limit = p.threshold * site_energy(theta, omega, p.g, p.h, "sym", onsite).sum(axis=1)
+    share = {name: HUMP_THRESHOLD if name == "hump" else p.threshold for name in labels}
+    total = site_energy(theta, omega, p.g, p.h, "sym", onsite).sum(axis=1)
+    limit = {name: share[name] * total for name in labels}
     site = {name: np.full(runs, -1, dtype=np.int16) for name in labels}
     when = {name: np.full(runs, np.nan, dtype=np.float32) for name in labels}
-    window = np.zeros((p.avg_window, runs, n_sites)) if "avg" in labels else None
+    window = np.zeros((p.avg_window, runs, n_sites)) if "avg" in labels or "hump" in labels else None
 
     for k in range(n_samples):
         energies = {b: site_energy(theta, omega, p.g, p.h, b, onsite) for b in BONDS
@@ -131,11 +145,14 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
             window[k % p.avg_window] = energies["sym"]
             if k >= p.avg_window - 1:
                 energies["avg"] = window.mean(axis=0)
+                if "hump" in labels:
+                    energies["hump"] = hump_energy(energies["avg"])
         for name in labels:
             if name not in energies:
                 continue
             E = energies[name]
-            now = np.where(damped, p.threshold * E.sum(axis=1), limit) if damped.any() else limit
+            held = energies["avg"] if name == "hump" else E  # each pendulum sits in HUMP_SITES hump windows
+            now = np.where(damped, share[name] * held.sum(axis=1), limit[name]) if damped.any() else limit[name]
             hit = (site[name] < 0) & (E.max(axis=1) > now)
             site[name][hit] = E[hit].argmax(axis=1)
             when[name][hit] = k * p.sample

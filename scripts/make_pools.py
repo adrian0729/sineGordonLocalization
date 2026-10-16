@@ -2,6 +2,7 @@
 
     python scripts/make_pools.py            # skips pools that already exist
     python scripts/make_pools.py --force    # regenerate everything
+    python scripts/add_labels.py hump       # then add the labels outside sim.LABELS (Phase 9's hump label)
 """
 import argparse
 import os

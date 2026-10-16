@@ -121,3 +121,63 @@ def test_damping_delays_localization_and_strong_damping_prevents_it(runs):
     assert np.median(weak["time_right"] - labels["time_right"]) > 0
     # at gamma = 1e-2 the swing decays below A_c = 1.577 within about 20 time units
     assert (sim.localize(theta0, P, ("right",), gamma=1e-2)["site_right"] < 0).all()
+
+
+@pytest.fixture(scope="module")
+def humps(runs):
+    theta0, _ = runs
+    return sim.localize(theta0, P, sim.EXTRA_LABELS)
+
+
+def test_hump_label_is_the_first_swing_averaged_3_site_window_over_the_threshold():
+    _, theta0 = data.initial_conditions(6, seed=21)
+    labels = sim.localize(theta0, P, ("hump",))
+    W, n = P.avg_window, round(P.t_final / P.sample)
+    theta, omega = sim.evolve(theta0, n, P)
+    E = sim.site_energy(theta, omega, P.g, P.h, "sym")
+    swing = np.stack([E[:, k + 1 - W:k + 1].mean(axis=1) for k in range(W - 1, n)], axis=1)  # window ending at k
+    window = swing + np.roll(swing, 1, axis=-1) + np.roll(swing, -1, axis=-1)  # pendulums n-1, n, n+1
+    over = window.max(axis=-1) > sim.HUMP_THRESHOLD * E[:, :1].sum(axis=-1)
+    assert over.any(axis=1).all()
+    first = over.argmax(axis=1)
+    np.testing.assert_array_equal(labels["time_hump"], (first + W - 1) * P.sample)
+    np.testing.assert_array_equal(labels["site_hump"], window[np.arange(6), first].argmax(axis=-1))
+
+
+def test_asking_for_the_hump_label_leaves_the_other_labels_unchanged(runs, humps):
+    theta0, labels = runs
+    both = sim.localize(theta0, P, sim.LABELS + sim.EXTRA_LABELS)
+    for key in labels:
+        np.testing.assert_array_equal(both[key], labels[key])
+    for key in humps:
+        np.testing.assert_array_equal(both[key], humps[key])
+
+
+def test_hump_label_rotates_and_mirrors_with_the_ring(runs, humps):
+    theta0, _ = runs
+    rotated = sim.localize(np.roll(theta0, 37, axis=1), P, ("hump",))
+    np.testing.assert_array_equal(rotated["site_hump"], (humps["site_hump"] + 37) % 100)
+    np.testing.assert_array_equal(rotated["time_hump"], humps["time_hump"])
+    mirrored = sim.localize(theta0[:, ::-1], P, ("hump",))
+    np.testing.assert_array_equal(mirrored["site_hump"], 99 - humps["site_hump"])
+    np.testing.assert_array_equal(mirrored["time_hump"], humps["time_hump"])
+
+
+def test_hump_label_does_not_depend_on_the_step_size_and_fires_near_v1s_time(runs, humps):
+    theta0, labels = runs
+    fine = sim.localize(theta0, sim.Params(dt=0.025), ("hump",))
+    for key in humps:
+        np.testing.assert_array_equal(fine[key], humps[key])
+    assert (humps["site_hump"] >= 0).all()
+    assert abs(np.median(humps["time_hump"] - labels["time_right"])) <= 2.0  # the threshold was set to match
+
+
+def test_damped_hump_label_matches_running_each_chain_alone():
+    _, theta0 = data.initial_conditions(4, seed=11)
+    gamma = np.array([0.0, 1e-3, 0.0, 3e-3])
+    together = sim.localize(theta0, P, ("avg", "hump"), gamma=gamma)
+    for i, g in enumerate(gamma):
+        alone = sim.localize(theta0[i:i + 1], P, ("avg", "hump"), gamma=g)
+        for key in together:
+            np.testing.assert_array_equal(together[key][i:i + 1], alone[key])
+    assert (together["site_hump"][gamma <= 1e-3] >= 0).all()  # at 3e-3 this chain never localizes on any label

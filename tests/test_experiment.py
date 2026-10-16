@@ -13,14 +13,15 @@ def pools(tmp_path_factory):
     cache goes to a temporary folder."""
     cache, views.CACHE = views.CACHE, tmp_path_factory.mktemp("cache")
     _, theta0 = data.initial_conditions(4, seed=11)
-    pool = {"theta0": theta0, "meta": {}, **sim.localize(theta0)}
+    labels = sim.LABELS + sim.EXTRA_LABELS
+    pool = {"theta0": theta0, "meta": {}, **sim.localize(theta0, labels=labels)}
     flipped = np.ascontiguousarray(theta0[:, ::-1])
-    mirrored = {"theta0": flipped, "meta": {}, **sim.localize(flipped)}
+    mirrored = {"theta0": flipped, "meta": {}, **sim.localize(flipped, labels=labels)}
     yield pool, mirrored
     views.CACHE = cache
 
 
-@pytest.mark.parametrize("label", ["right", "avg"])
+@pytest.mark.parametrize("label", ["right", "avg", "hump"])
 def test_mirror_augmentation_adds_the_mirror_image_runs(pools, label):
     pool, mirrored = pools
     cfg = {"view": VIEW, "loss": {"time": 0.1}, "label": label}
@@ -74,3 +75,12 @@ def test_phase8_reuses_phase6_runs_and_leaves_earlier_config_ids_unchanged():
     assert controls and {experiment.config_id(c) for c in controls} <= phase6
     others = {experiment.config_id(c) for c in phase8 if c not in controls}
     assert len(others) == len(phase8) - len(controls) and not others & phase6
+
+
+def test_phase9_is_the_avg_label_run_on_the_hump_label():
+    # matched comparison: the same final recipe and seeds as Phase 6's final_avg_label, only the target changes
+    avg = [c for c in ablations.phase6() if c["name"] == "final_avg_label"]
+    hump = ablations.phase9()
+    assert len(hump) == len(avg) == 3
+    for a, h in zip(avg, hump):
+        assert h == dict(a, label="hump", phase=9, name="final_hump_label", note=h["note"])
