@@ -242,10 +242,14 @@ LR_FROM_RANGE_TEST = {"adamw_max": 2.3e-3, "sgd": 0.03, "lion": 7.9e-4}
 PLAIN = {"model": BASE["model"], "view": V1_INFO, "loss": {"kind": "ce"}, "optim": BASE["optim"]}
 
 
+def final_recipe():
+    """The assembled v2 model: the winners of Phases 2-5, back at the full 30-epoch budget."""
+    full = dict(OPTIM, steps=STEPS * 256 // OPTIM.get("batch_size", 256))
+    return merge(BASE, {"model": ARCH, "view": VIEW, "loss": LOSS, "optim": full})
+
+
 def phase6():
-    full = dict(OPTIM, steps=STEPS * 256 // OPTIM.get("batch_size", 256))  # back to the full 30-epoch budget
-    final = merge(BASE, {"model": ARCH, "view": VIEW, "loss": LOSS, "optim": full})
-    t = Table(final, 6)
+    t = Table(final_recipe(), 6)
     three = (0, 1, 2)
     t.add("final", "v2_final", "Q5: the assembled v2 model (winners of Phases 2-5)", (0, 1, 2, 3, 4))
     # leave one choice out at a time (only choices the final model actually makes)
@@ -313,5 +317,43 @@ def phase6_label():
     return [c for c in phase6() if c["group"] == "label"]
 
 
+class BothLabels(Table):
+    """A Table that adds every config twice: on the swing-averaged label, and on v1's label as the matched
+    control. The control has no label key, so a v1-label run Phase 6 already made has the same config id
+    and is reused, not repeated."""
+
+    def add(self, group, name, note, seeds=(0, 1), **override):
+        super().add(group, f"{name}_avg", f"{note}; trained and tested on the swing-averaged label", seeds,
+                    label="avg", **override)
+        super().add(group, f"{name}_v1label", f"{note}; v1's label (matched control)", seeds, **override)
+
+
+def phase7():
+    """Phases 2-6 chose inputs, architecture and loss on v1's label, which jitters by 1-3 sites within a swing
+    (Phase 6). Do those choices still hold on the swing-averaged label? Final recipe, full budget, 3 seeds."""
+    t = BothLabels(final_recipe(), 7)
+    three = (0, 1, 2)
+    # Q1: in clean data every input set carries the same initial state, and on v1's label the inputs cost
+    # little (v1's inputs +0.02). With the jitter gone the error floor drops from 1.49 to 0.58, so smaller
+    # differences between input sets can show.
+    t.add("inputs", "v1_inputs", "Phase 7 / Q1: final recipe on v1's inputs (energy frames + theta(0))", three,
+          view=V1_INFO)
+    t.add("inputs", "angle_frames", "Phase 7 / Q1: final recipe (angles at tau = 0..4.5)", three)
+    t.add("inputs", "theta0_only", "Phase 7 / Q1: final recipe on theta(0) alone, one frame", three,
+          view={"channels": ["theta"], "frames": [0], "theta0": False})
+    # H2.2: the growing modes are the ring's five longest waves whichever label marks the hotspot, so a site
+    # should still need to see the whole ring. Same dilation patterns as Phase 2's receptive_field group.
+    for rf, dil in ((17, [1, 2, 4, 1]), (33, [1, 2, 4, 8, 1]), (129, ARCH["dilations"])):
+        t.add("receptive_field", f"rf{rf}", f"Phase 7 / H2.2: final recipe, circular stack seeing {rf} sites "
+              f"(kernel 3, dilations {dil})", three, model={"dilations": dil})
+    # H3.2: on v1's label soft labels raised +-1 from 65% to 77%, by placing predictions between the sites the
+    # label jitters between. Without the jitter that gain should shrink.
+    t.add("soft_labels", "soft_on", "Phase 7 / H3.2: final recipe (soft labels, sigma 1)", three)
+    t.add("soft_labels", "soft_off", "Phase 7 / H3.2: final recipe with hard labels (other loss terms kept)", three,
+          loss={"soft_sigma": 0.0})
+    add_deploy(t)
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
-          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label}
+          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase7": phase7}
