@@ -4,21 +4,110 @@
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 600 training runs, 44 GPU-hours on a laptop.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 600 training runs, 44 GPU-hours on a laptop. Negative results are listed alongside the positive ones.
 
-- **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%.
-  - The label explains part of the gap: which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing.
-  - On a swing-averaged label, the rebuilt v1 reaches 83.6%.
-- **v2 halves v1's error with 1/1,163 of the parameters.** It is a whole-ring dilated circular CNN with 22,786 parameters, trained in 6 minutes.
-  - Mean distance 1.49 vs 3.14; within ±1, 77% vs 60%; within ±3, 97% vs 90%.
-  - It beats v1 with 60 times less data, and also predicts *when* localization happens (1.5% median error).
-- **Where the energy hump forms is predictable.** On a label at the hump's scale, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27; 0.25 with hard labels), with as early a warning as v1's label. On the swing-averaged label it is 96% (0.58).
-- **Physics explains what matters.**
-  - The network must see the whole ring, because the growing modes are its five longest waves.
-  - Waiting divides sensor noise by the Floquet growth of the unstable modes: each 10× worse sensor costs about 25 time units of waiting on either label, as their mean growth rate predicts (24.8), not 19.5 as the fastest mode alone would.
-  - Robustness to wrong parameters follows the growth spectrum.
-  - One pendulum 1% weaker pins the hotspot, and v2 learns to find it from the motion alone.
-- **For a real chain:** one camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, against 3.14 for v1 with perfect data. On the hump label it is within ±1 of where the hump forms in 97% of runs, and in 98% when it may name a second site.
+### How v2 locates the hotspot
+
+1. **Watch** the angle of every pendulum (every 2nd is enough) in 10 frames over the first 4.5 time units after release: one camera at 30–60 frames per second.
+2. **Read** the frames with a whole-ring dilated circular CNN: 7 convolutions with kernel 3, dilations 1-2-4-8-16-32-1 and width 32, so every pendulum's features see the whole ring. The same filters apply at every pendulum, and a small head gives one score per pendulum (22,786 parameters).
+3. **Answer** with the most likely pendulum from the resulting probability over the ring. Optionally add a second site when the model gives a rival hump 5% or more, or name the smallest set of sites holding 90% of the probability. A second head predicts when localization happens.
+4. **Target.** For the comparison with v1, the label is v1's: the first pendulum whose instantaneous energy passes 10% of the total. The recommended target is the hump label: at the first moment the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, the centre of those 3. It fires as early as v1's label and is predicted far better.
+
+### v1, and what this work corrects
+
+- **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%, and one of three seeds never trained.
+  - The label explains part of the gap. Which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing; on a swing-averaged label the rebuilt v1 reaches 83.6%, about two-thirds of the way to 94.4%.
+  - Without the original code this is a consistency check, not proof. Train/test overlap, or a detail the paper does not specify, could explain the rest.
+- **The paper's code and text disagree in places.**
+  - The global coupling is h̃ = 0.5 in all code, not 0.05 as printed; the Floquet analysis confirms 0.5.
+  - The figures' time axes are sample indices, so localization happens at τ ≈ 57, not 100.
+  - Each spring's energy is booked to one neighbour, which moves the labelled site in 21% of runs.
+  - The input scaler was fit before the train/test split (minor leakage).
+- **A vectorized simulator** gives the paper pipeline's exact labels on 1,000 of 1,000 runs, about 100 times faster.
+
+### Physics of the instability
+
+- **The uniform swing becomes unstable at A_c = 1.577.** At A = 1.75 only the five longest waves grow, the fastest by a factor of e every 8.4 time units, so v1's input window sees at most about 2× growth.
+- **The best smoothing width is the Floquet band edge**, K* = N/m_c. It matches measurements at seven amplitudes, including the paper's empirical 17 at A = 1.75.
+- **The outcome is deterministic.** 10⁻⁶ rad of initial error never changes the site, so the limit is measurement precision, not chaos; 10⁻³ rad moves a quarter of the labels. The coarse answer lives in the five growing modes, and local detail decides the last site or two.
+- **Physics alone gets far.** A training-free Floquet filter matches the rebuilt v1 (3.12 vs 3.14 mean distance), and a 200-parameter learned linear ring filter beats it (2.17).
+
+### Architecture (Q2)
+
+- **Each pendulum must see the whole ring.** Widening the receptive field from 9 to 129 pendulums takes the error from 4.79 to 1.54. In the final model, losing it costs 1.1 sites, losing circular padding 0.9, and losing the one-score-per-site head 0.3.
+- **The ring's symmetry saves data.** The symmetric model trained on 1,000 runs beats a v1-style dense head trained on 60,000.
+- **Small models suffice.** Models from 2k to 115k parameters land within 1.68–2.01.
+- **What did not pay off:**
+  - A recurrent network over each pendulum's frames helps a small CNN, but the whole-ring CNN ties it without one, so v1's LSTM is unnecessary.
+  - A global Fourier branch beats a local CNN on its own, but adds nothing to the dilated stack.
+  - Feeding the Floquet-evolved field as an input does not help, even with little data.
+
+### Inputs and sensing (Q1)
+
+- **Angles are the best input.** Energies never beat them, and they need velocities and the model's parameters to compute. The initial angles alone hold the full state, but a few frames make it easier to learn.
+- **An unknown start point in the swing** needs about one full swing of angle frames, or one frame of energies.
+- **Noise first causes far misses**, a wrong hump rather than a one-site slip. A camera is fine up to about 10⁻³ rad when watching from release.
+- **Waiting divides sensor noise by the growth of the unstable modes.**
+  - Each 10× worse sensor costs about 25 time units of waiting, on either label, as the mean growth rate of the five growing modes predicts (24.8). The fastest mode alone would predict 19.5.
+  - Single-frame setups gain less from waiting (30–34 time units per 10×).
+- **Sparse sensors:** every 2nd pendulum costs nothing and every 4th a little. Every 8th fails even though it satisfies Nyquist, because the stable modes alias onto the growing ones.
+- **Without noise, waiting helps only on v1's jittery label**; where the energy settles can already be read at release.
+
+### Loss (Q3) and optimizer (Q4)
+
+- **On v1's label, soft labels win** by hedging between the sites the label jitters between: within ±1 rises from 65% to 77%. On the swing-averaged label they stop mattering, and on the hump label hard labels win.
+- **Circular regression does worst**, because it averages rival humps.
+- **An expected-distance term and v1's "localizes" head add nothing**; a time head helps slightly.
+- **No optimizer beats AdamW + cosine** beyond seed noise, and v1's constant-rate Adam does as well. SGD failed to train at the one learning rate tried, batch 1024 trains twice as fast at equal accuracy, and weight decay makes no difference.
+
+### The final model (Q5)
+
+- **v2 halves v1's error with 1/1,163 of the parameters.**
+  - Mean distance 1.49 vs 3.14; within ±1, 77% vs 60%; within ±3, 97% vs 90%; more than 10 sites off, 1.5% vs 5.7%.
+  - It trains in 6 minutes, about 4 times faster, with six times less spread between seeds.
+- **It beats v1 with 60 times less data** (2.42 from 1,000 runs). More data helps only a little past 60,000 runs (1.44 at 100,000).
+- **It predicts when localization happens** to a 1.5% median error. But the amplitude alone gives 5.0%, and linear Floquet clocks only 4.1%, so the timing is mostly an amplitude trend; it comes for free.
+- **Its probabilities give prediction sets.** About 5.6 sites contain the true site 98% of the time; the sets are conservative.
+
+### The target: one pendulum or a hump
+
+- **The hotspot is a hump about 8 pendulums wide.** It stays put for about a swing, then drifts, and about 1 run in 6 has a rival hump with at least half its energy.
+- **Most of v2's error on v1's label is the label's own jitter.**
+  - On the swing-averaged label, v2 reaches 0.58 (96.4% within ±1).
+  - Splitting each spring evenly without averaging over a swing does not help.
+- **The hump label is the best target:** 0.27, with 99.4% within ±1. It fires as early as v1's label.
+  - Reading it when the hump forms and locating it by a 3-pendulum centre each gain about half of its edge over the swing-averaged label.
+  - Adding a second site in the 2.3% of runs where the model sees a rival raises within ±1 to 99.8%.
+- **The same design choices win on the cleaner labels**, often by more. Seeing the whole ring and using angle frames matter more there: v1's label adds 0.6–1.0 sites of jitter error to every model, which hides part of each difference.
+
+### Regularization
+
+- **At 60,000 runs v2 barely overfits** (train 1.35, test 1.49). The ring symmetry does the job: v1 (1.62 vs 3.00) and a v1-style dense head (1.06 vs 1.80) overfit.
+- **With little data it does, and the usual penalties fail.** Weight decay up to 10⁻¹ changes nothing, and dropout makes every size worse.
+- **What works with little data:**
+  - Mirror images of each run, the one ring symmetry the network does not build in, are worth about twice the data.
+  - Shorter schedules help, and weight decay 1 helps once mirror images slow the overfitting.
+  - Combined, the remedies are worth 2–4 times the data: 1k runs 2.42 → 2.04, 3k 2.07 → 1.75, 10k 1.80 → 1.63.
+  - At 60,000 runs mirror images add nothing.
+
+### Robustness
+
+- **Damage follows the Floquet spectrum.**
+  - A 10% error in the neighbour coupling, or twice the initial spread, leaves the spectrum alone and costs v2 about half a site.
+  - A 10% error in the global coupling changes the growth rates (+21% / −33%) and costs both models 3–4 sites.
+- **Other chain lengths:** v2 handles 80 pendulums (1.31) without retraining, but degrades at 150 (6.3). v1 cannot take other lengths at all.
+- **Sensor noise:** even untrained for it, v2 at 10⁻³ rad (2.26) beats the noise-free v1 (3.14); trained with the noise, it reaches 1.72.
+- **Impurities:** one pendulum 1% weaker pins the hotspot and defeats both models trained on uniform chains (mean distance 19–23). Trained with impurities, v2 finds the weak pendulum from the motion alone (1.06), and a measured map of the chain adds nothing.
+- **Damping:**
+  - Nearly every release localizes only if the chain's quality factor is about 1,000 or more; at Q = 330, 71% do, and at Q = 100 none do. The Floquet growth rate predicts the delay.
+  - Trained on damped chains, v2 still warns early (0.84 at Q = 330). A "localizes" head says from the first 4.5 time units whether a run will localize at all (99.5% right).
+
+### For a real chain
+
+- **One camera tracking every 2nd pendulum to 10⁻³ rad, predicting right after release**, scores 1.93, against 3.14 for v1 with perfect data. On the hump label it is within ±1 of where the hump forms in 96.8% of runs, and in 98.3% when it may name a second site.
+- **A coarser camera should start watching about 11·ln(σ_s / 10⁻³) time units later**, where σ_s is its noise. A 10⁻² rad camera catches up when it starts at τ ≈ 25–26, leaving about 3.6 s of warning for a 20 cm pendulum.
+- **Energies at τ = 30** are the most accurate on v1's label (1.24), but they need gyroscopes, and their edge vanishes on the cleaner labels.
+- **Still open** (Sec. 12): a real chain's damping law, small differences at every pendulum, a range of the global coupling, and a bench-top test.
 
 ## 1. Motivation and what v1 did
 
