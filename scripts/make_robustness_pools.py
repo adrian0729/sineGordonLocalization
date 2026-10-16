@@ -10,6 +10,9 @@ model (g = 0.75, h = 0.5) when they compute energies.
 - impurity1: one pendulum per run with a 1% weaker gravity term at a random site (paper Sec. 3.5)
 - impurity_train / impurity_val / impurity_test: impurity strength U(0, 2%) at a random site,
   for training a model that is given a calibration map of the chain
+- gamma0 ... gamma1e-2: linear damping gamma (per time unit; quality factor Q = 1 / gamma) from 0
+  to 1e-2. All six share one set of initial conditions, so their differences are damping alone.
+- damped_train / damped_val / damped_test: gamma log-uniform in [1e-4, 1e-2], one value per run
 """
 import argparse
 import json
@@ -36,6 +39,11 @@ CONDITIONS = {
     "impurity_train": dict(size=60_000, seed=309, impurity=(0.0, 0.02)),
     "impurity_val": dict(size=10_000, seed=310, impurity=(0.0, 0.02)),
     "impurity_test": dict(size=10_000, seed=311, impurity=(0.0, 0.02)),
+    **{f"gamma{name}": dict(size=5000, seed=312, damping=(gamma, gamma))
+       for name, gamma in (("0", 0.0), ("1e-4", 1e-4), ("3e-4", 3e-4), ("1e-3", 1e-3), ("3e-3", 3e-3), ("1e-2", 1e-2))},
+    "damped_train": dict(size=60_000, seed=313, damping=(1e-4, 1e-2)),
+    "damped_val": dict(size=10_000, seed=314, damping=(1e-4, 1e-2)),
+    "damped_test": dict(size=10_000, seed=315, damping=(1e-4, 1e-2)),
 }
 
 
@@ -43,8 +51,7 @@ def make(name, spec, workers):
     params = spec.get("params", sim.Params())
     n_sites = spec.get("n_sites", 100)
     A, theta0 = data.initial_conditions(spec["size"], spec["seed"], n_sites=n_sites, noise=spec.get("noise", data.NOISE))
-    onsite = None
-    extra = {}
+    onsite, gamma, extra = None, 0.0, {}
     if "impurity" in spec:
         rng = np.random.default_rng(spec["seed"] + 1000)
         site = rng.integers(0, n_sites, spec["size"])
@@ -52,10 +59,17 @@ def make(name, spec, workers):
         onsite = np.ones((spec["size"], n_sites))
         onsite[np.arange(spec["size"]), site] -= eps
         extra = {"impurity_site": site.astype(np.int16), "impurity_eps": eps, "onsite": onsite.astype(np.float32)}
+    if "damping" in spec:  # one gamma per run: fixed, or log-uniform between the two bounds
+        lo, hi = spec["damping"]
+        rng = np.random.default_rng(spec["seed"] + 2000)
+        gamma = np.full(spec["size"], lo) if lo == hi else np.exp(rng.uniform(np.log(lo), np.log(hi), spec["size"]))
+        extra["gamma"] = gamma  # float64, exactly the values simulated
     start = time.time()
-    labels = data.localize_parallel(theta0, params, chunk=500, workers=workers, labels=("right", "avg"), onsite=onsite)
+    labels = data.localize_parallel(theta0, params, chunk=500, workers=workers, labels=("right", "avg"), onsite=onsite,
+                                    gamma=gamma)
     meta = {"name": name, "size": spec["size"], "seed": spec["seed"], "n_sites": n_sites,
-            "noise": spec.get("noise", data.NOISE), "impurity": spec.get("impurity"), "params": asdict(params),
+            "noise": spec.get("noise", data.NOISE), "impurity": spec.get("impurity"), "damping": spec.get("damping"),
+            "params": asdict(params),
             "seconds": round(time.time() - start, 1), "created": time.strftime("%Y-%m-%d %H:%M")}
     np.savez(ROOT / "data" / f"robust_{name}.npz", A=A, theta0=theta0, meta=json.dumps(meta), **labels, **extra)
     print(f"{name}: {spec['size']} runs in {meta['seconds']} s, localized {np.mean(labels['site_right'] >= 0):.1%}, "

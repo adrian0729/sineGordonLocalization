@@ -192,7 +192,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
   - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, the noise relative to the grown signal.
   - Each 10× worse sensor costs about 20 time units of waiting; the prediction was ln 10 / σ₁ = 19.5.
 - **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window, and gain less from waiting.
-- **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate.
+- **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate. Most of that gain belongs to v1's label: on the swing-averaged label, waiting until τ = 30 gains only 0.03 (Sec. 10).
 - Watching from τ = 30 still leaves a median of 21.5 time units of warning (about 3 s for a 20 cm pendulum). The earliest test run localizes at τ = 37.
 
 ### Fewer sensors
@@ -305,7 +305,7 @@ v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why th
 
 - **The ring's physics carries the architecture.** Seeing the whole ring is worth 1.1 sites, since the growing modes are the five longest waves. Circular padding is worth 0.9: the ring has no ends, and the hotspot can form anywhere. One score per site is worth 0.3, with a tenth of the parameters.
 - **The loss sets ±1 more than the mean distance.** At the full budget, plain cross-entropy or hard labels cost only 0.04–0.08 in mean distance, but ±1 falls from 77% to 64–65%. Soft labels place predictions between the two candidate sites of the jittery label (see below).
-- **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7).
+- **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7) and on the swing-averaged label (below).
 
 ### Regularization: why v2 adds so little
 
@@ -351,15 +351,20 @@ Mean distance on the 60,000 training runs, against the test pool:
 
 ### When, as well as where
 
-The time head was added only as a training aid (H3.4), but it is accurate on its own ([results/time_head.json](../results/time_head.json); test pool):
+The time head was added only as a training aid (H3.4). Is the time worth predicting, or is it just a trend in the parameters? The predictors below go from the simplest rule to the network ([results/hotspot_timing.json](../results/hotspot_timing.json), `scripts/hotspot_timing.py`; test pool):
 
-| Predictor of the localization time | Median error | Within 10% |
-|---|---|---|
-| A constant (the training median, τ = 55) | 13.4% (7.0 time units) | 39.7% |
-| The amplitude alone (median time in each amplitude bin) | 5.1% (3.0) | 83.0% |
-| **v2 time head (5 seeds)** | **1.5% (0.8)** | **99.4%** |
+| Predictor of the localization time | Median error | Within 10% | Log-time variance explained |
+|---|---|---|---|
+| A constant (the training median, τ = 55) | 13.4% (7.0 time units) | 39.7% | 0% |
+| The amplitude A alone (cubic fit) | 5.0% (2.7) | 82.9% | 82% |
+| Floquet clock: the five growing modes' initial size, grown at their own rates until order one | 4.2% (2.3) | 90.7% | 88% |
+| Floquet peak clock: the same, stopped when the tallest bump of the summed modes reaches 1 rad | 4.1% (2.2) | 94.3% | 89% |
+| **v2 time head (5 seeds)** | **1.5% (0.8)** | **99.4%** | |
 
-From 4.5 time units of observation, v2 predicts when localization will happen to within about 0.8 time units (0.12 s for a 20 cm pendulum), roughly 50 time units ahead.
+- **Most of the timing is a trend in the amplitude.** A larger swing makes the unstable modes grow faster, so it localizes sooner. The amplitude alone explains 82% of the variance of the log-time.
+- **Linear Floquet physics adds little.** Growing the actual initial noise in the five unstable modes, even accounting for how the modes line up in space, only takes the error from 5.0% to 4.1%.
+- **The network is about three times more precise**, so the noise pattern carries real timing information beyond the linear stage, presumably from the nonlinear focusing of the hump. In absolute terms the gain is small: 2.7 → 0.8 time units, or 0.4 s → 0.12 s for a 20 cm pendulum.
+- **"When" is not a research target of its own.** As a training aid it barely helps the site (removing it costs 0.02). As an output it is free. For most uses the amplitude rule is enough; the network's timing matters only if warnings need sub-second precision. v2 keeps the head because it costs nothing.
 
 ### What is left of the error is mostly the label's own jitter
 
@@ -382,6 +387,65 @@ Same inputs, architecture and training; only the target changes (test pool; seed
 - **Most of v2's remaining error on v1's label is the label's own jitter**, not a failure to predict where the energy goes.
 - **The rebuilt v1 also gains** from the averaged label (60.4% → 83.6% within ±1), but stays far behind v2 on the same target (Sec. 2 discusses what this means for the reproduction gap).
 - For applications, the swing-averaged label is the better target.
+
+### Is one pendulum the right target?
+
+What the hotspot looks like at the moment v1's label fires (2,000 test runs; [results/hotspot_timing.json](../results/hotspot_timing.json)):
+
+| Property | Median (10th–90th percentile) |
+|---|---|
+| Energy on the top pendulum, instantaneous | 10.3% (10.1–10.9%): just past the threshold, by definition |
+| Energy on the top pendulum, averaged over a swing | 5.5% (4.8–6.9%) |
+| Energy on the top 3 pendulums, averaged over a swing | 16% (14–20%) |
+| Width of the swing-averaged hump at half height | 8 pendulums (6–9) |
+| How far the hump moves over the next swing (8 time units) | 0 sites (within ±1 in 88% of runs) |
+| How far it moves over the next 30 time units | 6 sites (more than 5 in 50% of runs) |
+| A rival hump at least 5 sites away with half the energy or more | 18% of runs (7% with 80% or more) |
+
+- **The hotspot is a hump about 8 pendulums wide, not one pendulum.** Averaged over a swing, its top pendulum holds about 5% of the energy (five times its 1% share in the uniform swing). The 10% on a single pendulum is the instantaneous peak of a breathing hump.
+- **The hump is well placed when it forms, then drifts.** It stays put for about a swing, but within 30 time units half of the humps have moved more than 5 sites.
+- **About one run in six has a rival hump** with at least half the energy. In those runs, any single-site answer is a guess between two places.
+
+**The best way to frame the target**, given these facts:
+1. **Predict the hump's centre when it forms**, not the first pendulum over 10%. That is the swing-averaged label above: 96.4% within ±1.
+2. **Keep the output a probability over all pendulums** rather than one regressed position. Regression averages rival humps (circular regression did worst, Sec. 8), while a distribution keeps both and gives prediction sets (below).
+3. **Optionally predict the hump's shape** as a per-site energy profile. The profile head tied for best in Sec. 8, and it gives the width and any rival hump for free.
+4. **Score by ring distance and calibration** (mean distance, ±1 / ±3, coverage of prediction sets), not by exact-site accuracy.
+5. **Define the event at the hump's scale**, for example when the swing-averaged energy of 3 neighbouring pendulums first passes a threshold. This is untested, and is listed as a next step.
+
+### The same choices win on the swing-averaged label
+
+Every choice in Secs. 6–9 was made on v1's jittery label. Phase 7 repeats the key ones on the swing-averaged label. Each run is the final recipe at the full budget with one choice changed, beside a matched control on v1's label ([Fig. 19](../figures/fig19_avg_label_ablations.png); 3 seeds; test pool; Δ against the final recipe on the same label, ± its standard error):
+
+| Final recipe, but … | v1's label | Δ | Averaged label | Δ | ±1, v1's / averaged |
+|---|---|---|---|---|---|
+| nothing (the final recipe, seeds 0–2) | 1.50 | | 0.58 | | 76.9% / 96.4% |
+| v1's inputs (energy frames + θ(0)) | 1.51 | +0.01 ± 0.02 | 0.62 | +0.04 ± 0.01 | 76.4% / 95.7% |
+| θ(0) only | 1.52 | +0.01 ± 0.02 | 0.68 | +0.11 ± 0.02 | 74.5% / 95.0% |
+| sees 33 sites, not the whole ring | 1.70 | +0.19 ± 0.02 | 0.70 | +0.12 ± 0.02 | 70.9% / 93.8% |
+| sees 17 sites | 2.37 | +0.87 ± 0.02 | 1.77 | +1.20 ± 0.01 | 61.2% / 78.2% |
+| hard labels (other loss terms kept) | 1.53 | +0.03 ± 0.02 | 0.59 | +0.01 ± 0.01 | 65.3% / 96.2% |
+
+- **Seeing the whole ring matters even more.** With 17 sites the error triples on the averaged label, against ×1.6 on v1's label. The growing modes are the five longest waves, whichever label marks the hotspot.
+- **The inputs now matter.**
+  - On v1's label the three input sets tie.
+  - On the averaged label, angle frames beat v1's inputs by 8% of the error, and θ(0) alone by 19%.
+  - θ(0) holds the whole initial state, but the frames make it easier to learn (Sec. 7).
+- **Soft labels stop mattering.** On v1's label they raise ±1 from 65% to 77%, by hedging between the sites the label jitters between. On the averaged label, hard labels do as well (96.2% vs 96.4% within ±1).
+- **v1's label understates the choices.** Its jitter adds 0.6–1.0 sites of error to every model, which hides part of each difference.
+
+The recommended setups (Sec. 11) keep their order:
+
+| Setup (final recipe) | v1's label | Averaged label | ±1, v1's / averaged |
+|---|---|---|---|
+| Every pendulum, noise-free, τ = 0…4.5 | 1.50 | 0.58 | 76.9% / 96.4% |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 1.18 | 72.6% / 92.9% |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 1.27 | 72.6% / 91.2% |
+| Energies at τ = 30, noise-free | 1.24 | 0.55 | 82.4% / 96.3% |
+
+- **The cheap camera is within ±1 of where the energy settles in 93% of runs**, predicting right after release.
+- **Noise doubles the error on the averaged label**, against ×1.3–1.4 on v1's label. Noise picks the wrong hump (Sec. 7), and no label removes those misses.
+- **Without noise, waiting no longer pays.** Energies at τ = 30 beat the final recipe by 0.27 on v1's label, but by only 0.03 ± 0.01 on the averaged label. Watching later mostly helps predict the moment in the swing at which v1's label fires; where the energy settles can already be read at release.
 
 ### A set of sites instead of one
 
@@ -451,6 +515,36 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Trained with impurities, v2 finds the weak pendulum from the motion alone.** A weaker pendulum swings slightly slower and falls behind its neighbours. With an impurity, v2 is more accurate than on uniform chains (1.06 vs 1.49), since the impurity makes the outcome less random.
 - **A measured map of every pendulum adds nothing** beyond seed noise (1.05 vs 1.06). For a single impurity of this size, 4.5 time units of angles already reveal it. Chains with small differences at every pendulum remain untested (Sec. 12).
 
+### Damped chains
+
+(Linear damping −γ dθ/dτ, so a free pendulum's quality factor is Q = 1/γ. Six pools of 5,000 runs share their initial conditions and differ only in γ. Sites are scored over the runs that localize by τ = 150. [Fig. 20](../figures/fig20_damping.png); [results/headline.md](../results/headline.md))
+
+| Q (γ) | Swing's 1/e decay, 20 cm pendulum | Localize by τ = 150 | Median delay | v1 rebuilt, trained undamped | v2 final, trained undamped | v2 recipe, trained on damped chains |
+|---|---|---|---|---|---|---|
+| ∞ (0) | never | 100% | – | 3.22 | 1.56 | 1.55 |
+| 10,000 (10⁻⁴) | 48 min | 100% | 0 | – | 1.49 | 1.53 |
+| 3,300 (3×10⁻⁴) | 16 min | 100% | +1 | – | 1.49 | 1.44 |
+| 1,000 (10⁻³) | 4.8 min | 99.9% | +3 | 5.43 | 2.48 | 1.19 |
+| 330 (3×10⁻³) | 95 s | 71% | +9 | 12.4 | 4.92 | 0.84 |
+| 100 (10⁻²) | 29 s | 0% | – | – | – | – |
+
+- **Damping decides whether the energy localizes at all.**
+  - The uniform swing decays toward A_c, and a run localizes only if its perturbation has grown enough before then.
+  - At Q ≥ 1,000 almost every run localizes, a few time units late. At Q = 330 only swings released above A ≈ 1.71 do. At Q = 100 none do: the swing falls below A_c within 18 time units (2.5 s).
+  - A run that misses τ = 150 does not localize later (checked to τ = 600).
+- **The Floquet spectrum predicts the delay.** Undamped runs follow T₀ = 5.1/σ(A₀) + 11: about 5 e-folds of linear growth, then about 11 time units of nonlinear focusing.
+  - Integrating the growth rate along the decaying swing predicts the median delay: +3.8 vs +3.0 measured at Q = 1,000, and +9.3 vs +9.0 at Q = 330.
+  - It predicts too few survivors at Q = 330 (41% vs 71%). 42% of the survivors finish localizing after the swing has dropped below A_c, so a perturbation that is already large keeps focusing without the linear instability.
+- **Trained undamped, v2 tolerates Q ≥ 3,000 at no cost.**
+  - At Q = 1,000 its error grows to 2.48, still well ahead of v1 (5.43).
+  - Most of that comes from the inputs, not the outcome. Fed the same runs' undamped frames, v2 scores 1.68 against the damped outcome. A slowly decaying swing looks unlike any training run.
+- **Trained on damped chains (Q from 100 to 10,000), early warning survives, and gets better with damping.**
+  - The retrained recipe loses nothing on undamped chains (1.55 vs 1.56). It reaches 1.19 at Q = 1,000 and 0.84 at Q = 330 (92% within ±1).
+  - Near the threshold fewer and longer ring modes grow (4–6 when the run localizes undamped, 0–3 at Q = 330), so the site depends less on local detail.
+  - A "does it localize" head tells from the first 4.5 time units whether a run will localize at all. On the damped test pool it is right 99.5% of the time (false alarms on 1.4% of the runs that do not localize), and it costs nothing on the site.
+  - On the swing-averaged label the retrained recipe reaches 0.50 (97% within ±1) on the damped test pool.
+  - The recommended camera (every 2nd pendulum, 10⁻³ rad) scores 1.82 on the damped test pool, against 1.93 on undamped chains.
+
 ### The recommended setups, at full budget
 
 ([results/headline.md](../results/headline.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
@@ -465,25 +559,29 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 - **A realistic, cheap setup works.** One camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, well ahead of the noise-free v1 (3.14).
 - **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](../figures/fig17_warning_tradeoff.png)).
-- **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning.
+- **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning. On the swing-averaged label their edge nearly vanishes (0.55 vs 0.58, Sec. 10).
 
 ## 12. Limitations and next steps
 
 ### Limitations
 
 - **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
-- **Simulation only, without damping.** Real pendulums lose energy to friction and air drag. A damped uniform swing drifts toward the instability threshold (A_c = 1.577), and below it nothing localizes. This study keeps the paper's conservative model.
+- **Damping is simulated as linear and the same at every pendulum.** Real pendulums lose energy to bearing friction, which is partly a constant (Coulomb) torque, and to air drag, which grows with the square of the speed. No two pendulums lose energy at quite the same rate.
+  - With linear damping, nearly every release (A = 1.65–1.85) localizes only if the chain's quality factor is about 1,000 or more. For 20 cm pendulums, that means the swing takes at least 5 min to decay by 1/e (Sec. 11).
+  - At Q ≈ 300, 29% of releases never localize, and at Q = 100 none do.
+  - Trained with damping, v2 still warns early and says whether a run will localize. But a real chain's Q and damping law must be measured first, and a chain with much lower Q would need a drive to replace the lost energy.
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target, but it was tested only on the final recipe and on v1, not through every phase.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target. The inputs, receptive field, soft labels and recommended setups were re-tested on it (Sec. 10), but the noise-and-timing grid, the sparse sensors and the optimizer were not.
 
 ### Next steps
 
-1. Add damping to the simulator, retrain, and test whether early warning survives.
+1. Measure a real chain's quality factor and damping law (linear, Coulomb or quadratic), and retrain with the measured law. Linear damping is done (Sec. 11): trained with damping, v2 warns early wherever the energy still localizes, but below Q ≈ 1,000 a growing share of releases never localize.
 2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
-6. Repeat the input and architecture choices on the swing-averaged label.
-7. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
+6. Repeat the noise-and-timing grid (Sec. 7) on the swing-averaged label. There, waiting helps only against noise (Sec. 10), so the grid would measure the Floquet trade-off without the label's own dependence on time.
+7. Define localization at the hump's scale (for example, 3 neighbouring pendulums over a swing), and let the model name a second site when a rival hump competes (Sec. 10).
+8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.

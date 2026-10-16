@@ -86,3 +86,38 @@ def test_evolve_frames_match_the_v1_input_layout():
     np.testing.assert_allclose(x[:, :, :, 1], np.repeat(theta0[:, None, :], 10, axis=1), rtol=1e-6)
     theta, omega = sim.evolve(theta0, 10, P)
     np.testing.assert_allclose(x[..., 0], sim.site_energy(theta, omega, P.g, P.h, "right"), rtol=1e-6)
+
+
+def test_damping_removes_exactly_gamma_times_the_kinetic_integral():
+    # dE/dtau = -gamma * sum(omega^2) for linear damping, so the energy lost over a run must match
+    # gamma times the integral of sum(omega^2), here over tau = 0 .. 40 with gamma = 1e-2
+    from scipy.integrate import simpson
+    gamma, sample = 1e-2, 0.1
+    _, theta0 = data.initial_conditions(4, seed=5)
+    theta, omega = sim.evolve(theta0, 401, sim.Params(sample=sample), gamma=gamma)
+    E = total_energy(theta, omega)
+    lost = E[:, 0] - E[:, -1]
+    np.testing.assert_allclose(lost, gamma * simpson((omega**2).sum(-1), dx=sample, axis=1), rtol=1e-5)
+    assert (lost / E[:, 0] > 0.25).all()  # about 30% of the energy is gone by tau = 40
+
+
+def test_per_run_damping_matches_running_each_chain_alone():
+    _, theta0 = data.initial_conditions(4, seed=11)
+    gamma = np.array([0.0, 1e-3, 0.0, 3e-3])
+    together = sim.localize(theta0, P, gamma=gamma)
+    for i, g in enumerate(gamma):
+        alone = sim.localize(theta0[i:i + 1], P, gamma=g)
+        for key in together:
+            np.testing.assert_array_equal(together[key][i:i + 1], alone[key])
+    undamped = sim.localize(theta0, P, gamma=np.zeros(4))  # zeros take the conservative path
+    for key in together:
+        np.testing.assert_array_equal(undamped[key], sim.localize(theta0, P)[key])
+
+
+def test_damping_delays_localization_and_strong_damping_prevents_it(runs):
+    theta0, labels = runs
+    weak = sim.localize(theta0, P, ("right",), gamma=1e-3)
+    assert (weak["site_right"] >= 0).all()  # the swing stays above threshold long enough
+    assert np.median(weak["time_right"] - labels["time_right"]) > 0
+    # at gamma = 1e-2 the swing decays below A_c = 1.577 within about 20 time units
+    assert (sim.localize(theta0, P, ("right",), gamma=1e-2)["site_right"] < 0).all()

@@ -97,3 +97,41 @@ Shifted pools have 5,000 runs (10,000 for the impurity pool). v1 needs exactly 1
 | the same model, scored on v1's label | 3 | 1.79 ± 0.03 | 38.3 ± 0.3 | 60.0 ± 0.2 | 97.0 ± 0.1 | 2.0 ± 0.1 |
 | v1 rebuilt: trained and scored on v1's label | 2 | 3.14 ± 0.19 | 22.5 ± 1.0 | 60.4 ± 1.9 | 90.3 ± 0.9 | 5.7 ± 0.4 |
 | v1 rebuilt: trained and scored on the period-averaged label | 2 | 2.25 ± 0.00 | 42.0 ± 0.1 | 83.6 ± 0.2 | 94.1 ± 0.0 | 4.4 ± 0.1 |
+
+## 9. Damped chains (linear damping gamma per time unit; quality factor Q = 1 / gamma)
+
+Six pools of 5,000 runs share their initial conditions and differ only in gamma. Sites are scored over the runs that localize by τ = 150, against the label each model was trained on. "Undamped frames" feeds a model the first frames of the same runs without damping and scores it against the damped outcome, which separates a changed outcome from changed inputs.
+
+### Trained on undamped chains (mean distance; ±1 in %)
+
+| gamma | Q | Localize by τ = 150 | v1 rebuilt | v2 final | v2 final ±1 | v2 final, undamped frames | v2 swing-averaged label | its ±1 | its undamped frames |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | ∞ | 100.0% | 3.22 ± 0.16 | 1.56 ± 0.02 | 76.5 ± 0.6 | n/a | 0.62 ± 0.01 | 96.5 ± 0.1 | n/a |
+| 0.0001 | 10,000 | 100.0% | n/a | 1.49 ± 0.03 | 77.0 ± 0.6 | 1.51 ± 0.04 | 0.63 ± 0.01 | 96.3 ± 0.0 | 0.61 ± 0.01 |
+| 0.0003 | 3,333 | 100.0% | n/a | 1.49 ± 0.03 | 76.5 ± 0.5 | 1.50 ± 0.04 | 0.64 ± 0.03 | 96.0 ± 0.4 | 0.60 ± 0.02 |
+| 0.001 | 1,000 | 99.9% | 5.43 ± 1.22 | 2.48 ± 0.28 | 62.7 ± 2.8 | 1.68 ± 0.05 | 4.23 ± 0.73 | 71.0 ± 6.4 | 0.84 ± 0.03 |
+| 0.003 | 333 | 71.0% | 12.40 ± 4.77 | 4.92 ± 0.37 | 38.2 ± 3.7 | 2.47 ± 0.06 | 5.21 ± 0.29 | 42.7 ± 4.6 | 1.34 ± 0.02 |
+| 0.01 | 100 | 0.0% | n/a | n/a | n/a | n/a | n/a | n/a | n/a |
+
+### Trained on damped chains (gamma log-uniform in 1e-4 .. 1e-2), scored at each gamma
+
+| gamma | recipe: mean distance | recipe: ±1 | + head: mean distance | + head: ±1 | + head, averaged label: mean distance | + head, averaged label: ±1 | + head, camera: mean distance | + head, camera: ±1 | Localizes head: accuracy |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 1.55 ± 0.03 | 74.8 ± 1.1 | 1.53 ± 0.01 | 74.8 ± 0.6 | 0.69 ± 0.01 | 95.6 ± 0.2 | 2.09 ± 0.01 | 71.5 ± 0.2 | 100.0 ± 0.0 |
+| 0.0001 | 1.53 ± 0.02 | 75.6 ± 0.6 | 1.48 ± 0.01 | 75.5 ± 0.7 | 0.63 ± 0.01 | 95.9 ± 0.1 | 2.13 ± 0.03 | 71.8 ± 0.5 | 100.0 ± 0.0 |
+| 0.0003 | 1.44 ± 0.03 | 77.7 ± 0.3 | 1.42 ± 0.01 | 77.9 ± 0.4 | 0.53 ± 0.02 | 96.7 ± 0.1 | 2.07 ± 0.05 | 73.2 ± 0.1 | 100.0 ± 0.0 |
+| 0.001 | 1.19 ± 0.04 | 82.8 ± 0.4 | 1.16 ± 0.00 | 82.9 ± 0.2 | 0.49 ± 0.03 | 97.3 ± 0.2 | 1.86 ± 0.05 | 77.8 ± 0.2 | 99.9 ± 0.0 |
+| 0.003 | 0.84 ± 0.01 | 92.4 ± 0.1 | 0.85 ± 0.04 | 91.8 ± 0.3 | 0.38 ± 0.02 | 98.3 ± 0.2 | 1.35 ± 0.03 | 88.0 ± 0.3 | 99.1 ± 0.1 |
+| 0.01 | n/a | n/a | n/a | n/a | n/a | n/a | n/a | n/a | 100.0 ± 0.0 |
+
+### The damped test pool (10,000 runs, gamma log-uniform in 1e-4 .. 1e-2, 80% localize)
+
+| Model | Seeds | Mean distance | Exact | ±1 | ±3 | >10 off | Localizes: accuracy | ROC area | False alarms |
+|---|---|---|---|---|---|---|---|---|---|
+| v1 rebuilt, trained undamped | 2 | 6.22 ± 1.70 | 17.4 ± 1.8 | 46.8 ± 5.3 | 74.0 ± 6.1 | 14.5 ± 4.7 | n/a | n/a | n/a |
+| v2 final, trained undamped | 5 | 2.57 ± 0.07 | 23.6 ± 0.9 | 64.1 ± 1.5 | 89.4 ± 1.3 | 3.6 ± 0.2 | n/a | n/a | n/a |
+| v2 swing-averaged label, trained undamped | 3 | 2.80 ± 0.33 | 47.2 ± 2.2 | 76.1 ± 2.8 | 87.3 ± 1.8 | 6.2 ± 1.0 | n/a | n/a | n/a |
+| v2 recipe, trained on damped chains | 3 | 1.30 ± 0.02 | 30.5 ± 0.4 | 82.0 ± 0.4 | 98.0 ± 0.1 | 1.2 ± 0.0 | n/a | n/a | n/a |
+| ... plus the 'does it localize' head | 3 | 1.31 ± 0.01 | 30.3 ± 0.5 | 82.0 ± 0.7 | 98.0 ± 0.0 | 1.2 ± 0.0 | 99.5 ± 0.1 | 100.0 ± 0.0 | 1.4 ± 0.2 |
+| ... plus the head, on the swing-averaged label | 3 | 0.50 ± 0.02 | 73.4 ± 0.2 | 97.2 ± 0.1 | 99.0 ± 0.0 | 0.6 ± 0.1 | 99.4 ± 0.0 | 99.9 ± 0.0 | 1.8 ± 0.1 |
+| ... plus the head, camera on every 2nd pendulum, 1e-3 rad | 3 | 1.82 ± 0.01 | 29.6 ± 0.4 | 78.0 ± 0.3 | 96.3 ± 0.1 | 2.6 ± 0.0 | 99.3 ± 0.2 | 100.0 ± 0.0 | 2.1 ± 0.8 |

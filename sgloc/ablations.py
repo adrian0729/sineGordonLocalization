@@ -284,6 +284,7 @@ def phase6():
           three, pools=impurity_pools, view={"calibration": True})
     add_deploy(t)
     add_label(t)
+    add_damping(t)
     return t.configs
 
 
@@ -307,6 +308,24 @@ def add_deploy(t):
           three, view={"channels": ["E"], "frames": [0], "start": 30})
 
 
+def add_damping(t):
+    """Damped chains, gamma log-uniform in [1e-4, 1e-2] per time unit (quality factor 100 to 10,000).
+    The swing decays toward A_c, so some runs never localize by tau = 150 (site -1); they are left out of
+    the site and time losses. Can the final recipe still warn early, and tell which runs will localize?"""
+    three = (0, 1, 2)
+    pools = {"train": "robust_damped_train", "val": "robust_damped_val", "test": "robust_damped_test"}
+    damped = {"pools": pools, "ignore_unlocalized": True}
+    t.add("damping", "damped_trained", "Q5/damping: final recipe trained and tested on damped chains (gamma log-uniform "
+          "in 1e-4..1e-2); runs that never localize are left out of the site and time losses", three, **damped)
+    t.add("damping", "damped_trained_localizes_head", "Q5/damping: as damped_trained, plus v1's 'does it localize' head "
+          "(weight 0.5), which damping makes non-trivial", three, loss={"localizes": 0.5}, **damped)
+    t.add("damping", "damped_trained_avg_label", "Q5/damping: as damped_trained_localizes_head, on the swing-averaged "
+          "label, which a shift in the localization time moves less", three, loss={"localizes": 0.5}, label="avg", **damped)
+    t.add("damping", "damped_deploy_camera_every2_noise1e-3", "Q1/Q5/damping: the recommended camera (every 2nd "
+          "pendulum, 1e-3 rad, from release) on damped chains, with the localizes head", three,
+          loss={"localizes": 0.5}, view={"noise": 1e-3, "stride": 2}, **damped)
+
+
 def phase6_deploy():
     """Only the deploy group of Phase 6, so it can run beside the main Phase 6 sweep."""
     return [c for c in phase6() if c["group"] == "deploy"]
@@ -315,6 +334,11 @@ def phase6_deploy():
 def phase6_label():
     """Only the label group of Phase 6, so it can run beside the main Phase 6 sweep."""
     return [c for c in phase6() if c["group"] == "label"]
+
+
+def phase6_damping():
+    """Only the damping group of Phase 6 (added after the main Phase 6 sweep)."""
+    return [c for c in phase6() if c["group"] == "damping"]
 
 
 class BothLabels(Table):
@@ -411,4 +435,5 @@ def phase8():
 
 
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
-          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase7": phase7, "phase8": phase8}
+          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
+          "phase7": phase7, "phase8": phase8}
