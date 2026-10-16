@@ -192,7 +192,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
   - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, the noise relative to the grown signal.
   - Each 10× worse sensor costs about 20 time units of waiting; the prediction was ln 10 / σ₁ = 19.5.
 - **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window, and gain less from waiting.
-- **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate.
+- **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate. Most of that gain belongs to v1's label: on the swing-averaged label, waiting until τ = 30 gains only 0.03 (Sec. 10).
 - Watching from τ = 30 still leaves a median of 21.5 time units of warning (about 3 s for a 20 cm pendulum). The earliest test run localizes at τ = 37.
 
 ### Fewer sensors
@@ -305,7 +305,7 @@ v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why th
 
 - **The ring's physics carries the architecture.** Seeing the whole ring is worth 1.1 sites, since the growing modes are the five longest waves. Circular padding is worth 0.9: the ring has no ends, and the hotspot can form anywhere. One score per site is worth 0.3, with a tenth of the parameters.
 - **The loss sets ±1 more than the mean distance.** At the full budget, plain cross-entropy or hard labels cost only 0.04–0.08 in mean distance, but ±1 falls from 77% to 64–65%. Soft labels place predictions between the two candidate sites of the jittery label (see below).
-- **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7).
+- **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7) and on the swing-averaged label (below).
 
 ### Regularization: why v2 adds so little
 
@@ -412,6 +412,40 @@ What the hotspot looks like at the moment v1's label fires (2,000 test runs; [re
 3. **Optionally predict the hump's shape** as a per-site energy profile. The profile head tied for best in Sec. 8, and it gives the width and any rival hump for free.
 4. **Score by ring distance and calibration** (mean distance, ±1 / ±3, coverage of prediction sets), not by exact-site accuracy.
 5. **Define the event at the hump's scale**, for example when the swing-averaged energy of 3 neighbouring pendulums first passes a threshold. This is untested, and is listed as a next step.
+
+### The same choices win on the swing-averaged label
+
+Every choice in Secs. 6–9 was made on v1's jittery label. Phase 7 repeats the key ones on the swing-averaged label. Each run is the final recipe at the full budget with one choice changed, beside a matched control on v1's label ([Fig. 19](../figures/fig19_avg_label_ablations.png); 3 seeds; test pool; Δ against the final recipe on the same label, ± its standard error):
+
+| Final recipe, but … | v1's label | Δ | Averaged label | Δ | ±1, v1's / averaged |
+|---|---|---|---|---|---|
+| nothing (the final recipe, seeds 0–2) | 1.50 | | 0.58 | | 76.9% / 96.4% |
+| v1's inputs (energy frames + θ(0)) | 1.51 | +0.01 ± 0.02 | 0.62 | +0.04 ± 0.01 | 76.4% / 95.7% |
+| θ(0) only | 1.52 | +0.01 ± 0.02 | 0.68 | +0.11 ± 0.02 | 74.5% / 95.0% |
+| sees 33 sites, not the whole ring | 1.70 | +0.19 ± 0.02 | 0.70 | +0.12 ± 0.02 | 70.9% / 93.8% |
+| sees 17 sites | 2.37 | +0.87 ± 0.02 | 1.77 | +1.20 ± 0.01 | 61.2% / 78.2% |
+| hard labels (other loss terms kept) | 1.53 | +0.03 ± 0.02 | 0.59 | +0.01 ± 0.01 | 65.3% / 96.2% |
+
+- **Seeing the whole ring matters even more.** With 17 sites the error triples on the averaged label, against ×1.6 on v1's label. The growing modes are the five longest waves, whichever label marks the hotspot.
+- **The inputs now matter.**
+  - On v1's label the three input sets tie.
+  - On the averaged label, angle frames beat v1's inputs by 8% of the error, and θ(0) alone by 19%.
+  - θ(0) holds the whole initial state, but the frames make it easier to learn (Sec. 7).
+- **Soft labels stop mattering.** On v1's label they raise ±1 from 65% to 77%, by hedging between the sites the label jitters between. On the averaged label, hard labels do as well (96.2% vs 96.4% within ±1).
+- **v1's label understates the choices.** Its jitter adds 0.6–1.0 sites of error to every model, which hides part of each difference.
+
+The recommended setups (Sec. 11) keep their order:
+
+| Setup (final recipe) | v1's label | Averaged label | ±1, v1's / averaged |
+|---|---|---|---|
+| Every pendulum, noise-free, τ = 0…4.5 | 1.50 | 0.58 | 76.9% / 96.4% |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 1.18 | 72.6% / 92.9% |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 1.27 | 72.6% / 91.2% |
+| Energies at τ = 30, noise-free | 1.24 | 0.55 | 82.4% / 96.3% |
+
+- **The cheap camera is within ±1 of where the energy settles in 93% of runs**, predicting right after release.
+- **Noise doubles the error on the averaged label**, against ×1.3–1.4 on v1's label. Noise picks the wrong hump (Sec. 7), and no label removes those misses.
+- **Without noise, waiting no longer pays.** Energies at τ = 30 beat the final recipe by 0.27 on v1's label, but by only 0.03 ± 0.01 on the averaged label. Watching later mostly helps predict the moment in the swing at which v1's label fires; where the energy settles can already be read at release.
 
 ### A set of sites instead of one
 
@@ -525,7 +559,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 - **A realistic, cheap setup works.** One camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, well ahead of the noise-free v1 (3.14).
 - **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](../figures/fig17_warning_tradeoff.png)).
-- **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning.
+- **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning. On the swing-averaged label their edge nearly vanishes (0.55 vs 0.58, Sec. 10).
 
 ## 12. Limitations and next steps
 
@@ -539,7 +573,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target, but it was tested only on the final recipe and on v1, not through every phase.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target. The inputs, receptive field, soft labels and recommended setups were re-tested on it (Sec. 10), but the noise-and-timing grid, the sparse sensors and the optimizer were not.
 
 ### Next steps
 
@@ -548,6 +582,6 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
-6. Repeat the input and architecture choices on the swing-averaged label.
+6. Repeat the noise-and-timing grid (Sec. 7) on the swing-averaged label. There, waiting helps only against noise (Sec. 10), so the grid would measure the Floquet trade-off without the label's own dependence on time.
 7. Define localization at the hump's scale (for example, 3 neighbouring pendulums over a swing), and let the model name a second site when a rival hump competes (Sec. 10).
 8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.

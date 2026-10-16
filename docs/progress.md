@@ -617,3 +617,76 @@ On the damped test pool:
   - It costs nothing on the site (1.31 vs 1.30).
 - **On the swing-averaged label the retrained recipe reaches 0.50 on damped chains (97.2% within ±1)**, and 0.38 at Q = 330. On undamped chains it costs 0.07 against the undamped-trained model (0.69 vs 0.62).
 - **The recommended camera keeps its accuracy on damped chains:** 1.82 on the damped test pool, against 1.93 for the same setup on undamped chains (Phase 6). Its localizes head is right 99.3% of the time.
+
+---
+
+## Phase 7: the key choices on the swing-averaged label, 16 October 2026
+
+**Question.** Phases 2–6 made every choice on v1's label, which jitters by 1–3 sites within a swing (Phase 6). On the swing-averaged label (`site_avg`) the final recipe reaches 0.58 instead of 1.49. Do the input, receptive-field and loss choices still win on a target that does not jitter?
+
+**Setup**
+- `ablations.phase7`: the final recipe at the full budget (30 epochs, 60,000 runs, 3 seeds), with one choice changed at a time:
+  - inputs: v1's energy frames + θ(0), angle frames (the final recipe), or θ(0) alone
+  - receptive field: 17, 33 or 129 sites (Phase 2's dilations 1-2-4-1, 1-2-4-8-1 and 1-2-4-8-16-32-1)
+  - soft labels on (the final recipe) or off (hard labels, other loss terms kept)
+  - the three recommended setups of Phase 6
+- Every config runs twice: on the swing-averaged label (`label="avg"`) and, as its matched control, on v1's label.
+  - Controls that Phase 6 already trained have the same config id and are reused: the final recipe (seeds 0–2), v1's inputs, hard labels and the three setups. The final recipe on the averaged label is Phase 6's `final_avg_label`.
+  - That leaves 33 new runs: 24 on the averaged label, and 9 controls (θ(0) alone, 17 and 33 sites).
+- Each model is scored on the label it was trained on. On the averaged label, 51 of the 20,000 test runs never cross 10% before τ = 150; as in Phase 6, they are left out.
+- **Same code as Phase 6.** The damping study edited the training code while this phase ran. One of its edits briefly changed how the 0.25% of averaged-label runs that never localize enter the loss.
+  - So Phase 7 ran from a snapshot of commit 28f8428: the Phase 6 code plus this table.
+  - Three runs that had started on the edited code were stopped before they wrote a record, then repeated.
+- Tables: `results/phase7_tables.md`. Figure: [Fig. 19](../figures/fig19_avg_label_ablations.png).
+
+**Choices** (test pool; mean of 3 seeds; Δ against the final recipe on the same label, ± its standard error; × is the ratio to the final recipe's mean distance)
+
+| Final recipe, but … | v1's label | Δ | × | Averaged label | Δ | × | Exact, v1's / averaged | ±1, v1's / averaged |
+|---|---|---|---|---|---|---|---|---|
+| nothing (the final recipe) | 1.50 | | | 0.58 | | | 27.9% / 70.5% | 76.9% / 96.4% |
+| v1's inputs (energy frames + θ(0)) | 1.51 | +0.01 ± 0.02 | 1.01 | 0.62 | +0.04 ± 0.01 | 1.08 | 27.4% / 68.8% | 76.4% / 95.7% |
+| θ(0) only | 1.52 | +0.01 ± 0.02 | 1.01 | 0.68 | +0.11 ± 0.02 | 1.19 | 31.0% / 68.3% | 74.5% / 95.0% |
+| sees 33 sites, not the whole ring | 1.70 | +0.19 ± 0.02 | 1.13 | 0.70 | +0.12 ± 0.02 | 1.21 | 28.1% / 66.0% | 70.9% / 93.8% |
+| sees 17 sites | 2.37 | +0.87 ± 0.02 | 1.58 | 1.77 | +1.20 ± 0.01 | 3.08 | 25.7% / 41.5% | 61.2% / 78.2% |
+| hard labels (other loss terms kept) | 1.53 | +0.03 ± 0.02 | 1.02 | 0.59 | +0.01 ± 0.01 | 1.02 | 40.1% / 71.6% | 65.3% / 96.2% |
+
+On v1's label the final recipe's 1.50 is the mean of seeds 0–2; all 5 seeds give 1.49.
+
+The predictions below were written into `ablations.phase7` before the runs started.
+- **Q1, inputs: holds, and now shows.**
+  - On v1's label, the three input sets tie at the full budget.
+  - On the averaged label, angle frames win: v1's inputs cost 0.04 (8% of the error) and θ(0) alone 0.11 (19%).
+  - As predicted, the lower error floor (0.58 instead of 1.49) reveals differences the jitter hid. θ(0) holds the whole initial state, but the frames make it easier to learn (Phase 3).
+- **H2.2, seeing the whole ring: holds, and matters more.**
+  - 17 sites cost 1.20 on the averaged label (×3.1), against 0.87 (×1.6) on v1's label. Exact-site accuracy falls from 70.5% to 41.5%.
+  - 33 sites cost 21% of the error, against 13%.
+  - The growing modes are the five longest waves, whichever label marks the hotspot.
+- **H3.2, soft labels: their gain was the label's.**
+  - On v1's label, hard labels trade ±1 for exact hits: 40.1% exact (27.9% with soft labels), but only 65.3% within ±1 (76.9%).
+  - On the averaged label they change nothing beyond seed noise: 0.59 vs 0.58, 71.6% exact, 96.2% within ±1.
+  - As predicted, soft labels mainly hedged between the sites the label jitters between. They do no harm on the averaged label, so the recipe keeps them.
+- **v1's label understates the choices.**
+  - Relative to the final recipe, every change of inputs or receptive field, and every noisy setup, costs more on the averaged label (tables above and below).
+  - On v1's label the jitter adds 0.6–1.0 sites to every model, and this hides part of each difference.
+
+**Recommended setups** (final recipe; test pool; 3 seeds)
+
+| Setup | v1's label | Averaged label | × final, v1's / averaged | ±1, v1's / averaged |
+|---|---|---|---|---|
+| Every pendulum, noise-free, τ = 0…4.5 | 1.50 | 0.58 | 1 / 1 | 76.9% / 96.4% |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 1.18 | 1.28 / 2.04 | 72.6% / 92.9% |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 1.27 | 1.36 / 2.20 | 72.6% / 91.2% |
+| Energies at τ = 30, noise-free | 1.24 | 0.55 | 0.82 / 0.96 | 82.4% / 96.3% |
+
+- **The ranking holds.** The cheap camera is within ±1 of where the energy settles in 92.9% of runs, from release.
+- **Noise doubles the error on the averaged label** (×2.0–2.2, against ×1.3–1.4 on v1's label). Noise picks the wrong hump (Phase 3), and no label removes those misses.
+- **Without noise, waiting stops paying.**
+  - Energies at τ = 30 beat the final recipe by 0.27 on v1's label (exact site 49.3% vs 27.9%). On the averaged label they win by only 0.03 ± 0.01 (exact 71.7% vs 70.5%).
+  - Watching closer to the event mostly helps predict the moment in the swing at which v1's label fires. Where the energy settles can already be read at release.
+  - So Phase 3's "waiting helps without noise" is mostly about v1's label.
+
+**Side note.** Scored on v1's label, the models trained on the averaged label get 1.78–1.80 (60% within ±1), against 1.50 for the model trained on v1's label. The two labels mark different pendulums, so each model is judged on its own label.
+
+**Decision.** The inputs and architecture chosen on v1's label stand on the swing-averaged label, with larger margins. Soft labels become optional.
+- Without noise, watching from release is as good as waiting until τ = 30 on that target (0.58 vs 0.55), and leaves about 25 time units more warning.
+- Whether waiting pays against sensor noise on that target is untested: the noise-and-timing grid was not repeated.

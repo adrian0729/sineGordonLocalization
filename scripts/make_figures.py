@@ -605,6 +605,52 @@ def fig_label_jitter():
     save(fig, "fig18_label_jitter")
 
 
+def fig_avg_label_ablations():
+    """Phase 7: the main choices again on the swing-averaged label, each beside its control on v1's label."""
+    recs = phase_records("phase7")
+    rows = [("inputs", "angle_frames", "v2 final recipe"), ("inputs", "v1_inputs", "v1's inputs (energy frames + θ(0))"),
+            ("inputs", "theta0_only", "θ(0) only"), ("receptive_field", "rf33", "sees 33 sites, not the whole ring"),
+            ("receptive_field", "rf17", "sees 17 sites"), ("soft_labels", "soft_off", "hard labels (other loss terms kept)"),
+            ("deploy", "deploy_camera_every2_noise1e-3", "camera on every 2nd pendulum, 10⁻³ rad"),
+            ("deploy", "deploy_camera_noise1e-2_t20", "coarse camera (10⁻² rad) from τ = 20"),
+            ("deploy", "deploy_energy_t30", "energies at τ = 30, one frame")]
+    labels = [("v1label", "v1's label (first pendulum over 10%)", SLOT[0]), ("avg", "swing-averaged label", SLOT[2])]
+    data = [(group, lab, {key: recs.get((group, f"{name}_{key}"), []) for key, _, _ in labels}) for group, name, lab in rows]
+    data = [(group, lab, d) for group, lab, d in data if all(d.values())]
+    if len(data) < 2 or data[0][1] != "v2 final recipe":
+        raise FileNotFoundError("phase 7 runs not finished yet")
+    fig, axes = plt.subplots(1, 2, figsize=(10.6, 0.36 * len(data) + 1.4), sharey=True, layout="constrained")
+    y = np.arange(len(data))[::-1]
+    for ax, metric, scale in ((axes[0], "mae", 1), (axes[1], "acc_1", 100)):
+        means = {key: [scale * np.mean([r["test"][metric] for r in d[key]]) for _, _, d in data] for key, _, _ in labels}
+        for yi, a, b in zip(y, *means.values()):
+            ax.plot([a, b], [yi, yi], color=GRID, linewidth=2.0, zorder=1)
+        for key, name, color in labels:
+            ax.axvline(means[key][0], color=color, linewidth=0.8, alpha=0.5, zorder=0)  # the final recipe on this label
+            for yi, (_, _, d) in zip(y, data):
+                v = [scale * r["test"][metric] for r in d[key]]
+                ax.plot(v, [yi] * len(v), linestyle="none", marker="o", markersize=3.5, color=color, alpha=0.4, zorder=2)
+            ax.plot(means[key], y, linestyle="none", marker="o", markersize=7, color=color, markeredgecolor=SURFACE,
+                    markeredgewidth=1.5, label=name, zorder=3)
+        for yi, (prev, _, _), (group, _, _) in zip(y[1:], data[:-1], data[1:]):
+            if group != prev or yi == y[1]:  # separate the final recipe and each group of choices
+                ax.axhline(yi + 0.5, color=GRID, linewidth=0.6)
+        ax.tick_params(axis="y", length=0)
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(y, [lab for _, lab, _ in data])
+    axes[0].set_xlim(0, None)
+    axes[1].set_xlim(None, 100)
+    axes[0].set_xlabel("Mean distance on test (sites); small dots are seeds, lines the final recipe")
+    axes[1].set_xlabel("Within ±1 site (%)")
+    handles, names = axes[0].get_legend_handles_labels()
+    fig.legend(handles, names, loc="outside lower center", ncols=2, fontsize=8)
+    axes[0].set_title("(a) Mean distance", loc="left", fontsize=9)
+    axes[1].set_title("(b) Within ±1", loc="left", fontsize=9)
+    fig.suptitle("The same choices win on the swing-averaged label; only soft labels stop mattering (3 seeds each)",
+                 x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig19_avg_label_ablations")
+
+
 ROBUST_LABELS = [("pool_test", "nominal test pool"), ("robust_g-10", "neighbour coupling g −10%"),
                  ("robust_g+10", "neighbour coupling g +10%"), ("robust_h-10", "global coupling h −10%"),
                  ("robust_h+10", "global coupling h +10%"), ("robust_noise2x", "twice the initial spread"),
@@ -661,7 +707,8 @@ def fig_robustness():
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
-               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff, fig_label_jitter):
+               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff, fig_label_jitter,
+               fig_avg_label_ablations):
         try:
             fn()
         except FileNotFoundError as err:
