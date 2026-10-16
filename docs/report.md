@@ -1,6 +1,24 @@
 # Predicting where energy localizes in a sine-Gordon pendulum ring: a physics-guided v2
 
-*Draft. Sections 7–11 are filled in as their phases finish.*
+## Summary
+
+A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
+
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 340 training runs, 33 GPU-hours on a laptop.
+
+- **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%.
+  - The label explains part of the gap: which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing.
+  - On a swing-averaged label, the rebuilt v1 reaches 83.6%.
+- **v2 halves v1's error with 1/1,163 of the parameters.** It is a whole-ring dilated circular CNN with 22,786 parameters, trained in 6 minutes.
+  - Mean distance 1.49 vs 3.14; within ±1, 77% vs 60%; within ±3, 97% vs 90%.
+  - It beats v1 with 60 times less data, and also predicts *when* localization happens (1.5% median error).
+- **On the swing-averaged label, v2 is within ±1 pendulum in 96% of runs** (mean distance 0.58).
+- **Physics explains what matters.**
+  - The network must see the whole ring, because the growing modes are its five longest waves.
+  - Waiting divides sensor noise by the Floquet growth: each 10× worse sensor costs about 20 time units of waiting (predicted: 19.5).
+  - Robustness to wrong parameters follows the growth spectrum.
+  - One pendulum 1% weaker pins the hotspot, and v2 learns to find it from the motion alone.
+- **For a real chain:** one camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, against 3.14 for v1 with perfect data.
 
 ## 1. Motivation and what v1 did
 
@@ -141,7 +159,7 @@ All models below see v1's information and get the same training budget ([Fig. 7]
 - the **whole-ring dilated CNN**: 7 circular convolutions, kernel 3, dilations 1-2-4-8-16-32-1, width 32
 - one score per site
 - 23k parameters, about 1/1,000 of v1
-- about 5 minutes to train on a laptop GPU
+- about 6 minutes to train on a laptop GPU
 
 Combining it with the Fourier branch, the MLP front or the GRU front, or doubling its width, does not improve it (1.57–1.61).
 
@@ -323,7 +341,7 @@ Same inputs, architecture and training; only the target changes (test pool; seed
 | Model and target | Mean distance | Exact | ±1 | ±3 |
 |---|---|---|---|---|
 | v2, v1's label (first instantaneous crossing) [5] | 1.49 ± 0.03 | 27.7% | 77.2% | 97.3% |
-| v2, symmetric label: springs split evenly, not averaged [3] | 1.49 ± 0.01 | 32.1% | 72.5% | 97.5% |
+| v2, symmetric label: springs split evenly, not averaged [3] | 1.49 ± 0.01 | 32.4% | 72.5% | 97.5% |
 | **v2, swing-averaged label** [3] | **0.58 ± 0.01** | **70.5%** | **96.4%** | **98.5%** |
 | v1 rebuilt, v1's label [2] | 3.14 ± 0.19 | 22.5% | 60.4% | 90.3% |
 | v1 rebuilt, swing-averaged label [2] | 2.25 ± 0.00 | 42.0% | 83.6% | 94.1% |
@@ -384,7 +402,6 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 | 3×10⁻³ | 13.86 | 4.63 |
 
 - v2 degrades about three times more slowly than v1. Even untrained for noise, v2 at 10⁻³ rad (2.26) beats the noise-free v1 (3.14).
-
 - Training with the same noise helps further: trained and tested at 10⁻³ rad, the v2 recipe reaches 1.72 ± 0.02.
 
 ### Chains with an impurity
@@ -423,12 +440,12 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Limitations
 
-- **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 61.7% within ±1, not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 is smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
+- **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
 - **Simulation only, without damping.** Real pendulums lose energy to friction and air drag. A damped uniform swing drifts toward the instability threshold (A_c = 1.577), and below it nothing localizes. This study keeps the paper's conservative model.
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** The site is the first one to cross 10% of the energy, with each spring's energy booked to its left pendulum. In 21% of runs the exact site depends on that bookkeeping, so exact-site accuracy mostly measures it. Within ±1 and the mean distance are the meaningful metrics.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target, but it was tested only on the final recipe and on v1, not through every phase.
 
 ### Next steps
 
@@ -436,4 +453,6 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
-5. If the original v1 notebook resurfaces, rerun the comparison against it and check its data for train/test overlap.
+5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
+6. Repeat the input and architecture choices on the swing-averaged label.
+7. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
