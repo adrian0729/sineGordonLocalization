@@ -87,6 +87,30 @@ def tables(rows):
     return "\n".join(out)
 
 
+VARIANTS = [("control", "Final recipe, checkpoint every 235 steps (Phase 6)"), ("fine_eval", "Checkpoint every 47 steps"),
+            ("wd0.01", "+ weight decay 10⁻²"), ("wd0.1", "+ weight decay 10⁻¹"), ("wd1", "+ weight decay 1"),
+            ("dropout0.1", "+ dropout 0.1"), ("dropout0.2", "+ dropout 0.2"), ("mirror", "+ mirror images"),
+            ("steps235", "235-step schedule"), ("steps705", "705-step schedule"), ("steps2350", "2,350-step schedule"),
+            ("mirror_wd1", "Mirror images + weight decay 1"), ("mirror_steps", "Mirror images + the best short schedule")]
+
+
+def by_size(rows, metric="mae", scale=1, digits=2, spread=True):
+    """One row per variant, one column per training size: test mean (± spread over seeds)."""
+    sizes = sorted({r[0]["n_train"] for r in rows.values()})
+    lines = ["| Variant | " + " | ".join(f"{n // 1000}k" for n in sizes) + " |", "|---|" + "---|" * len(sizes)]
+    for key, label in VARIANTS:
+        cells = []
+        for n in sizes:
+            runs = next((v for (g, name), v in rows.items() if g == f"n{n}" and (
+                name == f"n{n}_{key}" or (key == "mirror_steps" and name.startswith(f"n{n}_mirror_steps")))), None)
+            vals = [scale * r["test"][metric] for r in runs] if runs else []
+            cells.append("" if not vals else f"{np.mean(vals):.{digits}f}" + (
+                f" ± {np.std(vals, ddof=1):.{digits}f}" if spread and len(vals) > 1 else ""))
+        if any(cells):
+            lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 def curves(rows):
     """Seed-mean validation curves, for the report figure (only configs whose seeds share one step grid)."""
     out = {}
@@ -101,9 +125,11 @@ def curves(rows):
 
 def main():
     rows = collect()
-    text = ("Phase 8: final recipe, 7,050 steps at every size. Val = mean distance on the first 5,000 validation runs "
-            "(checkpoint selection), at the best checkpoint and at the last step. Train = the saved (best) model on its "
-            "own training runs; test = the 20,000-run test pool; gap = test - train.\n\n" + tables(rows))
+    text = ("Phase 8: final recipe, 7,050 steps at every size unless a schedule is named. Test mean distance (20,000-run "
+            "test pool), mean ± spread over seeds:\n\n" + by_size(rows) + "\n\nWithin ±1 (%):\n\n"
+            + by_size(rows, "acc_1", 100, 1, spread=False) + "\n\nPer configuration. Val = mean distance on the first "
+            "5,000 validation runs (checkpoint selection), at the best checkpoint and at the last step. Train = the saved "
+            "(best) model on its own training runs; gap = test - train.\n\n" + tables(rows))
     print(text)
     (ROOT / "results" / "phase8_regularization.md").write_text(text)
     (ROOT / "results" / "phase8_curves.json").write_text(json.dumps(curves(rows)))
