@@ -380,6 +380,15 @@ def phase8():
                   n_train=n, model={"dropout": p}, optim=fine)
         t.add(g, f"n{n}_mirror", "Phase 8: add the mirror image of every training run (the ring's reflection symmetry; "
               "v1's one-sided label becomes the mirrored left-bond label)", (0, 1), n_train=n, augment="mirror", optim=fine)
+        # follow-ups after the first results at 1,000 runs (docs/progress.md, Phase 8). There the best checkpoint comes
+        # at steps 141-188, still in the learning-rate warmup (211 steps). By then AdamW, which shrinks the weights by
+        # lr x wd per step, has shrunk them by only 1.4-2.5% at wd 0.1, so 1e-2 and 1e-1 change nothing. Does wd 1 help?
+        t.add(g, f"n{n}_wd1", "Phase 8 follow-up: AdamW weight decay 1", (0, 1), n_train=n, optim=dict(fine, weight_decay=1.0))
+        # The cosine decay starts long after the model has overfit. Does a shorter schedule, which anneals the learning
+        # rate before that, do better? (Same 3% warmup; checkpoints every steps / 30 as by default.)
+        for steps in (235, 705, 2350):
+            t.add(g, f"n{n}_steps{steps}", f"Phase 8 follow-up: a {steps}-step cosine schedule instead of 7,050", (0, 1),
+                  n_train=n, optim={"steps": steps})
     return t.configs
 
 

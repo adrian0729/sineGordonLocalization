@@ -1,0 +1,15 @@
+phase8: 45 configs, 39 still to run
+trajectory cache ready in 4s
+[1/39   269s mps] n1000/n1000_fine_eval seed 0: mean 2.385  ±1 66.14%  ±3 93.30%  >10 3.64%  (261s, 22786 params)
+[2/39   533s mps] n1000/n1000_fine_eval seed 1: mean 2.245  ±1 66.92%  ±3 94.12%  >10 3.26%  (256s, 22786 params)
+[3/39   796s mps] n1000/n1000_fine_eval seed 2: mean 2.271  ±1 66.43%  ±3 94.04%  >10 3.43%  (254s, 22786 params)
+[4/39  1063s mps] n1000/n1000_wd0.01 seed 0: mean 2.357  ±1 66.10%  ±3 93.43%  >10 3.58%  (258s, 22786 params)
+[5/39  1326s mps] n1000/n1000_wd0.01 seed 1: mean 2.242  ±1 67.24%  ±3 94.19%  >10 3.25%  (253s, 22786 params)
+[6/39  1591s mps] n1000/n1000_wd0.1 seed 0: mean 2.292  ±1 66.76%  ±3 93.80%  >10 3.26%  (256s, 22786 params)
+[7/39  1855s mps] n1000/n1000_wd0.1 seed 1: mean 2.335  ±1 66.90%  ±3 93.91%  >10 3.54%  (255s, 22786 params)
+[8/39  2130s mps] n1000/n1000_dropout0.1 seed 0: mean 2.681  ±1 66.44%  ±3 92.48%  >10 4.74%  (266s, 22786 params)
+[9/39  2393s mps] n1000/n1000_dropout0.1 seed 1: mean 2.644  ±1 64.66%  ±3 92.36%  >10 4.38%  (254s, 22786 params)
+[10/39  2657s mps] n1000/n1000_dropout0.2 seed 0: mean 2.581  ±1 65.61%  ±3 92.70%  >10 4.35%  (254s, 22786 params)
+[11/39  2922s mps] n1000/n1000_dropout0.2 seed 1: mean 2.771  ±1 66.22%  ±3 92.20%  >10 4.78%  (255s, 22786 params)
+[12/39  3177s mps] n1000/n1000_mirror seed 0: mean 2.290  ±1 66.09%  ±3 94.02%  >10 3.46%  (247s, 22786 params)
+[13/39  3429s mps] n1000/n1000_mirror seed 1: mean 2.083  ±1 67.23%  ±3 95.23%  >10 2.94%  (245s, 22786 params)
