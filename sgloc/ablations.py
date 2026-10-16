@@ -469,6 +469,31 @@ def phase3_avg():
     return configs
 
 
+def deploy_start():
+    """When should a coarse camera start watching? The Phase 3 addendum found that waiting divides the sensor noise at
+    about the mean growth rate of the growing modes (k = 0.09-0.10), not sigma_1, and changed the report's rule from
+    8.5 ln(sigma_s / 1e-3) to 10 ln(sigma_s / 1e-3) time units after release: tau ~ 23 for a 1e-2 rad camera, not 20.
+    Full-budget check: the final recipe with a 1e-2 rad camera on every pendulum from tau = 20 (Phase 6's setup), 24 and
+    28, against the camera the rule aims to match (1e-3 rad on every pendulum, from release). Both labels, 3 seeds.
+    Configs that Phase 6 or 7 already trained have the same config id and are reused, not rerun."""
+    t = BothLabels(final_recipe(), 6)
+    three = (0, 1, 2)
+    # Predictions, written before the runs started. In the screening grid a 1e-2 rad camera matched the 1e-3 rad one from
+    # release when it started at tau ~ 21.3 (v1's label) and 23.5 (averaged label). So at the full budget:
+    # - From tau = 24 the coarse camera should be level with the 1e-3 rad camera from release, within the seed spread, on
+    #   both labels. From tau = 20 it should be worse, clearly so on the averaged label; from tau = 28, better.
+    # - On the averaged label the 1e-3 rad camera from release should land at about 1.0 (every 2nd pendulum: 1.18).
+    t.add("deploy_start", "final_recipe", "Q1/Q5 reference: the final recipe, every pendulum, noise-free, from release", three)
+    t.add("deploy_start", "camera_noise1e-3", "Q1/Q5: final recipe, camera on every pendulum with 1e-3 rad noise, from "
+          "release: the camera the start-time rule aims to match", three, view={"noise": 1e-3})
+    t.add("deploy_start", "camera_every2_noise1e-3", "Q1/Q5: final recipe, camera on every 2nd pendulum with 1e-3 rad "
+          "noise, from release (the recommended setup)", three, view={"noise": 1e-3, "stride": 2})
+    for start in (20, 24, 28):
+        t.add("deploy_start", f"camera_noise1e-2_t{start}", f"Q1/Q5: final recipe, a coarse camera (1e-2 rad) on every "
+              f"pendulum watching from tau = {start}", three, view={"noise": 1e-2, "start": start})
+    return t.configs
+
+
 def phase9():
     """Is one pendulum the right target? When v1's label fires, the hotspot is a hump about 8 pendulums wide, and the
     label jitters by 1-3 sites within a swing. The swing-averaged label removes the jitter but fires later (median tau
@@ -548,4 +573,5 @@ def phase10():
 
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
-          "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "phase10": phase10}
+          "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "deploy_start": deploy_start,
+          "phase10": phase10}

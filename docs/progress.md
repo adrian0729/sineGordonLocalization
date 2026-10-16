@@ -352,6 +352,7 @@ If waiting helps only because the growing modes rise above a fixed sensor noise,
   - 10⁻³ rad from τ = 0, 3×10⁻³ from τ = 10 and 10⁻² from τ = 20 all give 2.2–2.3.
   - 10⁻³ from τ = 10, 3×10⁻³ from τ = 20 and 10⁻² from τ = 30 all give 1.68–1.69.
 - Each 10× worse sensor costs about 20 time units of waiting. The prediction was ln 10 / σ₁ = 19.5.
+  - Revised in the Phase 3 addendum (below): a fit of all the cells gives 26.5 (95% CI 23–30), and on the swing-averaged label 23–26. Waiting buys about the mean growth rate of the growing modes, not σ₁.
 - The single-frame setups gain less from waiting than this. At the same scaled noise, later frames do worse than τ = 0 once it passes 10⁻⁴. Two likely reasons (not tested separately):
   - At τ = 0 the chain is at rest, so velocity noise barely matters. Later it enters at first order.
   - One frame at a fixed later time lands at a different point of the swing for each amplitude, because the period depends on A. This is the H1.2 problem again.
@@ -382,7 +383,7 @@ The camera tracks only every s-th pendulum; a mask channel marks where the senso
 - Recommendation for a real chain:
   - One camera; every 2nd pendulum is enough.
   - With ≲10⁻³ rad precision, predict right after release.
-  - With a coarser sensor, start watching about ln(σ_s / 10⁻³)/σ₁ ≈ 8.5·ln(σ_s / 10⁻³) time units later.
+  - With a coarser sensor, start watching about ln(σ_s / 10⁻³)/σ₁ ≈ 8.5·ln(σ_s / 10⁻³) time units later. (Revised in the Phase 3 addendum to about 10·ln(σ_s / 10⁻³).)
 
 ---
 
@@ -839,3 +840,93 @@ The prediction written into `ablations.phase9` before the runs (0.5–0.7, 95–
 - It fires when the hump forms, as early as v1's label, without v1's jitter or the averaged label's later drift. The final recipe predicts it within ±1 in 99.4% of runs, and its time to 1.1%.
 - Name a second site only when the model gives it at least 5% of the probability. Then 2.3% of runs get two sites, and 99.8% are within ±1 of one of them.
 - Not tested on the hump label: Phase 7's other choices (inputs, receptive field), and the noisy and sparse sensing setups. Noise picks the wrong hump (Phase 3), and these are the misses a second site can catch.
+
+---
+
+## Phase 3 addendum: noise and timing on the swing-averaged label, 16 October 2026
+
+**Question.** Phase 3 found that the camera's error depends on sensor noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, so each 10× noisier sensor costs about 20 time units of waiting (prediction: ln 10 / σ₁ = 19.5). On v1's label, though, waiting also helps without noise, because the label fires at a moment in the swing (Phase 7: energies at τ = 30 gain 0.27 there, against 0.03 on the swing-averaged label). Does the trade-off hold on the averaged label, which has no time dependence of its own?
+
+**Setup**
+- `ablations.phase3_avg` (key `phase3_avg`): Phase 3's 72 noise_time configs plus `label="avg"`, nothing else changed (Phase 3 base, 15-epoch screening budget, seed 0).
+  - Each config is listed beside its Phase 3 run as the matched control. The control has the same config id, so it is reused, not rerun (checked for all 72).
+  - The sensor noise is drawn with a fixed seed per split. So each new cell sees exactly the inputs, initial weights and batches of its Phase 3 twin; only the target differs.
+- 72 new runs, about 1.5 min of training each (1.75 GPU-hours in all), on one GPU worker from a snapshot of commit 6bb961f.
+- On this label 140 of the 60,000 training runs never localize (site −1). As in every earlier averaged-label run, they add no loss under plain cross-entropy on the Apple GPU (on the CPU they would raise an error). The 51 such test runs are left out of the scores.
+- **Fit** (`scripts/noise_tradeoff.py`, `results/noise_tradeoff.json`): mean distance = floor(τ) + a·(σ_s·e^{−kτ})^p, fitted in log space to each setup's 24 cells, with a free noise-free floor per start time.
+  - k is the rate at which waiting divides the noise, and ln 10 / k is the waiting that a 10× noisier sensor costs. 95% intervals are profile-likelihood intervals.
+  - On synthetic grids of this design with one-seed scatter, the fit recovers k without bias, and the intervals cover it in 38–40 of 40 trials.
+  - A model-free check matches each cell well above its floor to the noise that gives the same error from an earlier start (interpolating along that start's curve).
+  - The same fit is repeated on four amplitude bins of the test runs, from the saved test predictions. The swing amplitude spans 1.65–1.85, and σ₁ doubles over that range (0.075 → 0.153).
+- The predictions were written into `ablations.phase3_avg` before the runs (6bb961f). A refined one followed from re-fitting Phase 3's own cells, while only this grid's τ = 0 cells had finished (1ea05ba).
+- Tables: `results/phase3_avg_tables.md`. Figure: [Fig. 13b](../figures/fig13b_noise_avg_label.png).
+
+**Camera (S1)** (test mean distance on the averaged label; v1's label, from Phase 3, in brackets)
+
+| Noise (rad) | from τ = 0 | τ = 10 | τ = 20 | τ = 30 |
+|---|---|---|---|---|
+| none | 0.64 (1.60) | 0.63 (1.55) | 0.65 (1.53) | 0.59 (1.53) |
+| 10⁻⁴ | 0.61 (1.67) | 0.62 (1.53) | 0.63 (1.54) | 0.59 (1.47) |
+| 3×10⁻⁴ | 0.73 (1.72) | 0.65 (1.59) | 0.69 (1.52) | 0.57 (1.52) |
+| 10⁻³ | 1.34 (2.20) | 0.82 (1.68) | 0.70 (1.54) | 0.58 (1.55) |
+| 3×10⁻³ | 2.39 (2.97) | 1.50 (2.21) | 0.83 (1.68) | 0.63 (1.53) |
+| 10⁻² | 6.56 (6.98) | 3.47 (4.01) | 1.64 (2.29) | 0.93 (1.69) |
+
+- **Without noise, waiting barely helps:** 0.64 from release, 0.59 from τ = 30 (on v1's label 1.60 and 1.53). Phase 7 found the same at the full budget.
+- **Noise adds about the same error on both labels.**
+  - From release, 10⁻³ rad adds 0.70 sites (0.60 on v1's label), 3×10⁻³ adds 1.75 (1.4) and 10⁻² adds 5.9 (5.4).
+  - On the lower floor that doubles the error at 10⁻³ rad (×2.1, against ×1.4).
+  - Far misses grow alike: runs more than 10 sites off rise by 4.2 points at 3×10⁻³ rad (4.0 on v1's label) and by 15.3 at 10⁻² (15.5).
+  - On this label ±1 shows the cost too: 96.2% → 85.3% at 3×10⁻³. On v1's label it stayed at 64–67%, hidden by the label's jitter.
+- **The cells collapse, but waiting divides the noise more slowly than e^{σ₁τ}.**
+  - Cells with the same σ_s·e^{−σ₁τ} get worse the later they start: 1.34, 1.50 and 1.64 for 10⁻³ rad from τ = 0, 3×10⁻³ from τ = 10 and 10⁻² from τ = 20 (on v1's label 2.20, 2.21 and 2.29).
+  - With k fitted, one curve fits all 24 cells: rms log residual 0.059, against 0.087 with k = σ₁ and 0.35 if waiting bought nothing.
+  - A 10⁻² rad camera matches the 10⁻³ rad camera from release when it starts at τ ≈ 23.5 (v1's label: 21.3), and a 3×10⁻³ rad one at τ ≈ 12 (10).
+
+**What waiting buys per 10× noise** (time units; fit of each setup's 24 cells with its 95% interval; matched cells: median, number of pairs)
+
+| Setup | v1's label, fit | matched | Averaged label, fit | matched |
+|---|---|---|---|---|
+| Camera (S1): angles, 8 frames | 26.5 (23.0–30.3) | 21 (4) | **25.5 (22.6–28.8)** | 23 (10) |
+| Angles + velocities (S2), 1 frame | 31.5 (26.8–37.1) | 26 (10) | 29.6 (25.9–33.9) | 25 (12) |
+| Energies (S3), 1 frame | 33.7 (28.4–39.7) | 26 (9) | 31.9 (27.4–37.1) | 27 (11) |
+
+Predicted for the test pool: 19.5 from the fastest mode (ln 10 / σ₁), 24.8 from the mean growth rate of the growing modes (ln 10 / σ̄, averaged over the test runs' amplitudes).
+
+- **On the averaged label a 10× noisier camera costs 23–26 time units of waiting, not 19.5.**
+  - The fit gives k = 0.090 (0.080–0.102), about three quarters of σ₁. All 10 matched pairs lie between 21 and 30.
+  - The refined prediction, written in before any τ > 0 cell of this grid existed, was 24.8.
+- **The label does not set the rate.** Each setup's rate agrees between the labels within the intervals. The trade-off belongs to the inputs and the dynamics.
+- **On v1's label the two methods disagree.** The cells Phase 3 quoted match at about 21 time units (three of the four pairs), but the fit of all cells gives 26.5. There the label's floor (1.5) hides small noise effects, so few cells carry information, and the 3×10⁻³ diagonal does not collapse (2.97 from τ = 0; 4.01 from τ = 10 with 10⁻² rad). The averaged label, with its floor at 0.6, is the cleaner measurement.
+- **The single-frame setups (S2, S3) still degrade faster and gain less from waiting.**
+  - From release, 3×10⁻³ rad adds 3.9 and 3.7 sites to them, against 1.75 for the camera (v1's label: 3.4, 3.3 and 1.4). At 10⁻² they reach 12.0 and 11.8, against 6.6.
+  - Their waiting costs 30–32 time units per 10× noise (k = 0.078 and 0.072), against 25.5. Phase 3's two reasons involve the inputs, not the label: velocity noise enters at first order once the chain moves, and one later frame lands at an amplitude-dependent point of the swing.
+- **Without noise all three setups converge by τ = 30** (0.59–0.60). Energies gain most, from 0.79 at release, where one frame of energy is the weakest of the three inputs. On v1's label energies at τ = 30 gave 1.24 (the best Phase 3 result), against 1.53–1.54 for the other two.
+
+**Why waiting buys less than σ₁: each amplitude waits at about the mean rate of its growing modes** (camera; waiting per 10× noise fitted per amplitude bin of the test runs, with its 95% interval)
+
+| Swing amplitude A | 1.65–1.70 | 1.70–1.75 | 1.75–1.80 | 1.80–1.85 |
+|---|---|---|---|---|
+| Growing modes (mean) | 3.6 | 4.7 | 5.4 | 6.0 |
+| Predicted from the fastest mode, ln 10 / σ₁ | 26.4 | 21.1 | 18.1 | 15.9 |
+| Predicted from the mean of the growing modes, ln 10 / σ̄ | 33.1 | 27.0 | 22.8 | 19.9 |
+| v1's label | 32.8 (27.1–40.4) | 29.9 (24.8–36.0) | 20.7 (17.6–24.2) | 20.1 (17.7–22.8) |
+| Averaged label | 35.4 (30.7–41.1) | 27.5 (23.3–32.9) | 20.7 (17.7–24.2) | 17.3 (15.1–19.7) |
+
+- **The rate rises with the amplitude on both labels**, as the growth rates do: low swings grow slowly, and waiting buys them less.
+- **Within each bin waiting buys less than the fastest mode's growth** (k = 0.71–0.92 σ₁). The mean growth rate of the growing modes, σ̄, lies inside 7 of the 8 intervals, and σ₁ inside 3. The miss is the highest bin on the averaged label, which falls between the two.
+- **A likely reason:** white sensor noise is the same in every ring mode, and the site depends on all the growing modes (Phase 1: about ten numbers), not only the fastest. Waiting lifts each mode above the noise at its own rate.
+- **σ̄ is a rule of thumb, not a derivation.** A mode that has only just started to grow counts fully, so σ̄ drops each time the amplitude adds a mode. Weighting each mode by its share of the localization would be the next refinement.
+- Pooled, the slowly growing low-amplitude runs carry most of the error at late starts, so the pooled rate (0.090) sits at σ̄ of the pool (0.093), below σ₁ at the median amplitude (0.118).
+
+**Predictions** (written into `ablations.phase3_avg`)
+- Camera on σ_s·e^{−σ₁τ}, 19.5 per 10× noise: **partly.** The cells collapse, but at k = 0.090, and 19.5 lies outside the interval. The noise-free cells are flat in τ (0.59–0.65), as predicted.
+- Noise costs a larger share of the error on this label: **yes** (×2.1 at 10⁻³ rad from release, against ×1.4), while the error it adds is about the same.
+- S2 and S3 degrade faster from release and gain less from waiting: **yes**, on both counts.
+- Refined, k ≈ σ̄ per amplitude bin and about 25 per 10× noise for the pool: **yes** for the pool (25.5), and within the interval in 3 of the 4 bins.
+
+**Decision.**
+- The Floquet trade-off does not come from the label: on the swing-averaged label, waiting still divides the sensor noise by the growth of the unstable modes.
+- Its rate is that of the growing modes together, about 0.09–0.10 per time unit here, not the fastest mode's 0.118. So a 10× noisier sensor costs about 23–26 time units of waiting, not 19.5.
+- Updated rule for a coarser camera: start about 10·ln(σ_s / 10⁻³) time units after release (23 per 10× noise), not 8.5·ln(σ_s / 10⁻³). By this rule, the coarse-camera setup of Phase 6 (10⁻² rad from τ = 20) starts a little early.
+- Still open: a rate from each mode's share of the localization instead of a plain mean, and more than one seed per cell.
