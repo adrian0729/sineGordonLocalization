@@ -389,6 +389,12 @@ def phase8():
         for steps in (235, 705, 2350):
             t.add(g, f"n{n}_steps{steps}", f"Phase 8 follow-up: a {steps}-step cosine schedule instead of 7,050", (0, 1),
                   n_train=n, optim={"steps": steps})
+    # follow-up after the results at 1k-10k runs: the mirror images are worth about a doubling of the training runs at
+    # every size. Do they help the final model at 60,000 runs too? Checkpoints as in v2_final, so the images are the
+    # only change (its best checkpoints come late, at steps 4,465-7,050).
+    t.add("n60000", "n60000_control", "Phase 8: the final model (Phase 6's v2_final)", (0, 1, 2))
+    t.add("n60000", "n60000_mirror", "Phase 8 follow-up: the final model with the mirror image of every training run",
+          (0, 1, 2), augment="mirror")
     return t.configs
 
 

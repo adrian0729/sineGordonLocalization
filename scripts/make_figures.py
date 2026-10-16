@@ -561,6 +561,44 @@ def fig_final_data():
     save(fig, "fig15_final_data_efficiency")
 
 
+def fig_regularization():
+    """Phase 8: validation curves with little data, the final recipe against each regularizer (seed means)."""
+    path = ROOT / "results" / "phase8_curves.json"
+    if not path.exists():
+        raise FileNotFoundError("no Phase 8 curves yet (scripts/regularization.py)")
+    curves = json.loads(path.read_text())
+    series = [("fine_eval", "final recipe"), ("wd1", "+ weight decay 1"), ("dropout0.2", "+ dropout 0.2"),
+              ("mirror", "+ mirror images")]
+    sizes = [n for n in (1000, 3000, 10_000) if f"n{n}_fine_eval" in curves]
+    if not sizes:
+        raise FileNotFoundError("no Phase 8 runs yet")
+    fig, axes = plt.subplots(1, len(sizes), figsize=(3.5 * len(sizes) + 0.6, 3.4), layout="constrained", squeeze=False)
+    for ax, n in zip(axes[0], sizes):
+        shown = [(slot, label, curves[f"n{n}_{key}"]) for slot, (key, label) in enumerate(series) if f"n{n}_{key}" in curves]
+        for slot, label, c in shown:
+            steps, val = np.array(c["steps"]), np.array(c["val"])
+            ax.plot(steps, val, color=SLOT[slot], linewidth=1.4, label=label)
+            i = val.argmin()
+            ax.plot(steps[i], val[i], linestyle="none", marker="o", markersize=5, color=SLOT[slot],
+                    markeredgecolor=SURFACE, markeredgewidth=1.2)
+        ax.axvline(211, color=INK2, linewidth=0.7, linestyle=":")
+        low = min(min(c["val"]) for _, _, c in shown)
+        high = max(c["val"][-1] for _, _, c in shown)
+        ax.set_ylim(0.93 * low, low + 1.12 * (high - low))
+        ax.text(205, 0.93 * low + 0.02 * (high - 0.93 * low), "warmup ends ", ha="right", va="bottom", fontsize=7, color=INK2)
+        ax.set_xscale("log")
+        ax.set_xlim(80, 7600)
+        ax.set_xticks([100, 300, 1000, 3000, 7050], ["100", "300", "1k", "3k", "7,050"])
+        ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+        ax.set_xlabel("Training step (log scale)")
+        ax.set_title(f"({'abc'[sizes.index(n)]}) {n:,} training runs", loc="left", fontsize=9)
+    axes[0, 0].set_ylabel("Validation mean distance (sites)")
+    axes[0, 0].legend(loc="lower right", handlelength=2.4)
+    fig.suptitle("With little data, v2 overfits within a few hundred steps (dots: best checkpoint; seed means)",
+                 x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig21_regularization")
+
+
 def fig_label_jitter():
     """Why v1's label is hard: the first pendulum over 10% jitters around the swing-averaged hotspot."""
     from sgloc import ablations, data, experiment

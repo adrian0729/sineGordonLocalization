@@ -68,7 +68,7 @@ def test_phase8_reuses_phase6_runs_and_leaves_earlier_config_ids_unchanged():
     final = dict(ablations.final_recipe(), seed=0)
     assert experiment.config_id(final) == "864be0d3c4"
     assert experiment.config_id(dict(final, n_train=1000)) == "6878a7c70f"
-    phase6 = {experiment.config_id(c) for c in ablations.phase6() if c["group"] == "data"}
+    phase6 = {experiment.config_id(c) for c in ablations.phase6()}
     phase8 = ablations.phase8()
     controls = [c for c in phase8 if c["name"].endswith("_control")]
     assert controls and {experiment.config_id(c) for c in controls} <= phase6
