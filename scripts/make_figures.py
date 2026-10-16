@@ -817,7 +817,8 @@ def fig_robustness():
     for line in path.read_text().splitlines():
         if line.strip():
             r = json.loads(line)
-            latest[(r["run_dir"], r["condition"])] = r["test"]["mae"]
+            if "mae" in r["test"]:  # strongly damped pools can have no localizing runs, hence no metrics
+                latest[(r["run_dir"], r["condition"])] = r["test"]["mae"]
     groups = {"v2 final": [f"runs/v2_final_s{c['seed']}_{experiment.config_id(c)}" for c in ablations.phase6()
                            if c["name"] == "v2_final"],
               "v1 rebuilt": [f"runs/{r['run_id']}" for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]}
