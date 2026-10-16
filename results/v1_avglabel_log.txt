@@ -11,3 +11,21 @@ epoch   9  train 1.3235  val 1.5764  best 1.5764 (epoch 9)  125s
 epoch  10  train 1.2659  val 1.5587  best 1.5587 (epoch 10)  127s
 epoch  11  train 1.1981  val 1.5986  best 1.5587 (epoch 10)  128s
 epoch  12  train 1.1412  val 1.6062  best 1.5587 (epoch 10)  127s
+epoch  13  train 1.0851  val 1.6338  best 1.5587 (epoch 10)  126s
+epoch  14  train 1.0293  val 1.7273  best 1.5587 (epoch 10)  126s
+epoch  15  train 0.9711  val 1.7340  best 1.5587 (epoch 10)  131s
+epoch  16  train 0.9181  val 1.7681  best 1.5587 (epoch 10)  130s
+epoch  17  train 0.8557  val 1.8297  best 1.5587 (epoch 10)  127s
+epoch  18  train 0.8038  val 1.9118  best 1.5587 (epoch 10)  128s
+epoch  19  train 0.7484  val 1.9580  best 1.5587 (epoch 10)  127s
+epoch  20  train 0.7045  val 2.0092  best 1.5587 (epoch 10)  129s
+val: mean distance 2.219 (linear 3.320)  ±1 83.36% (linear 83.02%)  ±3 93.85%  >10 4.41%  localizes 99.73%  nll 1.550
+test: mean distance 2.245 (linear 3.371)  ±1 83.40% (linear 83.08%)  ±3 94.09%  >10 4.40%  localizes 99.74%  nll 1.545
+saved runs/v1_seed0_avglabel_20261015-194642 and appended results/runs.jsonl
+v1_seed1_avglabel_20261015-203043 on mps: inputs built in 66s; train 60000, val 20000, test 20000; channel mean [1.1782 1.75  ], std [0.0594 0.0596]
+epoch   1  train 4.6265  val 4.6193  best 4.6193 (epoch 1)  126s
+epoch   2  train 2.9797  val 2.1447  best 2.1447 (epoch 2)  128s
+epoch   3  train 2.0394  val 1.9226  best 1.9226 (epoch 3)  128s
+epoch   4  train 1.7991  val 1.7422  best 1.7422 (epoch 4)  128s
+epoch   5  train 1.6595  val 1.6287  best 1.6287 (epoch 5)  126s
+epoch   6  train 1.5562  val 1.6028  best 1.6028 (epoch 6)  125s
