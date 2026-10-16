@@ -451,6 +451,14 @@ def phase3_avg():
     # - S2 and S3 (one frame) should still degrade faster from release (no frames to average the noise) and gain less
     #   from waiting (velocity noise enters at first order once the chain moves, and a fixed later frame lands at an
     #   amplitude-dependent point of the swing). Neither cause involves the label.
+    # Refined prediction, added after re-fitting Phase 3's cells (scripts/noise_tradeoff.py) and before any tau > 0
+    # cell of this grid finished. On v1's label a fit of all 24 camera cells gives k = 0.087 (26.5 time units per 10x
+    # noise, 95% CI 23-30), not 0.118. Split by the test runs' amplitude, k follows the mean growth rate of the
+    # growing modes, sigma_bar(A), rather than the fastest one: k = 0.070, 0.077, 0.111, 0.115 for A in 1.65-1.70,
+    # 1.70-1.75, 1.75-1.80, 1.80-1.85, against sigma_bar = 0.070, 0.085, 0.101, 0.116 and sigma_1 = 0.087, 0.109,
+    # 0.128, 0.145. White sensor noise is the same in every ring mode, and the site depends on all the growing modes.
+    # So on the averaged label: k per amplitude bin ~ sigma_bar(A), and about ln 10 / 0.093 = 25 time units per 10x
+    # noise for the whole test pool.
     configs = []
     for cfg in phase3():
         if cfg["group"] == "noise_time":
