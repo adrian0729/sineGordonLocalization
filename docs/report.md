@@ -351,15 +351,20 @@ Mean distance on the 60,000 training runs, against the test pool:
 
 ### When, as well as where
 
-The time head was added only as a training aid (H3.4), but it is accurate on its own ([results/time_head.json](../results/time_head.json); test pool):
+The time head was added only as a training aid (H3.4). Is the time worth predicting, or is it just a trend in the parameters? The predictors below go from the simplest rule to the network ([results/hotspot_timing.json](../results/hotspot_timing.json), `scripts/hotspot_timing.py`; test pool):
 
-| Predictor of the localization time | Median error | Within 10% |
-|---|---|---|
-| A constant (the training median, τ = 55) | 13.4% (7.0 time units) | 39.7% |
-| The amplitude alone (median time in each amplitude bin) | 5.1% (3.0) | 83.0% |
-| **v2 time head (5 seeds)** | **1.5% (0.8)** | **99.4%** |
+| Predictor of the localization time | Median error | Within 10% | Log-time variance explained |
+|---|---|---|---|
+| A constant (the training median, τ = 55) | 13.4% (7.0 time units) | 39.7% | 0% |
+| The amplitude A alone (cubic fit) | 5.0% (2.7) | 82.9% | 82% |
+| Floquet clock: the five growing modes' initial size, grown at their own rates until order one | 4.2% (2.3) | 90.7% | 88% |
+| Floquet peak clock: the same, stopped when the tallest bump of the summed modes reaches 1 rad | 4.1% (2.2) | 94.3% | 89% |
+| **v2 time head (5 seeds)** | **1.5% (0.8)** | **99.4%** | |
 
-From 4.5 time units of observation, v2 predicts when localization will happen to within about 0.8 time units (0.12 s for a 20 cm pendulum), roughly 50 time units ahead.
+- **Most of the timing is a trend in the amplitude.** A larger swing makes the unstable modes grow faster, so it localizes sooner. The amplitude alone explains 82% of the variance of the log-time.
+- **Linear Floquet physics adds little.** Growing the actual initial noise in the five unstable modes, even accounting for how the modes line up in space, only takes the error from 5.0% to 4.1%.
+- **The network is about three times more precise**, so the noise pattern carries real timing information beyond the linear stage, presumably from the nonlinear focusing of the hump. In absolute terms the gain is small: 2.7 → 0.8 time units, or 0.4 s → 0.12 s for a 20 cm pendulum.
+- **"When" is not a research target of its own.** As a training aid it barely helps the site (removing it costs 0.02). As an output it is free. For most uses the amplitude rule is enough; the network's timing matters only if warnings need sub-second precision. v2 keeps the head because it costs nothing.
 
 ### What is left of the error is mostly the label's own jitter
 
@@ -382,6 +387,31 @@ Same inputs, architecture and training; only the target changes (test pool; seed
 - **Most of v2's remaining error on v1's label is the label's own jitter**, not a failure to predict where the energy goes.
 - **The rebuilt v1 also gains** from the averaged label (60.4% → 83.6% within ±1), but stays far behind v2 on the same target (Sec. 2 discusses what this means for the reproduction gap).
 - For applications, the swing-averaged label is the better target.
+
+### Is one pendulum the right target?
+
+What the hotspot looks like at the moment v1's label fires (2,000 test runs; [results/hotspot_timing.json](../results/hotspot_timing.json)):
+
+| Property | Median (10th–90th percentile) |
+|---|---|
+| Energy on the top pendulum, instantaneous | 10.3% (10.1–10.9%): just past the threshold, by definition |
+| Energy on the top pendulum, averaged over a swing | 5.5% (4.8–6.9%) |
+| Energy on the top 3 pendulums, averaged over a swing | 16% (14–20%) |
+| Width of the swing-averaged hump at half height | 8 pendulums (6–9) |
+| How far the hump moves over the next swing (8 time units) | 0 sites (within ±1 in 88% of runs) |
+| How far it moves over the next 30 time units | 6 sites (more than 5 in 50% of runs) |
+| A rival hump at least 5 sites away with half the energy or more | 18% of runs (7% with 80% or more) |
+
+- **The hotspot is a hump about 8 pendulums wide, not one pendulum.** Averaged over a swing, its top pendulum holds about 5% of the energy (five times its 1% share in the uniform swing). The 10% on a single pendulum is the instantaneous peak of a breathing hump.
+- **The hump is well placed when it forms, then drifts.** It stays put for about a swing, but within 30 time units half of the humps have moved more than 5 sites.
+- **About one run in six has a rival hump** with at least half the energy. In those runs, any single-site answer is a guess between two places.
+
+**The best way to frame the target**, given these facts:
+1. **Predict the hump's centre when it forms**, not the first pendulum over 10%. That is the swing-averaged label above: 96.4% within ±1.
+2. **Keep the output a probability over all pendulums** rather than one regressed position. Regression averages rival humps (circular regression did worst, Sec. 8), while a distribution keeps both and gives prediction sets (below).
+3. **Optionally predict the hump's shape** as a per-site energy profile. The profile head tied for best in Sec. 8, and it gives the width and any rival hump for free.
+4. **Score by ring distance and calibration** (mean distance, ±1 / ±3, coverage of prediction sets), not by exact-site accuracy.
+5. **Define the event at the hump's scale**, for example when the swing-averaged energy of 3 neighbouring pendulums first passes a threshold. This is untested, and is listed as a next step.
 
 ### A set of sites instead of one
 
@@ -486,4 +516,5 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
 6. Repeat the input and architecture choices on the swing-averaged label.
-7. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
+7. Define localization at the hump's scale (for example, 3 neighbouring pendulums over a swing), and let the model name a second site when a rival hump competes (Sec. 10).
+8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
