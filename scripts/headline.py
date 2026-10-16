@@ -179,10 +179,17 @@ def main():
 
     # 8. the period-averaged label
     recs = p6.get("final_avg_label", [])
+    sym = p6.get("final_sym_label", [])
+    v1_avg = []
+    with open(experiment.RESULTS) as f:
+        v1_avg = [r for r in (json.loads(l) for l in f if l.strip()) if r.get("model") == "v1_cnn_bilstm" and r.get("label") == "avg"]
     rows = [["v2 final: trained and scored on v1's label (first site over 10%)", len(final)] + cells([r["test"] for r in final]),
+            ["v2 recipe: trained and scored on the symmetric label (springs split, not averaged)", len(sym)] + cells([r["test"] for r in sym]),
             ["v2 recipe: trained and scored on the period-averaged label", len(recs)] + cells([r["test"] for r in recs]),
             ["the same model, scored on v1's label", len(recs)] +
-            cells([r["test"]["right_label"] for r in recs if "right_label" in r["test"]])]
+            cells([r["test"]["right_label"] for r in recs if "right_label" in r["test"]]),
+            ["v1 rebuilt: trained and scored on v1's label", len(v1)] + cells([r["test"] for r in v1]),
+            ["v1 rebuilt: trained and scored on the period-averaged label", len(v1_avg)] + cells([r["test"] for r in v1_avg])]
     out += ["## 8. A smoother target: where the energy sits on average over a swing", "",
             table(["Model", "Seeds", *[c[1] for c in COLUMNS]], rows), ""]
 

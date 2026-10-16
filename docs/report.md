@@ -61,7 +61,12 @@ Three explanations remain, and cannot be distinguished without the original code
 2. Training and test runs overlapped (for example, repeated random seeds in the threaded data generation), letting the 26.5M-parameter network score high by memorizing.
 3. Something in this rebuild that the paper does not specify.
 
-**All v1 vs v2 comparisons below use the rebuilt v1 on the same test pool.**
+**Testing the first explanation: the label.** Sec. 10 shows that v1's label jitters. Which pendulum first passes 10% of the energy moves by 1–3 sites within a swing, while the swing-averaged hotspot does not. Trained on the swing-averaged label instead, the rebuilt v1 reaches 83.6% within ±1 and a mean distance of 2.25 (2 seeds).
+- That is about two-thirds of the way from 60.4% to the published 94.4%.
+- So a smoother label in the original training pipeline would explain much of the gap, but not all of it. The rest could come from a different smoothing, or from explanations 2 and 3.
+- This is a consistency check, not an identification: the original labelling code is not available.
+
+**All v1 vs v2 comparisons below use the rebuilt v1 on the same test pool and v1's label as the code defines it.**
 
 ## 3. Physics of the type-III instability
 
@@ -265,7 +270,35 @@ Against the rebuilt v1, v2:
 
 v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why that number could not be reproduced). The paper's mean distance of 1.44 does not say whether it wraps around the ring; v2 scores 1.49 around the ring and 2.43 without wrapping.
 
-*Pending: leave-one-out and data-efficiency results (Phase 6 is still running).*
+### Which choices matter
+
+([Fig. 14](../figures/fig14_leave_one_out.png); each row retrains the final model with one choice reverted, 3 seeds; Δ is against the final model's 1.49, ± its standard error)
+
+| Final model, but … | Mean distance | Δ | ±1 |
+|---|---|---|---|
+| no dilation (each site sees 17 pendulums) | 2.59 | +1.10 ± 0.01 | 59.0% |
+| zero padding instead of circular | 2.42 | +0.93 ± 0.04 | 66.7% |
+| flatten + dense head (like v1) | 1.80 | +0.31 ± 0.02 | 72.0% |
+| plain cross-entropy (v1's loss) | 1.57 | +0.08 ± 0.02 | 64.3% |
+| v1's optimizer (Adam, constant 10⁻³) | 1.56 | +0.07 ± 0.04 | 75.8% |
+| hard labels (other loss terms kept) | 1.53 | +0.04 ± 0.01 | 65.3% |
+| no localization-time head | 1.51 | +0.02 ± 0.01 | 76.8% |
+| v1's inputs (energy frames + θ(0)) | 1.51 | +0.02 ± 0.02 | 76.4% |
+
+- **The ring's physics carries the architecture.** Seeing the whole ring is worth 1.1 sites, since the growing modes are the five longest waves. Circular padding is worth 0.9: the ring has no ends, and the hotspot can form anywhere. One score per site is worth 0.3, with a tenth of the parameters.
+- **The loss sets ±1 more than the mean distance.** At the full budget, plain cross-entropy or hard labels cost only 0.04–0.08 in mean distance, but ±1 falls from 77% to 64–65%. Soft labels place predictions between the two candidate sites of the jittery label (see below).
+- **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7).
+
+### Data efficiency
+
+([Fig. 15](../figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, same number of gradient steps)
+
+| Training runs | 1k | 3k | 10k | 30k | 60k | 100k |
+|---|---|---|---|---|---|---|
+| v2 mean distance | 2.42 | 2.07 | 1.80 | 1.56 | 1.49 | 1.44 |
+
+- Trained on 1,000 runs, v2 (2.42) already beats v1 trained on 60,000 (3.14): 60 times less data.
+- Beyond 60,000 runs the gains are small (1.44 at 100,000).
 
 ### When, as well as where
 
@@ -285,18 +318,21 @@ v1's label is the first pendulum whose instantaneous energy passes 10% of the to
 - With plain cross-entropy, v2's misses land two sites away more often than one. Half of those two-site misses, and three in four of the ones to the left, sit exactly on the hotspot's swing-averaged position.
 - A label without the jitter is the first pendulum whose energy, with springs split evenly and averaged over one swing (8 time units), passes 10%. It agrees exactly with v1's label in only 33% of test runs, usually sitting 1–3 sites to the left.
 
-Same inputs, architecture and training; only the target changes (test pool; 5 seeds on v1's label, 3 on the averaged one):
+Same inputs, architecture and training; only the target changes (test pool; seeds in brackets):
 
-| Target | Mean distance | Exact | ±1 | ±3 |
+| Model and target | Mean distance | Exact | ±1 | ±3 |
 |---|---|---|---|---|
-| v1's label (first instantaneous crossing) | 1.49 ± 0.03 | 27.7% | 77.2% | 97.3% |
-| **Swing-averaged label** | **0.58 ± 0.01** | **70.5%** | **96.4%** | **98.5%** |
+| v2, v1's label (first instantaneous crossing) [5] | 1.49 ± 0.03 | 27.7% | 77.2% | 97.3% |
+| v2, symmetric label: springs split evenly, not averaged [3] | 1.49 ± 0.01 | 32.1% | 72.5% | 97.5% |
+| **v2, swing-averaged label** [3] | **0.58 ± 0.01** | **70.5%** | **96.4%** | **98.5%** |
+| v1 rebuilt, v1's label [2] | 3.14 ± 0.19 | 22.5% | 60.4% | 90.3% |
+| v1 rebuilt, swing-averaged label [2] | 2.25 ± 0.00 | 42.0% | 83.6% | 94.1% |
 
-- Where the energy settles is predictable to within one pendulum in 96% of runs, from 4.5 time units of watching.
-- Most of v2's remaining error on v1's label is the label's own jitter, not a failure to predict where the energy goes.
+- **Where the energy settles is predictable** to within one pendulum in 96% of runs, from 4.5 time units of watching.
+- **The jitter comes from energy moving within each swing**, not from how the springs are booked: splitting them evenly without averaging does not help (1.49).
+- **Most of v2's remaining error on v1's label is the label's own jitter**, not a failure to predict where the energy goes.
+- **The rebuilt v1 also gains** from the averaged label (60.4% → 83.6% within ±1), but stays far behind v2 on the same target (Sec. 2 discusses what this means for the reproduction gap).
 - For applications, the swing-averaged label is the better target.
-
-*Pending: the symmetric label without averaging, and the rebuilt v1 trained on the swing-averaged label (running).*
 
 ### A set of sites instead of one
 
@@ -333,7 +369,7 @@ The pattern follows the Floquet spectrum:
 - **Shifts that leave the spectrum alone cost v2 about half a site** (g ±10%, a doubled initial spread). It stays far ahead of v1.
 - **Shifts that change the spectrum hurt both models alike.** A 10% change in the global coupling h moves the fastest growth rate by +21% or −33% and changes how many modes grow, and both models lose 3–4 sites. In a real chain, h must be known to a few percent, or the model trained over a range of h.
 - **v2 works on rings of other sizes; v1's dense head cannot.** At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 vs 1.49 of 100). At 150 it degrades (6.3): eight modes compete instead of five, and the ring outgrows the 129-site receptive field.
-- **A single slightly weaker pendulum defeats both models.** A 1% weaker restoring force pins the localization site, which neither model saw in training (Sec. 11.3).
+- **A single slightly weaker pendulum defeats both models.** A 1% weaker restoring force pins the localization site, which neither model saw in training (see Chains with an impurity, below).
 
 ### Sensor noise
 
@@ -349,7 +385,39 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 - v2 degrades about three times more slowly than v1. Even untrained for noise, v2 at 10⁻³ rad (2.26) beats the noise-free v1 (3.14).
 
-*Pending: noise-trained, impurity and real-world sensing results (Phase 6 is still running).*
+- Training with the same noise helps further: trained and tested at 10⁻³ rad, the v2 recipe reaches 1.72 ± 0.02.
+
+### Chains with an impurity
+
+(One random pendulum's restoring force 0–2% weaker; 10,000 test runs; [results/headline.md](../results/headline.md))
+
+| Model | Mean distance | ±1 | ±3 |
+|---|---|---|---|
+| v1, trained on uniform chains | 14.85 | 24.7% | 41.7% |
+| v2 final, trained on uniform chains | 18.90 | 19.8% | 28.7% |
+| v2 recipe, trained with impurities, angles only | 1.06 ± 0.10 | 86.2% | 98.5% |
+| v2 recipe, trained with impurities, plus a measured map of every pendulum | 1.05 ± 0.02 | 87.0% | 98.8% |
+
+- **A slightly weaker pendulum pins the hotspot.** Above a 1% difference the site lands within ±3 of the weak pendulum in 98% of runs. Below 0.5% it does so in only 32%, because the random initial offsets win.
+- **Models trained on uniform chains fail** because they have never seen this cue.
+- **Trained with impurities, v2 finds the weak pendulum from the motion alone.** A weaker pendulum swings slightly slower and falls behind its neighbours. With an impurity, v2 is more accurate than on uniform chains (1.06 vs 1.49), since the impurity makes the outcome less random.
+- **A measured map of every pendulum adds nothing** beyond seed noise (1.05 vs 1.06). For a single impurity of this size, 4.5 time units of angles already reveal it. Chains with small differences at every pendulum remain untested (Sec. 12).
+
+### The recommended setups, at full budget
+
+([results/headline.md](../results/headline.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
+
+| Setup | Mean distance | ±1 | ±3 | Median warning |
+|---|---|---|---|---|
+| v2 final: every pendulum, noise-free, τ = 0…4.5 | 1.49 | 77.2% | 97.3% | 50.5 (7.2 s) |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 72.6% | 95.9% | 50.5 (7.2 s) |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 72.6% | 95.2% | 30.5 (4.4 s) |
+| Energies at τ = 30, noise-free (needs gyroscopes) | 1.24 | 82.4% | 95.6% | 25 (3.6 s) |
+| v1 rebuilt: every pendulum, noise-free, from release | 3.14 | 60.4% | 90.3% | 50.5 (7.2 s) |
+
+- **A realistic, cheap setup works.** One camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, well ahead of the noise-free v1 (3.14).
+- **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](../figures/fig17_warning_tradeoff.png)).
+- **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning.
 
 ## 12. Limitations and next steps
 
@@ -358,7 +426,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 61.7% within ±1, not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 is smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
 - **Simulation only, without damping.** Real pendulums lose energy to friction and air drag. A damped uniform swing drifts toward the instability threshold (A_c = 1.577), and below it nothing localizes. This study keeps the paper's conservative model.
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
-- **Manufacturing tolerances.** The impurity tests detune one pendulum per chain. A real chain has small differences at every pendulum. A single 1% impurity already pins the site within ±3 in 92% of runs, so realistic tolerances would make a measured frequency map essential.
+- **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
 - **The label.** The site is the first one to cross 10% of the energy, with each spring's energy booked to its left pendulum. In 21% of runs the exact site depends on that bookkeeping, so exact-site accuracy mostly measures it. Within ±1 and the mean distance are the meaningful metrics.
 

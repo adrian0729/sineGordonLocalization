@@ -44,3 +44,7 @@ trajectory cache ready in 63s
 [42/48  8656s mps] noise/final_trained_noise1e-3 seed 2: mean 1.732  ±1 73.02%  ±3 96.75%  >10 2.17%  (489s, 22786 params)
 [43/48  9138s mps] impurity/impurity_trained seed 0: mean 1.117  ±1 85.04%  ±3 98.60%  >10 0.99%  (549s, 22786 params)
 [44/48  9228s mps] impurity/impurity_trained seed 1: mean 1.114  ±1 86.28%  ±3 98.69%  >10 0.96%  (561s, 22786 params)
+[45/48  9692s mps] impurity/impurity_trained seed 2: mean 0.940  ±1 87.16%  ±3 98.14%  >10 0.91%  (544s, 22786 params)
+[46/48  9793s mps] impurity/impurity_trained_with_map seed 0: mean 1.030  ±1 86.57%  ±3 98.93%  >10 0.75%  (550s, 22882 params)
+[47/48 10254s mps] impurity/impurity_trained_with_map seed 1: mean 1.059  ±1 87.52%  ±3 98.74%  >10 0.83%  (547s, 22882 params)
+[48/48 10333s mps] impurity/impurity_trained_with_map seed 2: mean 1.051  ±1 86.97%  ±3 98.82%  >10 0.79%  (526s, 22882 params)

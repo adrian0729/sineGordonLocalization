@@ -556,7 +556,7 @@ def fig_final_data():
     ax.set_xticks([n for n, _ in pts], [f"{n // 1000}k" for n, _ in pts])
     ax.set_xlabel("Training runs (same number of gradient steps)")
     ax.set_ylabel("Mean distance on test (sites)")
-    ax.legend(loc="upper right", handlelength=3.2)
+    ax.legend(loc="center right", handlelength=3.2)
     ax.set_title(title, loc="left")
     save(fig, "fig15_final_data_efficiency")
 

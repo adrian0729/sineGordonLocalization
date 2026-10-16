@@ -199,7 +199,7 @@ The learned-linear models are multinomial logistic regression with one full-ring
 
 - Later frames do add information (1.81 → 1.75).
 - A model that processes each site's frame history nonlinearly does better still, so "the LSTM is unnecessary" was too strong. What matters is per-site nonlinear processing over time, not the flatten + LSTM design of v1.
-- Pending: a cheaper per-site MLP front end and GRU + dilated combinations (below).
+- A cheaper per-site MLP front end and the GRU + dilated combinations are tested below, under "Follow-ups".
 
 **H2.2 (a site must see most of the ring): supported.** Local-only dilated circular CNNs, by how many sites each output sees:
 
@@ -446,3 +446,84 @@ The camera tracks only every s-th pendulum; a mask channel marks where the senso
 **Decision (Q4).** Keep AdamW + cosine (3% warmup, peak 3×10⁻³, weight decay 10⁻⁴, batch 256).
 - No alternative beat it beyond seed noise. Phase 6 re-checks the choice at the full budget by swapping v1's constant-rate Adam into the final model.
 - As the plan expected, physics does not pick the optimizer. Once the inputs, architecture and loss respect the problem's structure (Phases 2–4, worth 0.2–3 sites), any reasonable adaptive optimizer finds the same solution (differences ≤ 0.1 sites).
+
+---
+
+## Phase 6: the final model, robustness and real-world setups (Q5), 15 October 2026
+
+**Setup**
+- Final model: the Phase 2 architecture with angle frames at τ = 0…4.5, the Phase 4 loss and AdamW + cosine. It trains for 30 epochs on 60,000 runs, with 5 seeds.
+- Leave-one-out, impurity, noise-trained and real-world groups use 3 seeds; data efficiency uses 2.
+- Tables: `results/phase6_tables.md` and `results/headline.md` (from `scripts/headline.py`).
+- Robustness re-evaluates the trained models without retraining (`scripts/robustness.py`). The time head and prediction sets come from `scripts/eval_final.py`.
+
+**Headline (test pool).** v2 final: mean distance 1.49 ± 0.03, 77.2% within ±1, 97.3% within ±3, 1.5% more than 10 off. That uses 22,786 parameters and 6 minutes of training. The rebuilt v1 scores 3.14 ± 0.19, 60.4%, 90.3% and 5.7%, with 26.5M parameters and 23 minutes.
+
+**Leave-one-out** (Δ mean distance against the final model):
+
+| Removed | Δ |
+|---|---|
+| dilation | +1.10 |
+| circular padding | +0.93 |
+| per-site head (dense head instead) | +0.31 |
+| the chosen loss (plain cross-entropy) | +0.08 |
+| AdamW + cosine (v1's Adam) | +0.07 |
+| soft labels | +0.04 |
+| time head | +0.02 |
+| angle inputs (v1's inputs) | +0.02 |
+
+Soft labels matter more for ±1: 77% with them, 64–65% without.
+
+**Data efficiency.** Mean distance by number of training runs:
+
+| Training runs | 1k | 3k | 10k | 30k | 60k | 100k |
+|---|---|---|---|---|---|---|
+| Mean distance | 2.42 | 2.07 | 1.80 | 1.56 | 1.49 | 1.44 |
+
+v2 beats v1 from 1k runs on.
+
+**Time head.** It predicts the localization time with a 1.5% median error (0.8 time units). The amplitude alone gives 5.1%, a constant 13.4%.
+
+**Prediction sets.** About 5.6 sites hold 90% of the probability and contain the true site 98% of the time; the sets are conservative.
+
+**Robustness without retraining** (v1 → v2):
+
+| Test condition | v1 | v2 |
+|---|---|---|
+| g ±10% | 3.26 / 3.39 | 1.97 / 1.97 |
+| h −10% / +10% | 4.36 / 5.91 | 4.25 / 5.53 |
+| twice the initial spread | 3.62 | 1.96 |
+| N = 80 / 150 | n/a | 1.31 / 6.32 |
+| one pendulum 1% weaker | 18.9 | 22.9 |
+| sensor noise 10⁻³ rad | 6.24 | 2.26 |
+
+- The damage follows the Floquet spectrum (`floquet.growth_rates`). A 10% change in g moves σ₁ by under 0.3%, while a 10% change in h moves it by +21% / −33% and changes the number of growing modes.
+
+**Noise-trained.** Trained and tested at 10⁻³ rad, the v2 recipe reaches 1.72.
+
+**Impurities** (0–2% weaker pendulum, impurity test pool):
+- Trained on uniform chains, both models fail: v1 14.9, v2 18.9. The weak pendulum pins the hotspot, within ±3 of it in 98% of runs above 1%.
+- Trained with impurities, v2 reaches 1.06 from angles alone and 1.05 with a measured map of the chain. The map adds nothing.
+
+**Real-world setups (final recipe).**
+
+| Setup | Mean distance |
+|---|---|
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 |
+| Coarse camera (10⁻²) from τ = 20 | 2.05 |
+| Energies at τ = 30 | 1.24 |
+
+**The label** (error analysis, then a follow-up group).
+- With plain cross-entropy, misses land two sites off more often than one, and half of those predictions sit on the swing-averaged hotspot. So the label "first pendulum over 10%" jitters within a swing.
+- The swing-averaged label (`site_avg`) agrees with it exactly in only 33% of test runs.
+
+| Model and target | Mean distance | ±1 |
+|---|---|---|
+| v2, v1's label | 1.49 | 77.2% |
+| v2, symmetric label (not averaged) | 1.49 | 72.5% |
+| v2, swing-averaged label | 0.58 | 96.4% |
+| v1 rebuilt, v1's label | 3.14 | 60.4% |
+| v1 rebuilt, swing-averaged label (`scripts/v1_label_test.sh`) | 2.25 | 83.6% |
+
+- The jitter comes from the within-swing exchange of energy, not from the spring bookkeeping.
+- A smoother label would explain about two-thirds of the v1 reproduction gap in ±1 (60.4% → 83.6%, against the published 94.4%).
