@@ -1,7 +1,7 @@
 """Two-site output: let a trained model name a second site, for runs where a rival hump competes.
 
-    python scripts/top2.py                                   # the final models on v1's, the averaged and the hump label
-    python scripts/top2.py --runs runs/final_hump_label_s*_*
+    python scripts/top2.py                                   # the final models on v1's, the averaged and the hump labels
+    python scripts/top2.py --runs "runs/deploy_*_s*_*" --out results/top2_deploy.json
 
 The two sites are the two highest peaks of the predicted distribution at least MIN_APART sites apart: the most
 likely site, and the highest local maximum of the probability at least MIN_APART sites from it. Each model is
@@ -13,7 +13,8 @@ for luck, a second site drawn at random from those at least MIN_APART sites from
 Rival humps: the test of scripts/hotspot_timing.py, now for all test runs. Take the symmetric energy averaged
 over the swing (16 samples) that ends when v1's label fires; a run has a rival when a local maximum at least 5
 sites from the top pendulum holds at least half its energy (18% of runs). The same test at the moment each
-model's own label fires is reported too. Written to results/top2.json.
+model's own label fires is reported too. Results per run and averaged over the seeds of each config, written to
+results/top2.json (or --out).
 """
 import argparse
 import json
@@ -32,7 +33,9 @@ from sgloc import data, metrics, sim  # noqa: E402
 MIN_APART = 5
 RIVAL = 0.5            # a rival hump holds at least this share of the top pendulum's swing-averaged energy
 MASSES = (0.05, 0.1, 0.2, 0.3)  # name the second site only when the 3 sites around it hold this much probability
-FINAL = {"right": "runs/v2_final_s*_*", "avg": "runs/final_avg_label_s*_*", "hump": "runs/final_hump_label_s*_*"}
+FINAL = {"right": "runs/v2_final_s*_*", "avg": "runs/final_avg_label_s*_*", "hump": "runs/final_hump_label_s*_*",
+         "hump_top": "runs/final_hump_top_label_s*_*"}
+FIRES_WITH = {"hump_top": "hump"}  # labels read at another label's moment
 LABEL_TIMES = ("right", "avg", "hump")
 
 
@@ -100,6 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--runs", nargs="+", default=None)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--out", default="results/top2.json")
     args = parser.parse_args()
     torch.set_num_threads(4)
     test = data.load_pool(ROOT / "data" / "pool_test.npz")
@@ -129,27 +133,28 @@ def main():
               "rival_share": {name: float(np.mean(r >= RIVAL)) for name, r in ratio.items()}, "runs": {}}
     for run in runs:
         run_dir = ROOT / run
-        label = json.loads((run_dir / "config.json").read_text()).get("label", "right")
+        cfg = json.loads((run_dir / "config.json").read_text())
+        label = cfg.get("label", "right")
         probs, pred_time = outputs(run_dir, test)
         first, second, _, mass2 = two_sites(probs)
         truth = test[f"site_{label}"].astype(int)
-        own = ratio[label] >= RIVAL
+        own = ratio[FIRES_WITH.get(label, label)] >= RIVAL
         keep = truth >= 0
         groups = {"all": keep, "rival": keep & rival, "no_rival": keep & ~rival,
                   "rival_own_time": keep & own, "no_rival_own_time": keep & ~own}
         true_time = test[f"time_{label}"].astype(float)
-        result["runs"][run] = {"label": label, "time_median_rel_error": float(np.median(
+        result["runs"][run] = {"name": cfg["name"], "label": label, "time_median_rel_error": float(np.median(
             np.abs(pred_time[keep] - true_time[keep]) / true_time[keep])),
             **{g: scores(first[m], second[m], mass2[m], truth[m]) for g, m in groups.items()}}
         r = result["runs"][run]
-        print(f"{run:40s} {label:5s}  ±1 top-1 {r['all']['top1_within1']:.1%} -> top-2 {r['all']['top2_within1']:.1%}   "
+        print(f"{run:48s} {label:8s}  ±1 top-1 {r['all']['top1_within1']:.1%} -> top-2 {r['all']['top2_within1']:.1%}   "
               f"rival runs {r['rival']['top1_within1']:.1%} -> {r['rival']['top2_within1']:.1%}   "
               f"no rival {r['no_rival']['top1_within1']:.1%} -> {r['no_rival']['top2_within1']:.1%}", flush=True)
-    by_label = {}
+    by_name = {}
     for run, r in result["runs"].items():
-        by_label.setdefault(r["label"], []).append(r)
+        by_name.setdefault(r["name"], []).append(r)
     result["mean"] = {}
-    for label, rs in by_label.items():
+    for name, rs in by_name.items():
         mean = {"time_median_rel_error": float(np.mean([r["time_median_rel_error"] for r in rs]))}
         for g in rs[0]:
             if not isinstance(rs[0][g], dict):
@@ -158,8 +163,8 @@ def main():
             for m in MASSES:
                 key = f"mass{m:g}"
                 mean[g][key] = {k: float(np.mean([r[g][key][k] for r in rs])) for k in ("named", "within1")}
-        result["mean"][label] = {"seeds": len(rs), **mean}
-    (ROOT / "results" / "top2.json").write_text(json.dumps(result, indent=1))
+        result["mean"][name] = {"label": rs[0]["label"], "seeds": len(rs), **mean}
+    (ROOT / args.out).write_text(json.dumps(result, indent=1))
 
 
 if __name__ == "__main__":

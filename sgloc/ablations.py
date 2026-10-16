@@ -493,6 +493,59 @@ def phase9():
     return t.configs
 
 
+class ThreeLabels(Table):
+    """A Table that adds every config on the hump label, beside the same config on the swing-averaged label and on v1's
+    label as matched controls. The controls are Phase 7's runs (same config ids), so they are reused, not repeated."""
+
+    def add(self, group, name, note, seeds=(0, 1), **override):
+        super().add(group, f"{name}_hump", f"{note}; trained and tested on the hump label", seeds, label="hump",
+                    **override)
+        super().add(group, f"{name}_avg", f"{note}; the swing-averaged label (Phase 7's run)", seeds, label="avg",
+                    **override)
+        super().add(group, f"{name}_v1label", f"{note}; v1's label (matched control)", seeds, **override)
+
+
+def phase10():
+    """Phase 9's hump label is the best target so far (final recipe: 0.27, 99.4% within +-1). Is its gain the moment
+    it is read or the 3-pendulum sum? And do the choices made on v1's label, which Phase 7 re-tested on the swing-
+    averaged label, still hold on it? Final recipe, full budget, 3 seeds; Phase 7's runs are the controls."""
+    three = (0, 1, 2)
+    # Predictions, written before the runs started:
+    # - Timing: hump_top fires with the hump label but names the top pendulum. At that moment the two agree within +-1
+    #   in 99.7% of test runs, and the hump model already scores 0.41 and 98.7% on hump_top without being trained on
+    #   it. So the timing should explain the +-1 gain: about 0.3-0.4 and 99%. The top pendulum flips between two
+    #   neighbours when the hump's top is flat, so fewer exact hits than on the hump label (75-80% against 84.7%).
+    # - Inputs and receptive field: what is hard is reading the initial state, whichever label marks the hump. So
+    #   about the same absolute costs as on the averaged label (v1's inputs +0.03-0.06, theta(0) alone +0.08-0.15,
+    #   33 sites +0.1-0.15), a larger share of the lower error. 17 sites cannot see the five longest waves at all:
+    #   1.5-1.8, five to six times the final recipe.
+    # - Soft labels: the hump label has no jitter, so they should not matter (within 0.02, as on the averaged label).
+    # - Sensing: noise picks the wrong hump, and no label removes those misses, so the noisy setups lose about as many
+    #   runs as on the averaged label: about 0.9-1.1 for both cameras, three to four times the final recipe. Energies
+    #   at tau = 30 should tie with the final recipe (0.25-0.3). A second site should help the noisy setups more than
+    #   the clean ones, since their misses are on the wrong hump.
+    timing = Table(final_recipe(), 10)
+    timing.add("timing", "final_hump_top_label", "Phase 10: final recipe on the hump_top label, which fires with the "
+               "hump label but names the top pendulum of the swing-averaged energy (no 3-pendulum sum)", three,
+               label="hump_top")
+    timing.add("timing", "final_hump_label", "Phase 10 control: Phase 9's final_hump_label", three, label="hump")
+    timing.add("timing", "final_avg_label", "Phase 10 control: Phase 6's final_avg_label", three, label="avg")
+    t = ThreeLabels(final_recipe(), 10)
+    t.add("inputs", "v1_inputs", "Phase 10 / Q1: final recipe on v1's inputs (energy frames + theta(0))", three,
+          view=V1_INFO)
+    t.add("inputs", "angle_frames", "Phase 10 / Q1: final recipe (angles at tau = 0..4.5)", three)
+    t.add("inputs", "theta0_only", "Phase 10 / Q1: final recipe on theta(0) alone, one frame", three,
+          view={"channels": ["theta"], "frames": [0], "theta0": False})
+    for rf, dil in ((17, [1, 2, 4, 1]), (33, [1, 2, 4, 8, 1]), (129, ARCH["dilations"])):
+        t.add("receptive_field", f"rf{rf}", f"Phase 10 / H2.2: final recipe, circular stack seeing {rf} sites "
+              f"(kernel 3, dilations {dil})", three, model={"dilations": dil})
+    t.add("soft_labels", "soft_on", "Phase 10 / H3.2: final recipe (soft labels, sigma 1)", three)
+    t.add("soft_labels", "soft_off", "Phase 10 / H3.2: final recipe with hard labels (other loss terms kept)", three,
+          loss={"soft_sigma": 0.0})
+    add_deploy(t)
+    return timing.configs + t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
-          "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9}
+          "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "phase10": phase10}

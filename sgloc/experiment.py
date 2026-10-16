@@ -3,10 +3,10 @@
 Config keys: phase, group, name, note (why the run exists), seed, n_train, view (sgloc.views.View
 fields), test_view (optional overrides for the test inputs), model (sgloc.models.build spec),
 loss (sgloc.losses.SiteLoss fields), optim (optimizer, schedule, steps or epochs, batch_size).
-Optional: label (sgloc.sim.LABELS, or "hump" once scripts/add_labels.py has added it to the
-pools), pools (other pool files), ignore_unlocalized (leave runs that never localize out of the
-site and time losses; for damped pools), augment ("mirror": add the mirror image of every
-training run).
+Optional: label (sgloc.sim.LABELS, or one of sgloc.sim.EXTRA_LABELS once scripts/add_labels.py
+has added it to the pools), pools (other pool files), ignore_unlocalized (leave runs that never
+localize out of the site and time losses; for damped pools), augment ("mirror": add the mirror
+image of every training run).
 """
 import copy
 import hashlib
@@ -90,7 +90,8 @@ def views_for(cfg):
 
 
 # each label's source under reflection
-MIRROR_LABEL = {"right": "left", "left": "right", "sym": "sym", "avg": "avg", "hump": "hump"}
+MIRROR_LABEL = {"right": "left", "left": "right", "sym": "sym", "avg": "avg", "hump": "hump",
+                "hump_top": "hump_top"}
 
 
 def mirror_pool(pool):

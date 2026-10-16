@@ -21,7 +21,7 @@ def pools(tmp_path_factory):
     views.CACHE = cache
 
 
-@pytest.mark.parametrize("label", ["right", "avg", "hump"])
+@pytest.mark.parametrize("label", ["right", "avg", "hump", "hump_top"])
 def test_mirror_augmentation_adds_the_mirror_image_runs(pools, label):
     pool, mirrored = pools
     cfg = {"view": VIEW, "loss": {"time": 0.1}, "label": label}
@@ -89,3 +89,17 @@ def test_phase9_is_the_avg_label_run_on_the_hump_label():
     controls = {experiment.config_id(c) for c in phase9 if c not in hump}
     phase6 = {experiment.config_id(c) for c in ablations.phase6() if c["name"] in ("final_avg_label", "v2_final")}
     assert controls == phase6 and len(controls) == 8
+
+
+def test_phase10_reuses_phase7_and_phase9_runs_as_controls():
+    def ids(configs):
+        return {experiment.config_id(c) for c in configs}
+
+    phase10 = ablations.phase10()
+    recorded = ids(ablations.phase6()) | ids(ablations.phase7()) | ids(ablations.phase9())
+    hump = [c for c in phase10 if c.get("label") in ("hump", "hump_top")]
+    assert ids(c for c in phase10 if c not in hump) <= recorded  # every averaged- and v1-label run is reused
+    for c in hump:  # each hump-label run is a Phase 7 config with only the label changed
+        if c["label"] == "hump":
+            assert experiment.config_id(dict(c, label="avg")) in ids(ablations.phase7()) | ids(ablations.phase6())
+    assert len(ids(hump) - recorded) == 27  # 24 on the hump label (the final recipe is Phase 9's) + 3 on hump_top

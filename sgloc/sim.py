@@ -25,7 +25,7 @@ class Params:
 
 BONDS = ("right", "left", "sym")
 LABELS = ("right", "left", "sym", "avg")
-EXTRA_LABELS = ("hump",)  # computed only when asked for; scripts/add_labels.py adds them to existing pools
+EXTRA_LABELS = ("hump", "hump_top")  # computed only when asked for; scripts/add_labels.py adds them to pools
 HUMP_SITES = 3            # the "hump" label sums the swing-averaged energy over this many neighbouring pendulums
 HUMP_THRESHOLD = 0.15     # and fires when they hold this share of the total (median time then matches "right": tau = 55)
 
@@ -117,7 +117,9 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
     "hump" (in EXTRA_LABELS, computed only when asked for) marks the event at the hump's scale:
     the first sample where that averaged energy, summed over HUMP_SITES neighbouring pendulums,
     passes HUMP_THRESHOLD of the total. Its site is the centre of that window and its time, as
-    for "avg", the end of the averaging window.
+    for "avg", the end of the averaging window. "hump_top" fires with "hump" but names the top
+    pendulum of the averaged energy (no 3-pendulum sum), which separates when the hump label is
+    read from how it locates the hump.
 
     With damping (`gamma`, a scalar or one value per run) the total energy decays, so the
     threshold is a fraction of the energy the chain holds at that sample (for "avg" and "hump",
@@ -131,12 +133,13 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
     damped = np.broadcast_to(gamma != 0, (runs, 1))[:, 0]  # runs whose chain loses energy
     stride = round(p.sample / p.dt)
     n_samples = round(p.t_final / p.sample)
-    share = {name: HUMP_THRESHOLD if name == "hump" else p.threshold for name in labels}
+    share = {name: HUMP_THRESHOLD if name in ("hump", "hump_top") else p.threshold for name in labels}
     total = site_energy(theta, omega, p.g, p.h, "sym", onsite).sum(axis=1)
     limit = {name: share[name] * total for name in labels}
     site = {name: np.full(runs, -1, dtype=np.int16) for name in labels}
     when = {name: np.full(runs, np.nan, dtype=np.float32) for name in labels}
-    window = np.zeros((p.avg_window, runs, n_sites)) if "avg" in labels or "hump" in labels else None
+    swing = {"avg", "hump", "hump_top"} & set(labels)
+    window = np.zeros((p.avg_window, runs, n_sites)) if swing else None
 
     for k in range(n_samples):
         energies = {b: site_energy(theta, omega, p.g, p.h, b, onsite) for b in BONDS
@@ -145,16 +148,18 @@ def localize(theta0, params=Params(), labels=LABELS, onsite=None, gamma=0.0):
             window[k % p.avg_window] = energies["sym"]
             if k >= p.avg_window - 1:
                 energies["avg"] = window.mean(axis=0)
-                if "hump" in labels:
+                if swing - {"avg"}:
                     energies["hump"] = hump_energy(energies["avg"])
         for name in labels:
-            if name not in energies:
+            fires = "hump" if name == "hump_top" else name  # hump_top fires with the hump label ...
+            if fires not in energies:
                 continue
-            E = energies[name]
-            held = energies["avg"] if name == "hump" else E  # each pendulum sits in HUMP_SITES hump windows
+            E = energies[fires]
+            held = energies["avg"] if fires == "hump" else E  # each pendulum sits in HUMP_SITES hump windows
             now = np.where(damped, share[name] * held.sum(axis=1), limit[name]) if damped.any() else limit[name]
             hit = (site[name] < 0) & (E.max(axis=1) > now)
-            site[name][hit] = E[hit].argmax(axis=1)
+            named = energies["avg"] if name == "hump_top" else E  # ... but names the top pendulum
+            site[name][hit] = named[hit].argmax(axis=1)
             when[name][hit] = k * p.sample
         if all((site[name] >= 0).all() for name in labels) or k == n_samples - 1:
             break

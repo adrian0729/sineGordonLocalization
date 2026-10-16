@@ -21,7 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from sgloc import data, sim  # noqa: E402
 
-DEFINITION = {"hump": {"sites": sim.HUMP_SITES, "threshold": sim.HUMP_THRESHOLD}}
+DEFINITION = {"hump": {"sites": sim.HUMP_SITES, "threshold": sim.HUMP_THRESHOLD},
+              "hump_top": {"fires_with": "hump", "sites": 1, "threshold": sim.HUMP_THRESHOLD}}
 
 
 def add(path, labels, workers):
