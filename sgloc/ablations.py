@@ -356,6 +356,7 @@ def phase7():
 
 
 FINE_EVAL = 47  # checkpoint every 47 steps instead of every 235 (= 5 x 47, so the default checkpoints are kept)
+BEST_STEPS = {1000: 235, 3000: 235, 10_000: 705}  # Phase 8: best schedule on validation without mirror images
 
 
 def phase8():
@@ -379,16 +380,27 @@ def phase8():
             t.add(g, f"n{n}_dropout{p:g}", f"Phase 8: dropout {p:g} after every hidden activation", (0, 1),
                   n_train=n, model={"dropout": p}, optim=fine)
         t.add(g, f"n{n}_mirror", "Phase 8: add the mirror image of every training run (the ring's reflection symmetry; "
-              "v1's one-sided label becomes the mirrored left-bond label)", (0, 1), n_train=n, augment="mirror", optim=fine)
+              "v1's one-sided label becomes the mirrored left-bond label)", (0, 1, 2), n_train=n, augment="mirror", optim=fine)
         # follow-ups after the first results at 1,000 runs (docs/progress.md, Phase 8). There the best checkpoint comes
         # at steps 141-188, still in the learning-rate warmup (211 steps). By then AdamW, which shrinks the weights by
         # lr x wd per step, has shrunk them by only 1.4-2.5% at wd 0.1, so 1e-2 and 1e-1 change nothing. Does wd 1 help?
-        t.add(g, f"n{n}_wd1", "Phase 8 follow-up: AdamW weight decay 1", (0, 1), n_train=n, optim=dict(fine, weight_decay=1.0))
+        t.add(g, f"n{n}_wd1", "Phase 8 follow-up: AdamW weight decay 1", (0, 1, 2), n_train=n,
+              optim=dict(fine, weight_decay=1.0))
         # The cosine decay starts long after the model has overfit. Does a shorter schedule, which anneals the learning
         # rate before that, do better? (Same 3% warmup; checkpoints every steps / 30 as by default.)
         for steps in (235, 705, 2350):
-            t.add(g, f"n{n}_steps{steps}", f"Phase 8 follow-up: a {steps}-step cosine schedule instead of 7,050", (0, 1),
-                  n_train=n, optim={"steps": steps})
+            t.add(g, f"n{n}_steps{steps}", f"Phase 8 follow-up: a {steps}-step cosine schedule instead of 7,050",
+                  (0, 1, 2), n_train=n, optim={"steps": steps})
+        # The best combination, from the results above (validation pool). The mirror images help at every size. Weight
+        # decay 1 helps at 10,000 runs, where training runs long enough for the decay to act, and is neutral below. A
+        # shorter schedule helps at 3,000 and 10,000 runs. Weight decay needs the long schedule, and at 10,000 runs the
+        # images' gain comes late (best checkpoints at steps 4,089-4,700), so the two strategies are tried separately.
+        t.add(g, f"n{n}_mirror_wd1", "Phase 8 combination: mirror images + weight decay 1 (7,050 steps)", (0, 1, 2),
+              n_train=n, augment="mirror", optim=dict(fine, weight_decay=1.0))
+        steps = BEST_STEPS[n]
+        t.add(g, f"n{n}_mirror_steps{steps}", f"Phase 8 combination: mirror images + the {steps}-step schedule (the "
+              "shortest within 0.01 of the best on validation without images)", (0, 1, 2), n_train=n, augment="mirror",
+              optim={"steps": steps})
     # follow-up after the results at 1k-10k runs: the mirror images are worth about a doubling of the training runs at
     # every size. Do they help the final model at 60,000 runs too? Checkpoints as in v2_final, so the images are the
     # only change (its best checkpoints come late, at steps 4,465-7,050).

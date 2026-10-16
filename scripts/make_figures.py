@@ -545,6 +545,14 @@ def fig_final_data():
         ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
     ax.plot([n for n, _ in pts], [np.mean(v) for _, v in pts], color=SLOT[0], marker="o", markeredgecolor=SURFACE,
             markeredgewidth=1.2, label="v2 final recipe (23k parameters)")
+    mirror = phase_records("phase8")  # Phase 8: the same recipe plus the mirror image of every training run
+    mirror = [(n, [r["test"]["mae"] for r in mirror.get((f"n{n}", f"n{n}_mirror"), [])]) for n in (1000, 3000, 10_000, 60_000)]
+    mirror = [(n, v) for n, v in mirror if v]
+    if mirror:
+        for n, v in mirror:
+            ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[1], alpha=0.4)
+        ax.plot([n for n, _ in mirror], [np.mean(v) for _, v in mirror], color=SLOT[1], marker="o",
+                markeredgecolor=SURFACE, markeredgewidth=1.2, label="+ mirror images (Phase 8)")
     v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     title = "Data efficiency of the final recipe"
     if v1:
@@ -567,25 +575,32 @@ def fig_regularization():
     if not path.exists():
         raise FileNotFoundError("no Phase 8 curves yet (scripts/regularization.py)")
     curves = json.loads(path.read_text())
-    series = [("fine_eval", "final recipe"), ("wd1", "+ weight decay 1"), ("dropout0.2", "+ dropout 0.2"),
-              ("mirror", "+ mirror images")]
+    series = [("fine_eval", "final recipe"), ("mirror", "+ mirror images"), ("wd1", "+ weight decay 1"),
+              ("dropout0.2", "+ dropout 0.2")]  # same colors as Fig. 15: final recipe blue, mirror images orange
     sizes = [n for n in (1000, 3000, 10_000) if f"n{n}_fine_eval" in curves]
     if not sizes:
         raise FileNotFoundError("no Phase 8 runs yet")
+    def smooth(steps, val, width=1.2):  # mean over checkpoints within ±20% of each step: even smoothing on a log axis
+        return np.array([val[(steps >= s / width) & (steps <= s * width)].mean() for s in steps])
+
     fig, axes = plt.subplots(1, len(sizes), figsize=(3.5 * len(sizes) + 0.6, 3.4), layout="constrained", squeeze=False)
     for ax, n in zip(axes[0], sizes):
         shown = [(slot, label, curves[f"n{n}_{key}"]) for slot, (key, label) in enumerate(series) if f"n{n}_{key}" in curves]
+        lows, ends = [], []
         for slot, label, c in shown:
-            steps, val = np.array(c["steps"]), np.array(c["val"])
+            steps = np.array(c["steps"], dtype=float)
+            val = smooth(steps, np.array(c["val"]))
             ax.plot(steps, val, color=SLOT[slot], linewidth=1.4, label=label)
             i = val.argmin()
             ax.plot(steps[i], val[i], linestyle="none", marker="o", markersize=5, color=SLOT[slot],
                     markeredgecolor=SURFACE, markeredgewidth=1.2)
+            lows.append(val[i])
+            ends.append(val[-1])
         ax.axvline(211, color=INK2, linewidth=0.7, linestyle=":")
-        low = min(min(c["val"]) for _, _, c in shown)
-        high = max(c["val"][-1] for _, _, c in shown)
-        ax.set_ylim(0.93 * low, low + 1.12 * (high - low))
-        ax.text(205, 0.93 * low + 0.02 * (high - 0.93 * low), "warmup ends ", ha="right", va="bottom", fontsize=7, color=INK2)
+        low, high = min(lows), max(ends)
+        bottom = low - 0.12 * (high - low)
+        ax.set_ylim(bottom, low + 1.12 * (high - low))
+        ax.text(205, bottom + 0.02 * (high - bottom), "warmup ends ", ha="right", va="bottom", fontsize=7, color=INK2)
         ax.set_xscale("log")
         ax.set_xlim(80, 7600)
         ax.set_xticks([100, 300, 1000, 3000, 7050], ["100", "300", "1k", "3k", "7,050"])
