@@ -307,6 +307,37 @@ v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why th
 - **The loss sets ±1 more than the mean distance.** At the full budget, plain cross-entropy or hard labels cost only 0.04–0.08 in mean distance, but ±1 falls from 77% to 64–65%. Soft labels place predictions between the two candidate sites of the jittery label (see below).
 - **v1's optimizer and v1's inputs cost little** (≤ 0.07) once the architecture is right. In clean data, every input set carries the same initial state; inputs matter for real sensors (Sec. 7).
 
+### Regularization: why v2 adds so little
+
+v2 uses little explicit regularization. Each choice was tested or follows from the physics.
+
+| | v1 rebuilt | v2 final |
+|---|---|---|
+| Dropout | 0.2 on the LSTM's inputs and recurrent state | none |
+| Weight decay | none (Adam) | 10⁻⁴ (AdamW) |
+| Stopping | early stopping, patience 10 on validation loss | a fixed 30 epochs, keeping the best validation checkpoint |
+| Label smoothing | none | soft labels, σ = 1 site (Sec. 8) |
+| Auxiliary task | binary "localizes" head | localization-time head |
+| Built-in symmetry | none | the same filters at every pendulum, one score per site |
+
+Mean distance on the 60,000 training runs, against the test pool:
+
+| Model | Train | Test | Gap | ±1, train / test |
+|---|---|---|---|---|
+| v2 final (5 seeds) | 1.35 | 1.49 | +0.14 | 78.4% / 77.2% |
+| v2 backbone with v1's flatten + dense head (3 seeds) | 1.06 | 1.80 | +0.74 | 79.7% / 72.0% |
+| v1 rebuilt (seed 0) | 1.62 | 3.00 | +1.38 | 72.1% / 61.7% |
+
+- **The ring's symmetry is the main regularizer.** The dynamics are the same at every pendulum, so v2 applies the same small filters everywhere and scores every site the same way.
+  - It has 22,786 parameters and none tied to a particular pendulum, so it has little to memorize with.
+  - At 60,000 runs its train–test gap is small, and its best checkpoints come late in training (steps 4,465–7,050 of 7,050).
+- **Where overfitting appears, a structural fix beats a penalty.** v1 overfits despite dropout and early stopping. v1's dense head overfits on v2's backbone too: its best checkpoint comes about a third of the way through training. Switching to one score per site cuts the gap from 0.74 to 0.14 and the test error by 0.31.
+- **Weight decay was tested** (Sec. 9). 0, 10⁻⁴ and 10⁻² are indistinguishable, so it stays at a small default.
+- **Data is the cheaper regularizer.** The simulator makes more runs for free; going from 60,000 to 100,000 lowers the test error from 1.49 to 1.44.
+- **With little data, v2 does overfit.**
+  - At 1,000 and 3,000 runs the best checkpoint is the first one evaluated (step 235 of 7,050), and the validation error then rises by about 50%. At 10,000 runs the best checkpoint comes at steps 705–1,880.
+  - So the small-data numbers in Fig. 15 are pessimistic. Regularization there is untested: earlier stopping, stronger weight decay or dropout, and mirror-image augmentation, which the ring's reflection symmetry allows (v1's one-sided label turns into the left-bond label under reflection).
+
 ### Data efficiency
 
 ([Fig. 15](../figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, same number of gradient steps)
