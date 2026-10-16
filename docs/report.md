@@ -4,7 +4,7 @@
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 590 training runs, 43 GPU-hours on a laptop.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 600 training runs, 44 GPU-hours on a laptop.
 
 - **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%.
   - The label explains part of the gap: which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing.
@@ -216,7 +216,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 
 One camera tracking every pendulum, or every 2nd, at 30–60 frames per second, predicting from a short window of angle frames.
 - With a precise camera (≲10⁻³ rad), predict right after release.
-- With a coarser one, start about 10·ln(σ_s / 10⁻³) time units later (23 per 10× noise), once the long-wave modes have grown above the sensor noise. A 10⁻² rad camera matches the 10⁻³ rad one from release when it starts at τ ≈ 21–24.
+- With a coarser one, start about 11·ln(σ_s / 10⁻³) time units later (25 per 10× noise), once the long-wave modes have grown above the sensor noise. At the full budget a 10⁻² rad camera catches up with the 10⁻³ rad one from release when it starts at τ ≈ 25–26, on either label (Sec. 11).
 
 ## 8. Loss function (Q3)
 
@@ -648,19 +648,24 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### The recommended setups, at full budget
 
-([results/headline.md](../results/headline.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
+([results/headline.md](../results/headline.md) and, for the later coarse-camera starts, [results/deploy_start_tables.md](../results/deploy_start_tables.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
 
 | Setup | Mean distance | ±1 | ±3 | Median warning |
 |---|---|---|---|---|
 | v2 final: every pendulum, noise-free, τ = 0…4.5 | 1.49 | 77.2% | 97.3% | 50.5 (7.2 s) |
+| Camera on every pendulum, 10⁻³ rad, from release | 1.72 | 73.3% | 96.8% | 50.5 (7.2 s) |
 | Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 72.6% | 95.9% | 50.5 (7.2 s) |
 | Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 72.6% | 95.2% | 30.5 (4.4 s) |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 24 | 1.77 | 76.2% | 95.2% | 26.5 (3.8 s) |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 28 | 1.67 | 76.2% | 96.2% | 22.5 (3.2 s) |
 | Energies at τ = 30, noise-free (needs gyroscopes) | 1.24 | 82.4% | 95.6% | 25 (3.6 s) |
 | v1 rebuilt: every pendulum, noise-free, from release | 3.14 | 60.4% | 90.3% | 50.5 (7.2 s) |
 
 - **A realistic, cheap setup works.** One camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, well ahead of the noise-free v1 (3.14).
 - **On the hump label** (Sec. 10) the same camera is within ±1 of where the hump forms in 96.8% of runs, and in 98.3% when it may name a second site (5.6% of runs).
 - **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](../figures/fig17_warning_tradeoff.png)).
+  - To match a 10⁻³ rad camera on every pendulum (1.72), it must wait until τ ≈ 25–26 (1.77 from τ = 24, 1.67 from τ = 28; 3 seeds). That leaves about 3.6 s of warning.
+  - On the swing-averaged label it catches up at τ ≈ 25 too (1.05 from τ = 24 and 0.84 from τ = 28, against 0.99), as the start-time rule of Sec. 7 predicts.
 - **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning. On the swing-averaged label their edge nearly vanishes (0.55 vs 0.58, Sec. 10).
 
 ## 12. Limitations and next steps

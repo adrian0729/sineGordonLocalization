@@ -383,7 +383,7 @@ The camera tracks only every s-th pendulum; a mask channel marks where the senso
 - Recommendation for a real chain:
   - One camera; every 2nd pendulum is enough.
   - With ≲10⁻³ rad precision, predict right after release.
-  - With a coarser sensor, start watching about ln(σ_s / 10⁻³)/σ₁ ≈ 8.5·ln(σ_s / 10⁻³) time units later. (Revised in the Phase 3 addendum to about 10·ln(σ_s / 10⁻³).)
+  - With a coarser sensor, start watching about ln(σ_s / 10⁻³)/σ₁ ≈ 8.5·ln(σ_s / 10⁻³) time units later. (Revised in the Phase 3 addendum and its full-budget check to about 11·ln(σ_s / 10⁻³).)
 
 ---
 
@@ -929,6 +929,7 @@ Predicted for the test pool: 19.5 from the fastest mode (ln 10 / σ₁), 24.8 fr
 - The Floquet trade-off does not come from the label: on the swing-averaged label, waiting still divides the sensor noise by the growth of the unstable modes.
 - Its rate is that of the growing modes together, about 0.09–0.10 per time unit here, not the fastest mode's 0.118. So a 10× noisier sensor costs about 23–26 time units of waiting, not 19.5.
 - Updated rule for a coarser camera: start about 10·ln(σ_s / 10⁻³) time units after release (23 per 10× noise), not 8.5·ln(σ_s / 10⁻³). By this rule, the coarse-camera setup of Phase 6 (10⁻² rad from τ = 20) starts a little early.
+  - Checked at the full budget (next section): the 10⁻² rad camera catches up at τ ≈ 25–26, so the rule became about 11·ln(σ_s / 10⁻³).
 - Still open: a rate from each mode's share of the localization instead of a plain mean, and more than one seed per cell.
 
 ---
@@ -1015,3 +1016,46 @@ Predicted for the test pool: 19.5 from the fastest mode (ln 10 / σ₁), 24.8 fr
 - The inputs and architecture chosen on v1's label stand on the hump label, with the same absolute margins as on the averaged label.
 - On the hump label, drop the soft labels: hard labels gain 0.03 and 3.6 points of exact hits. The rest of the recipe is unchanged.
 - For a real chain, the cheap camera with the hump label and the 5% rule is within ±1 of one of its sites in 98.3% of runs, naming a second site in 5.6% of them. Still to measure: the noise-and-timing grid and the sparse-sensor grid on the hump label.
+
+---
+
+## Phase 3 addendum, continued: when a coarse camera should start, at full budget, 16 October 2026
+
+**Question.** The Phase 3 addendum moved the start-time rule for a coarse camera from 8.5·ln(σ_s / 10⁻³) to 10·ln(σ_s / 10⁻³) time units after release: τ ≈ 23 for a 10⁻² rad camera instead of 20. That came from 15-epoch screening runs with one seed, and Phase 6's coarse-camera setup starts at τ = 20. Where does a 10⁻² rad camera catch up with a 10⁻³ rad one at the full budget?
+
+**Setup**
+- `ablations.deploy_start` (key `deploy_start`): the final recipe at the full budget (3 seeds) with a 10⁻² rad camera on every pendulum from τ = 20, 24 and 28. Beside it is the camera the rule aims to match: 10⁻³ rad on every pendulum, from release. Every config runs on both labels (`BothLabels`).
+- 21 of the 36 runs already existed and are reused by config id: the final recipe, the camera on every 2nd pendulum, the coarse camera from τ = 20, and on v1's label the 10⁻³ rad camera (Phase 6's noise-trained group). That left 15 new runs, about 2 min each, run from a snapshot of commit d1a8921.
+- Median warning: the median localization time (τ = 55) minus the end of the 4.5-time-unit window, as in report Sec. 11.
+- The predictions were written into `ablations.deploy_start` before the runs. Tables: `results/deploy_start_tables.md`.
+
+**Results** (test mean distance, mean ± spread of 3 seeds)
+
+| Setup | v1's label | ±1 | Averaged label | ±1 | Median warning |
+|---|---|---|---|---|---|
+| Final recipe: every pendulum, noise-free, from release | 1.50 ± 0.03 | 76.9% | 0.58 ± 0.01 | 96.4% | 50.5 (7.2 s) |
+| Camera on every pendulum, 10⁻³ rad, from release | 1.72 ± 0.02 | 73.3% | 0.99 ± 0.02 | 93.9% | 50.5 (7.2 s) |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 ± 0.00 | 72.6% | 1.18 ± 0.03 | 92.9% | 50.5 (7.2 s) |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 ± 0.01 | 72.6% | 1.27 ± 0.03 | 91.2% | 30.5 (4.4 s) |
+| … from τ = 24 | 1.77 ± 0.07 | 76.2% | 1.05 ± 0.01 | 92.9% | 26.5 (3.8 s) |
+| … from τ = 28 | 1.67 ± 0.07 | 76.2% | 0.84 ± 0.02 | 94.4% | 22.5 (3.2 s) |
+
+- **The coarse camera catches up with the 10⁻³ rad camera at τ ≈ 25–26 on both labels** (interpolating the seed means: 26.0 on v1's label, 25.0 on the averaged label).
+  - Against the 10⁻³ rad camera from release, ± the standard error of the difference:
+    - v1's label: +0.32 ± 0.01 from τ = 20, +0.05 ± 0.04 from τ = 24, −0.05 ± 0.04 from τ = 28
+    - averaged label: +0.28 ± 0.02, +0.06 ± 0.01 and −0.15 ± 0.02
+  - So a 10× noisier camera costs 25–26 time units of waiting at the full budget. The fit of all the screening cells gave the same (25.5 and 26.5); matching screening cells directly gave less (21.3 and 23.5).
+- **From τ = 20 the coarse camera is 0.3 sites behind** the 10⁻³ rad camera on every pendulum, on either label. It still nearly matches the cheaper recommended camera on every 2nd pendulum (2.05 against 1.93; averaged label 1.27 against 1.18).
+- **On the averaged label, waiting keeps paying.** From τ = 28 the coarse camera beats the 10⁻³ rad camera from release (0.84 against 0.99). On v1's label it only draws level (1.67 against 1.72), and its seeds spread more (±0.07).
+- On v1's label, later starts raise ±1 (76.2% against 73.3% from release), as later frames help to predict the moment that label fires (Phase 7). Their far misses keep the mean distance up.
+
+**Predictions** (written into `ablations.deploy_start`)
+- Level with the 10⁻³ rad camera from τ = 24, within the seed spread: **nearly.** It is +0.05 ± 0.04 on v1's label and +0.06 ± 0.01 on the averaged label; parity comes at τ ≈ 25–26.
+- From τ = 20 worse, clearly so on the averaged label: **worse on both labels**, by about 0.3 sites each.
+- From τ = 28 better: **yes** on the averaged label (−0.15 ± 0.02); level within the noise on v1's label (−0.05 ± 0.04).
+- The 10⁻³ rad camera from release at about 1.0 on the averaged label: **yes**, 0.99.
+
+**Decision.**
+- The rule moves once more, to about 11·ln(σ_s / 10⁻³) time units after release (25 per 10× noise), which is what the mean growth rate of the growing modes predicts (24.8).
+  - For a 10⁻² rad camera that means τ ≈ 25. That leaves a median warning of about 25 time units (3.6 s for a 20 cm pendulum).
+- Phase 6's coarse camera from τ = 20 stays in the report as the faster option. It gives up 0.3 sites for 5 more time units of warning, and still nearly matches the camera on every 2nd pendulum.
