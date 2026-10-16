@@ -368,6 +368,90 @@ def fig_noise_collapse():
     save(fig, "fig13_noise_collapse")
 
 
+def fig_noise_avg_label():
+    """Phase 3 addendum: Fig. 13's collapse on the swing-averaged label (top), and the waiting cost per 10x noise
+    fitted by scripts/noise_tradeoff.py against the Floquet growth rates, on both labels (bottom)."""
+    recs = phase_records("phase3_avg")
+    path = ROOT / "results" / "noise_tradeoff.json"
+    if not recs.get(("noise_time", "S1_t0_noise0.001_avg")) or not path.exists():
+        raise FileNotFoundError("no phase3_avg runs or trade-off fit yet (scripts/noise_tradeoff.py)")
+    fits = json.loads(path.read_text())
+    sigma1, noises = fits["sigma1"], [1e-4, 3e-4, 1e-3, 3e-3, 1e-2]
+    setups = [("S1", "camera, 8 angle frames"), ("S2", "angles and velocities, 1 frame"), ("S3", "energies, 1 frame")]
+    labels = [("right", "v1's label (Phase 3)", SLOT[0]), ("avg", "swing-averaged label", SLOT[2])]  # as in Fig. 19
+    fig, ax = plt.subplot_mosaic([["a", "b", "c"], ["d", "d", "e"]], figsize=(11.5, 7.2), layout="constrained")
+    for key, (kind, title) in zip("abc", setups):
+        a = ax[key]
+        if key != "a":
+            a.sharey(ax["a"])
+            a.tick_params(labelleft=False)
+        clean = recs.get(("noise_time", f"{kind}_t0_noise0_avg"))
+        if clean:
+            a.axhline(clean[0]["test"]["mae"], color=INK2, linewidth=0.8)
+        for color, start in zip(ORDINAL4, (0, 10, 20, 30)):
+            pts = [(n * np.exp(-sigma1 * start), recs.get(("noise_time", f"{kind}_t{start}_noise{n:g}_avg"))) for n in noises]
+            pts = [(x, r[0]["test"]["mae"]) for x, r in pts if r]
+            if pts:
+                a.plot(*zip(*pts), color=color, marker="o", markeredgecolor=SURFACE, markeredgewidth=1.0,
+                       label=f"watch from τ = {start}")
+        a.set_xscale("log")
+        a.set_yscale("log")
+        a.set_title(f"({key}) Averaged label: {title}", loc="left", fontsize=9)
+        a.set_xlabel("Sensor noise ÷ growth since release, σ_s·exp(−σ₁τ) (rad)")
+    ax["a"].set_yticks([0.5, 1, 2, 4, 8, 16], ["0.5", "1", "2", "4", "8", "16"])
+    ax["a"].yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax["a"].set_ylabel("Mean distance on test (sites)")
+    ax["a"].legend(loc="upper left")
+
+    # (d) the camera's fitted waiting cost per amplitude bin of the test runs, against each growth rate's prediction
+    d, bins = ax["d"], {b: g for b, g in fits["amplitude_bins"].items() if b != "all"}
+    for key, name, color in (("sigma1", "fastest mode, ln 10 / σ₁", MUTED), ("sigma_bar", "mean of the growing\nmodes, ln 10 / σ̄", INK)):
+        for b, g in bins.items():  # each bin's prediction, from the rate averaged over its test runs
+            d.hlines(np.log(10) / g[key], g["A"][0] + 0.004, g["A"][1] - 0.004, color=color, linewidth=1.2)
+        last = bins[max(bins)]
+        d.text(last["A"][1] + 0.002, np.log(10) / last[key], name, color=INK2, fontsize=7.5, va="center", ha="left")
+    for i, (label, name, color) in enumerate(labels):
+        fit = fits["labels"].get(label, {}).get("S1")
+        if not fit:
+            continue
+        x = np.array([bins[b]["A_mean"] for b in sorted(bins)]) + (i - 0.5) * 0.006
+        cost = [fit["by_amplitude"][b]["cost_per_decade"] for b in sorted(bins)]
+        lo = [fit["by_amplitude"][b]["cost_ci95"][0] for b in sorted(bins)]
+        hi = [fit["by_amplitude"][b]["cost_ci95"][1] for b in sorted(bins)]
+        d.vlines(x, lo, hi, color=color, linewidth=1.2)
+        d.plot(x, cost, linestyle="none", marker="o", markersize=6, color=color, markeredgecolor=SURFACE,
+               markeredgewidth=1.2, label=name)
+    d.set_xlim(1.645, 1.92)
+    d.set_xticks([1.65, 1.70, 1.75, 1.80, 1.85])
+    d.set_xlabel("Swing amplitude A of the test runs (four bins; dots: fit, bars: 95% intervals, steps: predictions)")
+    d.set_ylabel("Waiting per 10× noise (time units)")
+    d.set_title("(d) Camera: each amplitude waits at about the mean rate of its growing modes", loc="left", fontsize=9)
+    d.legend(loc="upper right")
+
+    # (e) the whole test pool, every setup
+    e = ax["e"]
+    for x, name in ((fits["predicted_cost_per_decade"], "σ₁"),
+                    (np.log(10) / fits["amplitude_bins"]["all"]["sigma_bar"], "σ̄")):
+        e.axvline(x, color=INK2 if name == "σ̄" else MUTED, linewidth=0.8)
+        e.text(x, 2.62, f" {name}", color=INK2, fontsize=7.5, ha="left", va="bottom")
+    for i, (label, name, color) in enumerate(labels):
+        rows = [(j, fits["labels"].get(label, {}).get(kind)) for j, (kind, _) in enumerate(setups)]
+        rows = [(2 - j + (0.5 - i) * 0.28, f) for j, f in rows if f]
+        for y, f in rows:
+            e.hlines(y, *f["cost_ci95"], color=color, linewidth=1.2)
+        e.plot([f["cost_per_decade"] for _, f in rows], [y for y, _ in rows], linestyle="none", marker="o", markersize=6,
+               color=color, markeredgecolor=SURFACE, markeredgewidth=1.2)
+    e.set_yticks([2, 1, 0], [kind for kind, _ in setups])
+    e.set_ylim(-0.6, 2.9)
+    e.tick_params(axis="y", length=0)
+    e.grid(axis="y", visible=False)
+    e.set_xlabel("Waiting per 10× noise, whole test pool (time units)")
+    e.set_title("(e) Whole test pool, every setup (colors as in d)", loc="left", fontsize=9)
+    fig.suptitle("On either label, waiting divides the sensor noise at about the mean growth rate of the unstable modes, "
+                 "not the fastest", x=0.01, ha="left", fontweight="bold", fontsize=10)
+    save(fig, "fig13b_noise_avg_label")
+
+
 def fig_warning_tradeoff():
     """Q1 deliverable: accuracy against the warning time left after the last frame, per sensing setup."""
     recs = phase_records("phase3")
@@ -770,9 +854,9 @@ def fig_robustness():
 
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
-               fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
-               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff, fig_label_jitter,
-               fig_avg_label_ablations, fig_regularization):
+               fig_architectures, fig_noise_time, fig_noise_collapse, fig_noise_avg_label, fig_inputs, fig_losses,
+               fig_optimizers, fig_sparse, fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff,
+               fig_label_jitter, fig_avg_label_ablations, fig_regularization):
         try:
             fn()
         except FileNotFoundError as err:

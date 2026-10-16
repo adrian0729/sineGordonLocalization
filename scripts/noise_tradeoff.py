@@ -181,12 +181,14 @@ def bin_growth(pool):
     runs in each amplitude bin (and over the whole pool)."""
     grid_a = np.linspace(A_EDGES[0], A_EDGES[-1], 41)
     rates = np.array([floquet.growth_rates(a, np.arange(1, 10)) for a in grid_a])
-    s1 = np.interp(pool["A"], grid_a, rates[:, 0])
-    s_bar = np.interp(pool["A"], grid_a, [r[r > 1e-6].mean() for r in rates])
+    curve_s1, curve_bar = rates[:, 0], np.array([r[r > 1e-6].mean() for r in rates])
+    s1, s_bar = np.interp(pool["A"], grid_a, curve_s1), np.interp(pool["A"], grid_a, curve_bar)
     bins = np.digitize(pool["A"], A_EDGES[1:-1])
     out = {b: {"A": [A_EDGES[b], A_EDGES[b + 1]], "runs": int((bins == b).sum()), "sigma1": float(s1[bins == b].mean()),
-               "sigma_bar": float(s_bar[bins == b].mean())} for b in range(len(A_EDGES) - 1)}
-    out["all"] = {"A": [A_EDGES[0], A_EDGES[-1]], "runs": len(bins), "sigma1": float(s1.mean()), "sigma_bar": float(s_bar.mean())}
+               "sigma_bar": float(s_bar[bins == b].mean()), "A_mean": float(pool["A"][bins == b].mean())}
+           for b in range(len(A_EDGES) - 1)}
+    out["all"] = {"A": [A_EDGES[0], A_EDGES[-1]], "runs": len(bins), "sigma1": float(s1.mean()), "sigma_bar": float(s_bar.mean()),
+                  "curve": {"A": grid_a.tolist(), "sigma1": curve_s1.tolist(), "sigma_bar": curve_bar.tolist()}}
     return out
 
 

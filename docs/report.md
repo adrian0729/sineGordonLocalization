@@ -4,7 +4,7 @@
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 485 training runs, 40 GPU-hours on a laptop.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 560 training runs, 42 GPU-hours on a laptop.
 
 - **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%.
   - The label explains part of the gap: which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing.
@@ -15,7 +15,7 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 - **Where the energy hump forms is predictable.** On a label at the hump's scale, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27), with as early a warning as v1's label. On the swing-averaged label it is 96% (0.58).
 - **Physics explains what matters.**
   - The network must see the whole ring, because the growing modes are its five longest waves.
-  - Waiting divides sensor noise by the Floquet growth: each 10× worse sensor costs about 20 time units of waiting (predicted: 19.5).
+  - Waiting divides sensor noise by the Floquet growth of the unstable modes: each 10× worse sensor costs about 25 time units of waiting on either label, as their mean growth rate predicts (24.8), not 19.5 as the fastest mode alone would.
   - Robustness to wrong parameters follows the growth spectrum.
   - One pendulum 1% weaker pins the hotspot, and v2 learns to find it from the motion alone.
 - **For a real chain:** one camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, against 3.14 for v1 with perfect data.
@@ -188,10 +188,12 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 - **Camera alone (8 angle frames), watching from release:** fine up to about 10⁻³ rad of noise (about 95% within ±3, mean distance 2.2), then degrades. At 10⁻² rad it reaches a mean distance of 7.0.
 - **Noise first causes far misses, not one-site slips.** ±1 accuracy stays at 64–67% up to 3×10⁻³ rad, while the share of runs more than 10 sites off triples. Noise picks the wrong hump before it blurs the right one.
 - **Later observation recovers the loss.** At 10⁻² rad, watching from τ = 10, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 noise-free.
-- **The trade-off follows the Floquet growth rate exactly** ([Fig. 13](../figures/fig13_noise_collapse.png)):
-  - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−σ₁τ}, the noise relative to the grown signal.
-  - Each 10× worse sensor costs about 20 time units of waiting; the prediction was ln 10 / σ₁ = 19.5.
-- **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window, and gain less from waiting.
+- **The trade-off follows the Floquet growth of the unstable modes** ([Fig. 13](../figures/fig13_noise_collapse.png), [Fig. 13b](../figures/fig13b_noise_avg_label.png)):
+  - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−kτ}, the noise relative to the grown signal.
+  - The rate k is about the mean growth rate of the growing modes, 0.09–0.10, not the fastest one's σ₁ = 0.118. So each 10× worse sensor costs about 23–26 time units of waiting, not ln 10 / σ₁ = 19.5. Phase 3's cleanest cells suggested about 20; a fit of all of them gives 26.5.
+  - Split by swing amplitude, the rate rises as the growth rates do.
+- **The label does not create the trade-off.** Rerun on the swing-averaged label with the same inputs and seeds (Phase 3 addendum), the camera's waiting cost is 25.5 time units per 10× noise (95% CI 23–29), against 26.5 on v1's label. Noise adds about the same error on both labels (+0.7 sites at 10⁻³ rad from release), which doubles the error on the averaged label's lower floor.
+- **Single-frame setups (angles + velocities, or energies) degrade faster with noise** than the 8-frame camera window, and gain less from waiting (30–34 time units per 10× noise, on either label).
 - **Waiting also helps without noise.** Energies at τ = 30 reach 1.24 (82% within ±1), the best Phase 3 result, because less is left to extrapolate. Most of that gain belongs to v1's label: on the swing-averaged label, waiting until τ = 30 gains only 0.03 (Sec. 10).
 - Watching from τ = 30 still leaves a median of 21.5 time units of warning (about 3 s for a 20 cm pendulum). The earliest test run localizes at τ = 37.
 
@@ -214,7 +216,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 
 One camera tracking every pendulum, or every 2nd, at 30–60 frames per second, predicting from a short window of angle frames.
 - With a precise camera (≲10⁻³ rad), predict right after release.
-- With a coarser one, start about 8.5·ln(σ_s / 10⁻³) time units later, once the long-wave modes have grown above the sensor noise.
+- With a coarser one, start about 10·ln(σ_s / 10⁻³) time units later (23 per 10× noise), once the long-wave modes have grown above the sensor noise. A 10⁻² rad camera matches the 10⁻³ rad one from release when it starts at τ ≈ 21–24.
 
 ## 8. Loss function (Q3)
 
@@ -633,7 +635,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged label (Sec. 10), but the noise-and-timing grid, the sparse sensors and the optimizer were not.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). The inputs, receptive field, soft labels and recommended setups (Sec. 10) and the noise-and-timing grid (Sec. 7) were re-tested on the swing-averaged label, but the sparse sensors and the optimizer were not.
 
 ### Next steps
 
@@ -642,6 +644,6 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
-6. Repeat the noise-and-timing grid (Sec. 7) on the swing-averaged label. There, waiting helps only against noise (Sec. 10), so the grid would measure the Floquet trade-off without the label's own dependence on time.
+6. The noise-and-timing grid on the swing-averaged label is done (Sec. 7): waiting costs about 25 time units per 10× noise on either label, at about the mean growth rate of the growing modes. Still open: predict the rate from each mode's share of the localization instead of a plain mean over the growing modes, and repeat the grid with more than one seed per cell.
 7. Repeat the key choices (inputs, receptive field) and the noisy and sparse sensing setups on the hump label, which the final recipe predicts within ±1 in 99.4% of runs (Sec. 10). Noise picks the wrong hump, so a second site should help most there.
 8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
