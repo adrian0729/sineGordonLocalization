@@ -6,7 +6,9 @@
 The two sites are the two highest peaks of the predicted distribution at least MIN_APART sites apart: the most
 likely site, and the highest local maximum of the probability at least MIN_APART sites from it. Each model is
 scored on its own label (test pool; runs that never localize on that label are left out). "One of two within
-±1" counts a run when either site is within one pendulum of the truth.
+±1" counts a run when either site is within one pendulum of the truth. Also scored: naming the second site only
+when the 3 sites centred on it hold at least a given share of the probability (MASSES), and, as the reference
+for luck, a second site drawn at random from those at least MIN_APART sites from the first.
 
 Rival humps: the test of scripts/hotspot_timing.py, now for all test runs. Take the symmetric energy averaged
 over the swing (16 samples) that ends when v1's label fires; a run has a rival when a local maximum at least 5
@@ -79,8 +81,13 @@ def two_sites(probs, min_apart=MIN_APART):
 def scores(first, second, mass2, truth, n_sites=100):
     d1 = metrics.ring_distance(first, truth, n_sites)
     d2 = np.where(second >= 0, metrics.ring_distance(second.clip(min=0), truth, n_sites), n_sites)
+    # reference: a second site drawn at random from those at least MIN_APART sites from the first
+    sites = np.arange(n_sites)[None, :]
+    allowed = metrics.ring_distance(sites, first[:, None], n_sites) >= MIN_APART
+    lucky = (allowed & (metrics.ring_distance(sites, truth[:, None], n_sites) <= 1)).sum(axis=1) / allowed.sum(axis=1)
     out = {"n": int(len(truth)), "top1_within1": float(np.mean(d1 <= 1)), "top1_within3": float(np.mean(d1 <= 3)),
            "top2_within1": float(np.mean(np.minimum(d1, d2) <= 1)), "second_within1": float(np.mean(d2 <= 1)),
+           "top2_random_within1": float(np.mean(np.where(d1 <= 1, 1.0, lucky))),
            "has_second": float(np.mean(second >= 0)), "second_mass_median": float(np.median(mass2))}
     for m in MASSES:  # a second site only when the model gives it this much probability
         named = mass2 >= m
@@ -123,15 +130,17 @@ def main():
     for run in runs:
         run_dir = ROOT / run
         label = json.loads((run_dir / "config.json").read_text()).get("label", "right")
-        probs, _ = outputs(run_dir, test)
-        first, second, mass1, mass2 = two_sites(probs)
+        probs, pred_time = outputs(run_dir, test)
+        first, second, _, mass2 = two_sites(probs)
         truth = test[f"site_{label}"].astype(int)
         own = ratio[label] >= RIVAL
         keep = truth >= 0
         groups = {"all": keep, "rival": keep & rival, "no_rival": keep & ~rival,
                   "rival_own_time": keep & own, "no_rival_own_time": keep & ~own}
-        result["runs"][run] = {"label": label, **{g: scores(first[m], second[m], mass2[m], truth[m])
-                                                  for g, m in groups.items()}}
+        true_time = test[f"time_{label}"].astype(float)
+        result["runs"][run] = {"label": label, "time_median_rel_error": float(np.median(
+            np.abs(pred_time[keep] - true_time[keep]) / true_time[keep])),
+            **{g: scores(first[m], second[m], mass2[m], truth[m]) for g, m in groups.items()}}
         r = result["runs"][run]
         print(f"{run:40s} {label:5s}  ±1 top-1 {r['all']['top1_within1']:.1%} -> top-2 {r['all']['top2_within1']:.1%}   "
               f"rival runs {r['rival']['top1_within1']:.1%} -> {r['rival']['top2_within1']:.1%}   "
@@ -141,9 +150,9 @@ def main():
         by_label.setdefault(r["label"], []).append(r)
     result["mean"] = {}
     for label, rs in by_label.items():
-        mean = {}
+        mean = {"time_median_rel_error": float(np.mean([r["time_median_rel_error"] for r in rs]))}
         for g in rs[0]:
-            if g == "label":
+            if not isinstance(rs[0][g], dict):
                 continue
             mean[g] = {k: float(np.mean([r[g][k] for r in rs])) for k in rs[0][g] if not isinstance(rs[0][g][k], dict)}
             for m in MASSES:

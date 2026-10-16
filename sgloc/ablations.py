@@ -451,6 +451,10 @@ def phase9():
     t.add("label", "final_hump_label", "Phase 9: final recipe trained and tested on the hump label: the first sample where "
           "the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total; the label is the window's centre",
           (0, 1, 2), label="hump")
+    # the matched controls are Phase 6's runs on the other two labels (same config ids, so they are reused, not rerun)
+    t.add("label", "final_avg_label", "Phase 9 control: Phase 6's final_avg_label (the swing-averaged label)", (0, 1, 2),
+          label="avg")
+    t.add("label", "final_v1_label", "Phase 9 control: Phase 6's v2_final (v1's label)", (0, 1, 2, 3, 4))
     return t.configs
 
 

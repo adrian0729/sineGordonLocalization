@@ -80,7 +80,12 @@ def test_phase8_reuses_phase6_runs_and_leaves_earlier_config_ids_unchanged():
 def test_phase9_is_the_avg_label_run_on_the_hump_label():
     # matched comparison: the same final recipe and seeds as Phase 6's final_avg_label, only the target changes
     avg = [c for c in ablations.phase6() if c["name"] == "final_avg_label"]
-    hump = ablations.phase9()
+    phase9 = ablations.phase9()
+    hump = [c for c in phase9 if c["name"] == "final_hump_label"]
     assert len(hump) == len(avg) == 3
     for a, h in zip(avg, hump):
         assert h == dict(a, label="hump", phase=9, name="final_hump_label", note=h["note"])
+    # the controls reuse Phase 6's runs on the other labels: final_avg_label and v2_final (all 5 seeds)
+    controls = {experiment.config_id(c) for c in phase9 if c not in hump}
+    phase6 = {experiment.config_id(c) for c in ablations.phase6() if c["name"] in ("final_avg_label", "v2_final")}
+    assert controls == phase6 and len(controls) == 8

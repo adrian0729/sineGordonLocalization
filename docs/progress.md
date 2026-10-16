@@ -766,3 +766,76 @@ How the curves behave at 3,000 runs (validation on the first 5,000 validation ru
 - The final recipe at 60,000 runs is unchanged, since the images add nothing there.
 - Checkpoints were chosen on 5,000 validation runs at every size, more than the training set at 1,000–3,000 runs. With a smaller validation set, the short schedule is the safer choice, since it needs no selection.
 - This matters only when runs are expensive, for example when training or fine-tuning on a real chain. The simulator makes 60,000 runs in minutes.
+
+---
+
+## Phase 9: the hump-scale label and a two-site output, 16 October 2026
+
+**Question.** Report Sec. 10 ("Is one pendulum the right target?") left two recommendations untested:
+- **Define the event at the hump's scale.** When v1's label fires, the hotspot is a hump about 8 pendulums wide, and the label jitters by 1–3 sites within a swing. The swing-averaged label removes the jitter but fires about 5 time units later, once one pendulum's averaged energy passes 10%.
+- **Let the model name a second site when a rival hump competes**, as one in six runs has a rival with at least half the energy.
+
+Is a label at the hump's scale easier to predict, and how much does a second site add?
+
+**Setup**
+- **The hump label** (`sim.localize`, label `"hump"`) fires at the first sample where the swing-averaged symmetric energy, summed over 3 neighbouring pendulums, passes 15% of the total.
+  - Its site is the window's centre. Its time is the end of the averaging window (8 time units), as for the swing-averaged label.
+  - The threshold sets when the label fires. On 4,000 validation runs, 0.12 → median τ 53.0, 0.15 → 54.5, 0.18 → 55.5, 0.24 → 58.0. v1's label gives 54.5 on the same runs (55.0 on whole pools). At 0.15 the median paired difference is 0, so 0.15 it is.
+  - Every run localizes on it before τ = 150 (the swing-averaged label misses 0.25%).
+- **Code, default-off.** `"hump"` is computed only when asked for (`sim.EXTRA_LABELS`). `sim.LABELS`, `sim.Params`, the pool meta and the trajectory-cache keys are unchanged. Recomputing the old labels together with it gives bit-identical results, and config ids of every earlier phase are unchanged.
+- **Pools.** `scripts/add_labels.py` added `site_hump` and `time_hump` to the train, val and test pools from the stored initial angles (10 min on 8 cores). Every other array is unchanged. Tests check the label against a direct computation from `sim.evolve`, and under rotation, reflection, a halved step and damping.
+- **How the labels relate** (test pool):
+
+| Hump label against … | Same pendulum | ±1 | ±3 | Time |
+|---|---|---|---|---|
+| v1's label | 43.9% | 62.9% | 97.6% | same moment (median difference 0) |
+| swing-averaged label | 67.4% | 93.0% | 97.4% | 5.0 time units earlier (10th–90th percentile 3.5–8.5) |
+
+- **Training.** `ablations.phase9`: the final recipe at the full budget on the hump label, 3 seeds. The config is Phase 6's `final_avg_label` with only the label changed. The controls are Phase 6's runs on the other two labels (same config ids, reused). Tables: `results/phase9_tables.md`.
+- **Two sites** (`scripts/top2.py`, `results/top2.json`): the most likely site, plus the highest local maximum of the predicted distribution at least 5 sites from it. A run counts when either is within ±1 of the truth.
+  - Rival humps use the test of `scripts/hotspot_timing.py`, now on all 20,000 test runs: in the swing-averaged profile when v1's label fires, a local maximum at least 5 sites from the top holds at least half its energy.
+  - That flags 16.3% of test runs (the 2,000-run sample in `hotspot_timing.json` gave 17.8%), and the same 3,256 runs are used for every model.
+  - Two references: a second site drawn at random from those at least 5 sites away (luck), and naming the second site only when the 3 sites around it hold at least 5% of the probability.
+- **Why** (`scripts/hump_label.py`, `results/hump_label.json`): the single-pendulum swing-averaged profile, read at the moment the hump label fires, separates the 3-pendulum sum from the timing. Each final model's saved test predictions are also scored on every label.
+
+**Results** (test pool; mean ± standard deviation over seeds)
+
+| Final recipe trained on … | Seeds | Fires at (median τ) | Mean distance | Exact | ±1 | ±3 | >10 off | Time head (median error) |
+|---|---|---|---|---|---|---|---|---|
+| v1's label (Phase 6's v2_final) | 5 | 55 | 1.49 ± 0.03 | 27.7% | 77.2% | 97.3% | 1.5% | 1.45% |
+| the swing-averaged label (Phase 6) | 3 | 60 | 0.58 ± 0.01 | 70.5% | 96.4% | 98.5% | 0.7% | 2.0% |
+| **the hump label** | 3 | 54.5 | **0.27 ± 0.01** | **84.7%** | **99.4%** | **99.6%** | **0.4%** | **1.1%** |
+
+The prediction written into `ablations.phase9` before the runs (0.5–0.7, 95–97% within ±1) was too pessimistic.
+- **The hump label is the most predictable target so far.** It halves the error of the swing-averaged label (0.58 → 0.27), and leaves 0.6% of runs outside ±1 instead of 3.6%. It fires at the same moment as v1's label, so the warning comes just as early, and its time is predicted best too (1.1% median error).
+- **Its remaining misses are mostly far** (0.4% more than 10 sites off, of 0.6% outside ±1): the wrong hump, not a slip to a neighbour.
+
+**Why the hump label is easier**
+
+| Single-pendulum swing-averaged profile, read when the hump label fires | Same pendulum | ±1 |
+|---|---|---|
+| its top pendulum against the hump label (3 pendulums or 1, same moment) | 86.3% | 99.7% |
+| its top pendulum against the swing-averaged label (the drift over the next 5 time units) | 59.4% | 91.7% |
+
+- **The gain is the timing, not the 3-pendulum sum.** At the same moment, the window's centre and the top pendulum are more than one site apart in 0.3% of runs. The swing-averaged label is read about 5 time units later, and by then the hump's top has moved 2 or more sites in 8.3% of runs.
+- **The swing-averaged label's misses are that drift.** The averaged-label model is within ±1 of its label in 69.6% of the drifted runs, against 98.8% of the rest. Three in four of its misses (75%) sit within ±1 of the hump label: the model predicts where the hump forms, and the label then moves.
+- **v1's label misses point at the hump too.** The model trained on v1's label is within ±1 of the hump label in 90.6% of runs, against 77.2% of its own label, and 83% of its misses sit within ±1 of the hump label.
+- So what the first 4.5 time units decide is where the hump forms. Its drift afterwards is much harder to read from them. Whether the 3-pendulum sum also helps the exact site (84.7% against 70.5%) is not separated here; that would need a model trained on the single-pendulum label read at the hump's moment.
+
+**Two sites** (`results/top2.json`; ±1 = either site within one pendulum of the model's own label)
+
+| Model (its own label) | One site | Two sites | Random second site | Rival-hump runs (16%): one → two sites | Other runs: one → two | Second site only at ≥ 5% probability: runs with two sites, ±1 |
+|---|---|---|---|---|---|---|
+| v1's label (5 seeds) | 77.2% | 78.8% | 77.3% | 73.6% → 82.4% | 78.0% → 78.1% | 4.9%, 78.5% |
+| swing-averaged label (3) | 96.4% | 97.1% | 96.4% | 90.5% → 94.2% | 97.5% → 97.6% | 2.7%, 96.9% |
+| hump label (3) | 99.4% | 99.8% | 99.4% | 97.1% → 99.4% | 99.9% → 99.9% | 2.3%, 99.8% |
+
+- **A second site helps only where a rival hump competes.** On those runs it adds 2.3–8.8 points, and elsewhere at most 0.2. A random second site adds at most 0.4 even on the rival runs, so the gain comes from the model's own second peak, not from luck.
+- **The model knows when to name it.** With a second site only when the 3 sites around it hold at least 5% of the probability, 2–5% of runs get two sites and keep 75–97% of the gain.
+- **A second site rescues the far misses that are left.** With the hump label, 79% of the misses on rival-hump runs are caught, and overall ±1 reaches 99.8% while naming a second site in 2.3% of runs.
+- Often the predicted distribution has no second peak at least 5 sites away: in 16% of runs on v1's label, 5% on the averaged label and 41% on the hump label, whose predictions are the sharpest. Those runs keep one site.
+
+**Decision.** Use the hump label as the target.
+- It fires when the hump forms, as early as v1's label, without v1's jitter or the averaged label's later drift. The final recipe predicts it within ±1 in 99.4% of runs, and its time to 1.1%.
+- Name a second site only when the model gives it at least 5% of the probability. Then 2.3% of runs get two sites, and 99.8% are within ±1 of one of them.
+- Not tested on the hump label: Phase 7's other choices (inputs, receptive field), and the noisy and sparse sensing setups. Noise picks the wrong hump (Phase 3), and these are the misses a second site can catch.

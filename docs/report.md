@@ -12,7 +12,7 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 - **v2 halves v1's error with 1/1,163 of the parameters.** It is a whole-ring dilated circular CNN with 22,786 parameters, trained in 6 minutes.
   - Mean distance 1.49 vs 3.14; within ±1, 77% vs 60%; within ±3, 97% vs 90%.
   - It beats v1 with 60 times less data, and also predicts *when* localization happens (1.5% median error).
-- **On the swing-averaged label, v2 is within ±1 pendulum in 96% of runs** (mean distance 0.58).
+- **Where the energy hump forms is predictable.** On a label at the hump's scale, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27), with as early a warning as v1's label. On the swing-averaged label it is 96% (0.58).
 - **Physics explains what matters.**
   - The network must see the whole ring, because the growing modes are its five longest waves.
   - Waiting divides sensor noise by the Floquet growth: each 10× worse sensor costs about 20 time units of waiting (predicted: 19.5).
@@ -418,7 +418,7 @@ Same inputs, architecture and training; only the target changes (test pool; seed
 - **The jitter comes from energy moving within each swing**, not from how the springs are booked: splitting them evenly without averaging does not help (1.49).
 - **Most of v2's remaining error on v1's label is the label's own jitter**, not a failure to predict where the energy goes.
 - **The rebuilt v1 also gains** from the averaged label (60.4% → 83.6% within ±1), but stays far behind v2 on the same target (Sec. 2 discusses what this means for the reproduction gap).
-- For applications, the swing-averaged label is the better target.
+- For applications, a label averaged over a swing is the better target. The hump label (below) does best.
 
 ### Is one pendulum the right target?
 
@@ -439,11 +439,39 @@ What the hotspot looks like at the moment v1's label fires (2,000 test runs; [re
 - **About one run in six has a rival hump** with at least half the energy. In those runs, any single-site answer is a guess between two places.
 
 **The best way to frame the target**, given these facts:
-1. **Predict the hump's centre when it forms**, not the first pendulum over 10%. That is the swing-averaged label above: 96.4% within ±1.
+1. **Predict the hump's centre when it forms**, not the first pendulum over 10%. The swing-averaged label above comes close (96.4% within ±1), but it is read about 5 time units after the hump forms (below).
 2. **Keep the output a probability over all pendulums** rather than one regressed position. Regression averages rival humps (circular regression did worst, Sec. 8), while a distribution keeps both and gives prediction sets (below).
 3. **Optionally predict the hump's shape** as a per-site energy profile. The profile head tied for best in Sec. 8, and it gives the width and any rival hump for free.
 4. **Score by ring distance and calibration** (mean distance, ±1 / ±3, coverage of prediction sets), not by exact-site accuracy.
-5. **Define the event at the hump's scale**, for example when the swing-averaged energy of 3 neighbouring pendulums first passes a threshold. This is untested, and is listed as a next step.
+5. **Define the event at the hump's scale**, for example when the swing-averaged energy of 3 neighbouring pendulums first passes a threshold. Tested below: 99.4% within ±1.
+
+### The event at the hump's scale, and a second site
+
+Phase 9 tests recommendation 5 and the two-site output. The hump label fires at the first sample where the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, and names the window's centre. The threshold makes it fire with v1's label (median τ 54.5 against 55), about 5 time units before the swing-averaged label. Same final recipe; only the target changes (test pool; seeds in brackets; [results/phase9_tables.md](../results/phase9_tables.md)):
+
+| Target | Fires at (median τ) | Mean distance | Exact | ±1 | >10 off |
+|---|---|---|---|---|---|
+| v1's label [5] | 55 | 1.49 ± 0.03 | 27.7% | 77.2% | 1.5% |
+| swing-averaged label [3] | 60 | 0.58 ± 0.01 | 70.5% | 96.4% | 0.7% |
+| **hump label** [3] | **54.5** | **0.27 ± 0.01** | **84.7%** | **99.4%** | **0.4%** |
+
+- **The hump label is the best target.** It halves the error of the swing-averaged label and warns as early as v1's label. Its time is predicted best too (1.1% median error, against 1.5% on v1's label).
+- **What the first 4.5 time units decide is where the hump forms** ([results/hump_label.json](../results/hump_label.json)).
+  - Summing 3 pendulums barely matters for ±1: at the same moment, the window's centre and the top pendulum agree within ±1 in 99.7% of runs.
+  - The timing does. In the 5 time units before the swing-averaged label fires, the hump's top moves 2 or more sites in 8% of runs. On those runs the averaged-label model is within ±1 only 70% of the time (99% elsewhere), and 3 in 4 of its misses point at where the hump formed.
+  - The model trained on v1's label is within ±1 of the hump label in 91% of runs, against 77% of its own label.
+
+**A second site** is the highest peak of the predicted distribution at least 5 sites from the most likely one ([results/top2.json](../results/top2.json)). The rival-hump test above, applied to all 20,000 test runs, flags 16% of them (18% in its 2,000-run sample).
+
+| Model (its own label) | ±1, one site | ±1, either of two | Rival-hump runs: one → two | Second site only at ≥ 5% probability: runs with two, ±1 |
+|---|---|---|---|---|
+| v1's label | 77.2% | 78.8% | 73.6% → 82.4% | 4.9%, 78.5% |
+| swing-averaged label | 96.4% | 97.1% | 90.5% → 94.2% | 2.7%, 96.9% |
+| hump label | 99.4% | 99.8% | 97.1% → 99.4% | 2.3%, 99.8% |
+
+- **A second site helps only where a rival hump competes:** 2–9 points on those runs, at most 0.2 elsewhere. A second site drawn at random adds at most 0.4, so the gain comes from the model's own second peak, not from luck.
+- **The model knows when to name it.** A second site only when the 3 sites around it hold at least 5% of the probability goes to 2–5% of runs and keeps 75–97% of the gain.
+- **Recommended output:** the hump label's site, plus a second site when the model gives it 5% or more. One of them is within ±1 in 99.8% of runs, and only 2.3% of runs get two sites.
 
 ### The same choices win on the swing-averaged label
 
@@ -605,7 +633,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. The swing-averaged label is the better target. The inputs, receptive field, soft labels and recommended setups were re-tested on it (Sec. 10), but the noise-and-timing grid, the sparse sensors and the optimizer were not.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged label (Sec. 10), but the noise-and-timing grid, the sparse sensors and the optimizer were not.
 
 ### Next steps
 
@@ -615,5 +643,5 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
 6. Repeat the noise-and-timing grid (Sec. 7) on the swing-averaged label. There, waiting helps only against noise (Sec. 10), so the grid would measure the Floquet trade-off without the label's own dependence on time.
-7. Define localization at the hump's scale (for example, 3 neighbouring pendulums over a swing), and let the model name a second site when a rival hump competes (Sec. 10).
+7. Repeat the key choices (inputs, receptive field) and the noisy and sparse sensing setups on the hump label, which the final recipe predicts within ±1 in 99.4% of runs (Sec. 10). Noise picks the wrong hump, so a second site should help most there.
 8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.

@@ -18,6 +18,8 @@ Test pool of 20,000 runs; mean distance in pendulums around the ring.
 | v2: whole-ring dilated CNN (5 seeds) | 22,786 | 6 min | 1.49 | 77.2% | 97.3% |
 
 The published v1 numbers could not be reproduced from the paper's description (see the report, Sec. 2).
+Trained on where the energy hump forms (3 neighbouring pendulums over a swing, Phase 9) instead of
+v1's jittery label, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27).
 v2 also predicts when localization happens (1.5% median error), and degrades about three times
 more slowly than v1 under sensor noise.
 
@@ -45,6 +47,9 @@ python3 -m venv .venv
 .venv/bin/python scripts/robustness.py --runs runs/<dir> --v1   # Phase 6 shifted-condition tests
 .venv/bin/python scripts/eval_final.py --runs runs/<dir>   # time head and prediction sets of final models
 .venv/bin/python scripts/regularization.py              # Phase 8: curves and train-test gaps with little data
+.venv/bin/python scripts/add_labels.py hump             # Phase 9: add the hump-scale label to the pools (~10 min)
+.venv/bin/python scripts/top2.py                        # Phase 9: two-site output, overall and with a rival hump
+.venv/bin/python scripts/hump_label.py                  # Phase 9: why the hump label is easier to predict
 .venv/bin/python scripts/headline.py                    # v1 vs v2 tables: results/headline.md
 .venv/bin/python scripts/make_figures.py                # report figures into figures/
 .venv/bin/python scripts/watch.py phase6                # live terminal dashboard for a running sweep
