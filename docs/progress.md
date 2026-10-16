@@ -818,10 +818,10 @@ The prediction written into `ablations.phase9` before the runs (0.5–0.7, 95–
 | its top pendulum against the hump label (3 pendulums or 1, same moment) | 86.3% | 99.7% |
 | its top pendulum against the swing-averaged label (the drift over the next 5 time units) | 59.4% | 91.7% |
 
-- **The gain is the timing, not the 3-pendulum sum.** At the same moment, the window's centre and the top pendulum are more than one site apart in 0.3% of runs. The swing-averaged label is read about 5 time units later, and by then the hump's top has moved 2 or more sites in 8.3% of runs.
+- **The gain is the timing, not the 3-pendulum sum** (Phase 10 corrects this: true for ±1, but the 3-pendulum sum is worth as much of the mean distance). At the same moment, the window's centre and the top pendulum are more than one site apart in 0.3% of runs. The swing-averaged label is read about 5 time units later, and by then the hump's top has moved 2 or more sites in 8.3% of runs.
 - **The swing-averaged label's misses are that drift.** The averaged-label model is within ±1 of its label in 69.6% of the drifted runs, against 98.8% of the rest. Three in four of its misses (75%) sit within ±1 of the hump label: the model predicts where the hump forms, and the label then moves.
 - **v1's label misses point at the hump too.** The model trained on v1's label is within ±1 of the hump label in 90.6% of runs, against 77.2% of its own label, and 83% of its misses sit within ±1 of the hump label.
-- So what the first 4.5 time units decide is where the hump forms. Its drift afterwards is much harder to read from them. Whether the 3-pendulum sum also helps the exact site (84.7% against 70.5%) is not separated here; that would need a model trained on the single-pendulum label read at the hump's moment.
+- So what the first 4.5 time units decide is where the hump forms. Its drift afterwards is much harder to read from them. Whether the 3-pendulum sum also helps the exact site (84.7% against 70.5%) is not separated here; that would need a model trained on the single-pendulum label read at the hump's moment. Phase 10 trains that model: each part is worth about half of the gain.
 
 **Two sites** (`results/top2.json`; ±1 = either site within one pendulum of the model's own label)
 
@@ -930,3 +930,88 @@ Predicted for the test pool: 19.5 from the fastest mode (ln 10 / σ₁), 24.8 fr
 - Its rate is that of the growing modes together, about 0.09–0.10 per time unit here, not the fastest mode's 0.118. So a 10× noisier sensor costs about 23–26 time units of waiting, not 19.5.
 - Updated rule for a coarser camera: start about 10·ln(σ_s / 10⁻³) time units after release (23 per 10× noise), not 8.5·ln(σ_s / 10⁻³). By this rule, the coarse-camera setup of Phase 6 (10⁻² rad from τ = 20) starts a little early.
 - Still open: a rate from each mode's share of the localization instead of a plain mean, and more than one seed per cell.
+
+---
+
+## Phase 10: the key choices and sensing setups on the hump label, 16 October 2026
+
+**Question.** Phase 9's hump label is the best target so far (final recipe: 0.27, 99.4% within ±1). Two questions:
+- **Why it is easier.** Its gain over the swing-averaged label could come from when it is read (when the hump forms, about 5 time units earlier) or from how it locates the hump (the centre of 3 pendulums, not the top one). Phase 9's diagnostic put it on the timing, but without a model trained to separate the two.
+- **Do the choices still hold?** Do the choices made on v1's label, which Phase 7 re-tested on the swing-averaged label, hold on the hump label? And how do the sensing setups and a second site do on it?
+
+**Setup**
+- **A control label, `hump_top`** (`sim.localize`; opt-in like `hump`), fires at exactly the hump label's sample but names the top pendulum of the swing-averaged energy, as the averaged label does.
+  - So the averaged label, `hump_top` and the hump label differ by one change at a time: the moment, then how the hump is located.
+  - It agrees with the hump label exactly in 86% of runs and within ±1 in 99.8% (validation pool). `scripts/add_labels.py` added it to the pools, and the stored labels are reproduced bit-identically.
+- **`ablations.phase10`** (final recipe at the full budget, 3 seeds):
+  - a timing group: the final recipe on `hump_top`, beside Phase 9's hump-label run and Phase 6's averaged-label run
+  - Phase 7's groups on the hump label: inputs, receptive field, soft labels and the three sensing setups. Each config is listed on all three labels (`ThreeLabels`). Phase 7's averaged-label and v1-label runs and Phase 9's final recipe have the same config ids and are reused.
+  - That leaves 27 new runs (1.1 GPU-hours). They ran from this phase's worktree, sharing the GPU with the phase3_avg sweep for its last runs.
+- Predictions are in `ablations.phase10`, written before the runs. Tables: `results/phase10_tables.md`. Two sites on the sensing setups: `results/top2_deploy.json` (`scripts/top2.py --runs "runs/deploy_*_s*_*"`). Cross-scores: `results/hump_label.json`.
+
+**Why the hump label is easier** (test pool; 3 seeds)
+
+| Label | Read | Located by | Mean distance | Exact | ±1 | >10 off |
+|---|---|---|---|---|---|---|
+| swing-averaged | about 5 time units after the hump forms | top pendulum | 0.58 ± 0.01 | 70.5% | 96.4% | 0.69% |
+| `hump_top` | when the hump forms | top pendulum | 0.43 ± 0.02 | 76.2% | 98.9% | 0.57% |
+| hump | when the hump forms | centre of 3 pendulums | 0.27 ± 0.01 | 84.7% | 99.4% | 0.36% |
+
+- **Each change is worth about half of the mean-distance gain.** Reading the label when the hump forms gains 0.15, and locating the hump by its 3-pendulum centre another 0.16.
+- **The timing gives most of the ±1 gain** (2.5 of 3.0 points). In the 5 time units before the averaged label fires, the hump's top moves 2 or more sites in 8% of runs (Phase 9).
+- **The 3-pendulum centre gives most of the exact hits and far misses.** It adds 8.5 points of exact hits (6 for the timing) and removes most of the far misses (0.57% → 0.36% more than 10 off, against 0.69% → 0.57% for the timing).
+  - The top pendulum flips between two neighbours when the hump's top is flat. In 0.3% of test runs it even sits in another hump, more than 10 sites from the 3-pendulum centre. The centre of 3 pendulums follows the hump's core.
+- **The top pendulum is a noisy marker of the hump.** The model trained on `hump_top` scores better on the hump label (0.33, 99.3% within ±1) than on its own label (0.43). The model trained on the hump label scores 0.41 on `hump_top`, as well as the model trained on it.
+- So Phase 9's "the timing, not the 3-pendulum sum" holds only for ±1. Both parts of the hump label's definition pay.
+- Prediction (written before the runs): 0.3–0.4, about 99% within ±1, 75–80% exact. ±1 and exact came true, but the mean distance came out higher than predicted (0.43): the window matters more than the Phase 9 diagnostic suggested.
+
+**The key choices** (test pool; mean of 3 seeds; Δ against the final recipe on the same label, ± its standard error; × is the ratio to the final recipe's mean distance)
+
+| Final recipe, but … | v1's label | Δ | Averaged label | Δ | Hump label | Δ | × | Exact, hump | ±1, v1's / averaged / hump |
+|---|---|---|---|---|---|---|---|---|---|
+| nothing (the final recipe) | 1.50 | | 0.58 | | 0.27 | | | 84.7% | 76.9% / 96.4% / 99.4% |
+| v1's inputs (energy frames + θ(0)) | 1.51 | +0.01 ± 0.02 | 0.62 | +0.04 ± 0.01 | 0.30 | +0.03 ± 0.01 | 1.11 | 83.8% | 76.4% / 95.7% / 99.3% |
+| θ(0) only | 1.52 | +0.01 ± 0.02 | 0.68 | +0.11 ± 0.02 | 0.38 | +0.11 ± 0.02 | 1.39 | 82.7% | 74.5% / 95.0% / 98.9% |
+| sees 33 sites, not the whole ring | 1.70 | +0.19 ± 0.02 | 0.70 | +0.12 ± 0.02 | 0.42 | +0.15 ± 0.01 | 1.54 | 76.9% | 70.9% / 93.8% / 97.8% |
+| sees 17 sites | 2.37 | +0.87 ± 0.02 | 1.77 | +1.20 ± 0.01 | 1.48 | +1.21 ± 0.01 | 5.43 | 50.5% | 61.2% / 78.2% / 83.1% |
+| hard labels (other loss terms kept) | 1.53 | +0.03 ± 0.02 | 0.59 | +0.01 ± 0.01 | **0.25** | **−0.03 ± 0.01** | 0.90 | **88.3%** | 65.3% / 96.2% / **99.5%** |
+
+- **Inputs and receptive field: they hold, at about the same absolute cost as on the swing-averaged label.** v1's inputs +0.03 (+0.04 on the averaged label), θ(0) alone +0.11 (+0.11), 33 sites +0.15 (+0.12), 17 sites +1.21 (+1.20).
+  - As predicted, what is hard is reading the initial state, whichever label marks the hump. The costs are a larger share of the hump label's lower error: ×1.11 to ×5.4.
+  - All four fell in the predicted ranges, 17 sites just at the edge (1.48 against 1.5–1.8, ×5.4 against ×5–6).
+- **Soft labels: they now hurt** (the prediction was no difference). Hard labels give 0.25 against 0.27 (−0.03 ± 0.01), and 88.3% exact against 84.7%.
+  - On v1's label, soft labels hedged between the two sites the label jitters between. The hump label does not jitter, and it is sharper than the averaged label (whose top pendulum flips on a flat top), so the hedge only blurs the answer.
+  - On the hump label, train with hard labels.
+
+**Sensing setups** (final recipe; test pool; 3 seeds)
+
+| Setup | v1's label | Averaged label | Hump label | × final, v1's / averaged / hump | ±1, v1's / averaged / hump | >10 off, averaged / hump |
+|---|---|---|---|---|---|---|
+| Every pendulum, noise-free, τ = 0…4.5 | 1.50 | 0.58 | 0.27 | 1 / 1 / 1 | 76.9% / 96.4% / 99.4% | 0.7% / 0.4% |
+| Camera on every 2nd pendulum, 10⁻³ rad, from release | 1.93 | 1.18 | 0.92 | 1.28 / 2.04 / 3.38 | 72.6% / 92.9% / 96.8% | 2.2% / 2.0% |
+| Coarse camera (10⁻² rad) on every pendulum, from τ = 20 | 2.05 | 1.27 | 1.06 | 1.36 / 2.20 / 3.87 | 72.6% / 91.2% / 94.9% | 2.3% / 2.2% |
+| Energies at τ = 30, noise-free | 1.24 | 0.55 | 0.26 | 0.82 / 0.96 / 0.94 | 82.4% / 96.3% / 99.4% | 0.7% / 0.3% |
+
+- **The cheap camera is within ±1 of where the hump forms in 96.8% of runs**, predicting right after release (92.9% on the averaged label).
+- **Noise costs about the same number of sites on both labels**: +0.65 and +0.79 on the hump label, +0.60 and +0.69 on the averaged label. That is ×3.4–3.9 on the hump label, in the predicted range.
+  - Its far misses, 2.0–2.2% of runs more than 10 sites off, hardly depend on the label. Noise picks the wrong hump (Phase 3), and no label removes that.
+- **Without noise, waiting does not pay on this label either.** Energies at τ = 30 get 0.26 against 0.27 (−0.02 ± 0.01), as on the averaged label.
+
+**Two sites on the sensing setups** (`results/top2_deploy.json`; ±1 = either site within one pendulum of the model's own label; mean of 3 seeds)
+
+| Setup, hump label | One site | Two sites | Random second site | Rival-hump runs: one → two | Second site only at ≥ 5%: runs with two, ±1 |
+|---|---|---|---|---|---|
+| Every pendulum, noise-free (Phase 9) | 99.4% | 99.8% | 99.4% | 97.1% → 99.4% | 2.3%, 99.8% |
+| Camera on every 2nd pendulum, 10⁻³ rad | 96.8% | 98.8% | 96.9% | 86.3% → 97.4% | 5.6%, 98.3% |
+| Coarse camera from τ = 20 | 94.9% | 96.8% | 95.0% | 86.9% → 96.5% | 4.6%, 96.2% |
+| Energies at τ = 30 | 99.4% | 99.8% | 99.4% | 97.4% → 99.4% | 1.8%, 99.7% |
+
+- **A second site helps the noisy setups most**, as predicted: +2.0 and +1.9 points overall, against +0.4 noise-free. On rival-hump runs the cameras fall to 86–87% with one site, and two sites bring them back to 96.5–97.4%.
+- **The 5% rule keeps most of it.** With a second site only when the model gives it at least 5% of the probability, 4.6–5.6% of runs get two sites and keep 69–76% of the gain. A random second site adds at most 0.1.
+- **The same pattern holds on the other labels.** For the cheap camera: averaged label 92.9% → 94.7% with two sites, v1's label 72.6% → 74.9%.
+
+**Decision**
+- Keep the hump label, both parts of it: the moment the hump forms and its 3-pendulum centre. Each is worth about half of its gain over the swing-averaged label.
+- The inputs and architecture chosen on v1's label stand on the hump label, with the same absolute margins as on the averaged label.
+- On the hump label, drop the soft labels: hard labels gain 0.03 and 3.6 points of exact hits. The rest of the recipe is unchanged.
+- For a real chain, the cheap camera with the hump label and the 5% rule is within ±1 of one of its sites in 98.3% of runs, naming a second site in 5.6% of them. Still to measure: the noise-and-timing grid and the sparse-sensor grid on the hump label.

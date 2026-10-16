@@ -19,7 +19,8 @@ Test pool of 20,000 runs; mean distance in pendulums around the ring.
 
 The published v1 numbers could not be reproduced from the paper's description (see the report, Sec. 2).
 Trained on where the energy hump forms (3 neighbouring pendulums over a swing, Phase 9) instead of
-v1's jittery label, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27).
+v1's jittery label, v2 is within ±1 pendulum in 99.4% of runs (mean distance 0.27; 0.25 with hard
+labels, Phase 10).
 v2 also predicts when localization happens (1.5% median error), and degrades about three times
 more slowly than v1 under sensor noise.
 
