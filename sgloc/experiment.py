@@ -3,6 +3,8 @@
 Config keys: phase, group, name, note (why the run exists), seed, n_train, view (sgloc.views.View
 fields), test_view (optional overrides for the test inputs), model (sgloc.models.build spec),
 loss (sgloc.losses.SiteLoss fields), optim (optimizer, schedule, steps or epochs, batch_size).
+Optional: label (sgloc.sim.LABELS), pools (other pool files), ignore_unlocalized (leave runs that
+never localize out of the site and time losses; for damped pools).
 """
 import copy
 import hashlib
@@ -51,28 +53,29 @@ def load_pools(n_train, names=None):
 
 
 def true_system(pool):
-    """The dynamics a pool was simulated with, when they differ from the nominal model."""
+    """The dynamics a pool was simulated with, when they differ from the nominal model: other g or
+    h, a per-site gravity map (impurities) and a per-run damping coefficient."""
     p = pool["meta"].get("params", {})
     dynamics = sim.Params(**p) if p and (p["g"], p["h"]) != (sim.Params().g, sim.Params().h) else None
-    return dynamics, pool.get("onsite")
+    return dynamics, pool.get("onsite"), pool.get("gamma")
 
 
 def build_inputs(view, split, pool, workers=1):
-    dynamics, onsite = true_system(pool)
+    dynamics, onsite, gamma = true_system(pool)
     calibration = None
     if view.calibration:
         calibration = (1 - onsite) if onsite is not None else np.zeros_like(pool["theta0"], dtype=np.float32)
     return views.build(view, split, pool["theta0"], workers, dynamics=dynamics,
-                       onsite=None if onsite is None else onsite.astype(float), calibration=calibration)
+                       onsite=None if onsite is None else onsite.astype(float), calibration=calibration, gamma=gamma)
 
 
 def prebuild(cfg, pools, workers=8):
     """Fill the trajectory cache for every split of a config."""
     split_views = views_for(cfg)
     for s in ("train", "val", "test"):
-        dynamics, onsite = true_system(pools[s])
+        dynamics, onsite, gamma = true_system(pools[s])
         views.ensure(split_views[s], s, pools[s]["theta0"], workers, dynamics=dynamics,
-                     onsite=None if onsite is None else onsite.astype(float))
+                     onsite=None if onsite is None else onsite.astype(float), gamma=gamma)
         if cfg.get("loss", {}).get("profile"):
             views.profile_target(s, pools[s]["theta0"], workers)
 
@@ -107,6 +110,8 @@ def prepare(cfg, pools, workers=1):
                  "log_time": torch.from_numpy(((np.log(np.nan_to_num(t, nan=150.0)) - TIME_MEAN) / TIME_STD).astype(np.float32))}
         if profiles is not None:
             split["profile"] = torch.from_numpy(((profiles[s] - p_mean) / p_std).astype(np.float32))
+        if cfg.get("ignore_unlocalized"):  # runs that never localize (site -1) carry no site or time loss
+            split["site_weight"] = split["localizes"]
         out[s] = split
     return out, (mean, std)
 
@@ -163,8 +168,12 @@ def run(cfg, workers=1, threads=None, device="cpu", log=print):
             with torch.no_grad():
                 logp = torch.cat([model(splits[s]["x"][i:i + 512])["site"].log_softmax(-1)
                                   for i in range(0, len(splits[s]["x"]), 512)])
-            y = splits[s]["site"]
-            results[s]["nll"] = float(-logp[torch.arange(len(y), device=y.device), y].mean())
+            y, masked = splits[s]["site"], "site_weight" in splits[s]
+            nll = -logp[torch.arange(len(y), device=y.device), y.clamp(min=0) if masked else y]
+            results[s]["nll"] = float(nll[y >= 0].mean() if masked else nll.mean())
+        if loss_spec.get("localizes"):
+            results[s]["localizes"] = metrics.localizes_metrics(localizes_probability(model, splits[s]["x"]),
+                                                                pools[s][f"site_{label}"] >= 0)
         if s == "test":
             np.save(run_dir / "pred_test.npy", pred.astype(np.int16))
     (run_dir / "history.json").write_text(json.dumps(history))
@@ -185,9 +194,19 @@ def run(cfg, workers=1, threads=None, device="cpu", log=print):
     return record
 
 
-def evaluate_saved(run_dir, pool_name, view_override=None, split="test", workers=4):
+def localizes_probability(model, x, batch_size=512):
+    """The "does it localize" head's probability for every run."""
+    model.eval()
+    with torch.no_grad():
+        return torch.cat([torch.sigmoid(model(x[i:i + batch_size])["localizes"]).cpu()
+                          for i in range(0, len(x), batch_size)]).numpy()
+
+
+def evaluate_saved(run_dir, pool_name, view_override=None, split="test", workers=4, label_pool=None):
     """Re-evaluate a saved run on another pool (e.g. a robustness pool), optionally with a
-    different test view (e.g. more sensor noise). Inputs are standardized with the run's scaler."""
+    different test view (e.g. more sensor noise). Inputs are standardized with the run's scaler.
+    Sites are scored against the label the run was trained on; `label_pool` takes the labels from
+    another pool with the same initial conditions (inputs from one chain, outcome from another)."""
     run_dir = ROOT / run_dir
     if (run_dir / "config.json").exists():
         cfg = json.loads((run_dir / "config.json").read_text())
@@ -205,4 +224,12 @@ def evaluate_saved(run_dir, pool_name, view_override=None, split="test", workers
     model.load_state_dict(torch.load(run_dir / "model.pt"))
     loss_fn = losses.SiteLoss(**cfg.get("loss", {}))
     pred = train.predict_sites(model, loss_fn, x)
-    return metrics.site_metrics(pred, pool["site_right"], n_sites=pool["theta0"].shape[1])
+    if label_pool is not None:
+        other = data.load_pool(ROOT / "data" / f"{label_pool}.npz")
+        assert np.array_equal(other["theta0"], pool["theta0"]), "label pool must share the initial conditions"
+        pool = other
+    truth = pool[f"site_{cfg.get('label', 'right')}"]
+    out = metrics.site_metrics(pred, truth, n_sites=pool["theta0"].shape[1])
+    if "localizes" in spec["spec"].get("aux", []):
+        out["localizes"] = metrics.localizes_metrics(localizes_probability(model, x), truth >= 0)
+    return out

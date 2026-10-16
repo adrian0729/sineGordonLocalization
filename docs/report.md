@@ -481,6 +481,36 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Trained with impurities, v2 finds the weak pendulum from the motion alone.** A weaker pendulum swings slightly slower and falls behind its neighbours. With an impurity, v2 is more accurate than on uniform chains (1.06 vs 1.49), since the impurity makes the outcome less random.
 - **A measured map of every pendulum adds nothing** beyond seed noise (1.05 vs 1.06). For a single impurity of this size, 4.5 time units of angles already reveal it. Chains with small differences at every pendulum remain untested (Sec. 12).
 
+### Damped chains
+
+(Linear damping −γ dθ/dτ, so a free pendulum's quality factor is Q = 1/γ. Six pools of 5,000 runs share their initial conditions and differ only in γ. Sites are scored over the runs that localize by τ = 150. [Fig. 20](../figures/fig20_damping.png); [results/headline.md](../results/headline.md))
+
+| Q (γ) | Swing's 1/e decay, 20 cm pendulum | Localize by τ = 150 | Median delay | v1 rebuilt, trained undamped | v2 final, trained undamped | v2 recipe, trained on damped chains |
+|---|---|---|---|---|---|---|
+| ∞ (0) | never | 100% | – | 3.22 | 1.56 | 1.55 |
+| 10,000 (10⁻⁴) | 48 min | 100% | 0 | – | 1.49 | 1.53 |
+| 3,300 (3×10⁻⁴) | 16 min | 100% | +1 | – | 1.49 | 1.44 |
+| 1,000 (10⁻³) | 4.8 min | 99.9% | +3 | 5.43 | 2.48 | 1.19 |
+| 330 (3×10⁻³) | 95 s | 71% | +9 | 12.4 | 4.92 | 0.84 |
+| 100 (10⁻²) | 29 s | 0% | – | – | – | – |
+
+- **Damping decides whether the energy localizes at all.**
+  - The uniform swing decays toward A_c, and a run localizes only if its perturbation has grown enough before then.
+  - At Q ≥ 1,000 almost every run localizes, a few time units late. At Q = 330 only swings released above A ≈ 1.71 do. At Q = 100 none do: the swing falls below A_c within 18 time units (2.5 s).
+  - A run that misses τ = 150 does not localize later (checked to τ = 600).
+- **The Floquet spectrum predicts the delay.** Undamped runs follow T₀ = 5.1/σ(A₀) + 11: about 5 e-folds of linear growth, then about 11 time units of nonlinear focusing.
+  - Integrating the growth rate along the decaying swing predicts the median delay: +3.8 vs +3.0 measured at Q = 1,000, and +9.3 vs +9.0 at Q = 330.
+  - It predicts too few survivors at Q = 330 (41% vs 71%). 42% of the survivors finish localizing after the swing has dropped below A_c, so a perturbation that is already large keeps focusing without the linear instability.
+- **Trained undamped, v2 tolerates Q ≥ 3,000 at no cost.**
+  - At Q = 1,000 its error grows to 2.48, still well ahead of v1 (5.43).
+  - Most of that comes from the inputs, not the outcome. Fed the same runs' undamped frames, v2 scores 1.68 against the damped outcome. A slowly decaying swing looks unlike any training run.
+- **Trained on damped chains (Q from 100 to 10,000), early warning survives, and gets better with damping.**
+  - The retrained recipe loses nothing on undamped chains (1.55 vs 1.56). It reaches 1.19 at Q = 1,000 and 0.84 at Q = 330 (92% within ±1).
+  - Near the threshold fewer and longer ring modes grow (4–6 when the run localizes undamped, 0–3 at Q = 330), so the site depends less on local detail.
+  - A "does it localize" head tells from the first 4.5 time units whether a run will localize at all. On the damped test pool it is right 99.5% of the time (false alarms on 1.4% of the runs that do not localize), and it costs nothing on the site.
+  - On the swing-averaged label the retrained recipe reaches 0.50 (97% within ±1) on the damped test pool.
+  - The recommended camera (every 2nd pendulum, 10⁻³ rad) scores 1.82 on the damped test pool, against 1.93 on undamped chains.
+
 ### The recommended setups, at full budget
 
 ([results/headline.md](../results/headline.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
@@ -502,7 +532,10 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 ### Limitations
 
 - **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
-- **Simulation only, without damping.** Real pendulums lose energy to friction and air drag. A damped uniform swing drifts toward the instability threshold (A_c = 1.577), and below it nothing localizes. This study keeps the paper's conservative model.
+- **Damping is simulated as linear and the same at every pendulum.** Real pendulums lose energy to bearing friction, which is partly a constant (Coulomb) torque, and to air drag, which grows with the square of the speed. No two pendulums lose energy at quite the same rate.
+  - With linear damping, nearly every release (A = 1.65–1.85) localizes only if the chain's quality factor is about 1,000 or more. For 20 cm pendulums, that means the swing takes at least 5 min to decay by 1/e (Sec. 11).
+  - At Q ≈ 300, 29% of releases never localize, and at Q = 100 none do.
+  - Trained with damping, v2 still warns early and says whether a run will localize. But a real chain's Q and damping law must be measured first, and a chain with much lower Q would need a drive to replace the lost energy.
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
@@ -510,7 +543,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Next steps
 
-1. Add damping to the simulator, retrain, and test whether early warning survives.
+1. Measure a real chain's quality factor and damping law (linear, Coulomb or quadratic), and retrain with the measured law. Linear damping is done (Sec. 11): trained with damping, v2 warns early wherever the energy still localizes, but below Q ≈ 1,000 a growing share of releases never localize.
 2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.

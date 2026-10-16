@@ -3,7 +3,8 @@
     python scripts/headline.py
 
 Reads results/runs.jsonl (training runs), results/robustness.jsonl (re-evaluation of trained runs on
-shifted test conditions) and results/phase1.json (physics baselines). Anything not run yet shows as pending.
+shifted test conditions, including damped chains) and results/phase1.json (physics baselines). Anything
+not run yet shows as pending.
 """
 import json
 import sys
@@ -72,6 +73,73 @@ def load():
                     rec = json.loads(line)
                     robust[(rec["run_dir"], rec["condition"])] = rec["test"]  # the latest evaluation wins
     return v1, phase6, dirs, notes, robust
+
+
+GAMMAS = [("robust_gamma0", 0.0), ("robust_gamma1e-4", 1e-4), ("robust_gamma3e-4", 3e-4), ("robust_gamma1e-3", 1e-3),
+          ("robust_gamma3e-3", 3e-3), ("robust_gamma1e-2", 1e-2)]
+DAMPED = [("damped_trained", "v2 recipe, trained on damped chains", "recipe"),
+          ("damped_trained_localizes_head", "... plus the 'does it localize' head", "+ head"),
+          ("damped_trained_avg_label", "... plus the head, on the swing-averaged label", "+ head, averaged label"),
+          ("damped_deploy_camera_every2_noise1e-3", "... plus the head, camera on every 2nd pendulum, 1e-3 rad",
+           "+ head, camera")]
+
+
+def damping_section(v1_dirs, p6, dirs, robust):
+    """Damped chains: models trained undamped and re-scored on damped pools, and the recipe retrained on them."""
+    def scored(run_dirs, cond):
+        return [robust[(d, cond)] for d in run_dirs if (d, cond) in robust]
+
+    def site(tests, key="mae", digits=2, scale=1):
+        tests = [t for t in tests if t.get("n")]
+        return stat([t[key] for t in tests], digits, scale) if tests else "n/a"
+
+    def head(tests, key="accuracy"):
+        tests = [t["localizes"] for t in tests if "localizes" in t]
+        return stat([t[key] for t in tests if key in t], 1, 100) if tests else "n/a"
+
+    out = ["## 9. Damped chains (linear damping gamma per time unit; quality factor Q = 1 / gamma)", "",
+           "Six pools of 5,000 runs share their initial conditions and differ only in gamma. Sites are scored over the runs "
+           "that localize by τ = 150, against the label each model was trained on. \"Undamped frames\" feeds a model the "
+           "first frames of the same runs without damping and scores it against the damped outcome, which separates a "
+           "changed outcome from changed inputs.", ""]
+    rows = []
+    v2, avg = dirs.get("v2_final", []), dirs.get("final_avg_label", [])
+    for cond, gamma in GAMMAS:
+        any_test = next(iter(scored(v2, cond)), None)
+        if any_test is None:
+            continue
+        b, c = scored(v2, cond), scored(avg, cond)
+        b0, c0 = scored(v2, f"{cond}_labels_only"), scored(avg, f"{cond}_labels_only")
+        rows.append([f"{gamma:g}", f"{1 / gamma:,.0f}" if gamma else "∞", f"{100 * any_test['n'] / 5000:.1f}%",
+                     site(scored(v1_dirs, cond)), site(b), site(b, "acc_1", 1, 100), site(b0), site(c), site(c, "acc_1", 1, 100),
+                     site(c0)])
+    out += ["### Trained on undamped chains (mean distance; ±1 in %)", "",
+            table(["gamma", "Q", "Localize by τ = 150", "v1 rebuilt", "v2 final", "v2 final ±1", "v2 final, undamped frames",
+                   "v2 swing-averaged label", "its ±1", "its undamped frames"], rows), ""]
+    rows = []
+    for cond, gamma in GAMMAS:
+        cols = []
+        for name, _, _ in DAMPED:
+            tests = scored(dirs.get(name, []), cond)
+            cols += [site(tests), site(tests, "acc_1", 1, 100)]
+        if any(c not in ("n/a", "pending") for c in cols) or cond == "robust_gamma1e-2":
+            heads = head(scored(dirs.get("damped_trained_localizes_head", []), cond))
+            rows.append([f"{gamma:g}"] + cols + [heads])
+    if rows:
+        out += ["### Trained on damped chains (gamma log-uniform in 1e-4 .. 1e-2), scored at each gamma", "",
+                table(["gamma"] + [f"{short}: {m}" for _, _, short in DAMPED for m in ("mean distance", "±1")] +
+                      ["Localizes head: accuracy"], rows), ""]
+    rows = []
+    for label, who in (("v1 rebuilt, trained undamped", v1_dirs), ("v2 final, trained undamped", dirs.get("v2_final", [])),
+                       ("v2 swing-averaged label, trained undamped", dirs.get("final_avg_label", []))):
+        tests = scored(who, "robust_damped_test")
+        rows.append([label, len(tests)] + cells(tests) + ["n/a"] * 3)
+    for name, label, _ in DAMPED:
+        tests = [r["test"] for r in p6.get(name, [])]
+        rows.append([label, len(tests)] + cells(tests) + [head(tests), head(tests, "auc"), head(tests, "false_alarm")])
+    out += ["### The damped test pool (10,000 runs, gamma log-uniform in 1e-4 .. 1e-2, 80% localize)", "",
+            table(["Model", "Seeds", *[c[1] for c in COLUMNS], "Localizes: accuracy", "ROC area", "False alarms"], rows), ""]
+    return out
 
 
 def minutes(recs):
@@ -192,6 +260,7 @@ def main():
             ["v1 rebuilt: trained and scored on the period-averaged label", len(v1_avg)] + cells([r["test"] for r in v1_avg])]
     out += ["## 8. A smoother target: where the energy sits on average over a swing", "",
             table(["Model", "Seeds", *[c[1] for c in COLUMNS]], rows), ""]
+    out += damping_section(v1_dirs, p6, dirs, robust)
 
     text = "\n".join(out)
     (ROOT / "results" / "headline.md").write_text(text)

@@ -31,14 +31,16 @@ def initial_conditions(size, seed, n_sites=100, a_range=A_RANGE, noise=NOISE):
 
 
 def _localize_chunk(args):
-    theta0, params, labels, onsite = args
-    return sim.localize(theta0, params, labels, onsite)
+    theta0, params, labels, onsite, gamma = args
+    return sim.localize(theta0, params, labels, onsite, gamma)
 
 
-def localize_parallel(theta0, params=sim.Params(), chunk=2000, workers=None, labels=sim.LABELS, onsite=None):
-    """sim.localize over many runs, split into chunks across processes (order is preserved)."""
-    chunks = [(theta0[i:i + chunk], params, labels, None if onsite is None else onsite[i:i + chunk])
-              for i in range(0, len(theta0), chunk)]
+def localize_parallel(theta0, params=sim.Params(), chunk=2000, workers=None, labels=sim.LABELS, onsite=None, gamma=0.0):
+    """sim.localize over many runs, split into chunks across processes (order is preserved).
+    `gamma` is the damping, a scalar or one value per run."""
+    gamma = np.asarray(gamma, dtype=float)
+    chunks = [(theta0[i:i + chunk], params, labels, None if onsite is None else onsite[i:i + chunk],
+               gamma[i:i + chunk] if gamma.ndim else gamma) for i in range(0, len(theta0), chunk)]
     with ProcessPoolExecutor(max_workers=workers) as pool:
         parts = list(pool.map(_localize_chunk, chunks))
     return {key: np.concatenate([part[key] for part in parts]) for key in parts[0]}

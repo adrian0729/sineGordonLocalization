@@ -527,3 +527,93 @@ v2 beats v1 from 1k runs on.
 
 - The jitter comes from the within-swing exchange of energy, not from the spring bookkeeping.
 - A smoother label would explain about two-thirds of the v1 reproduction gap in ±1 (60.4% → 83.6%, against the published 94.4%).
+
+---
+
+## Phase 6 addendum: damping, 16 October 2026
+
+**Setup**
+- `sgloc/sim.py` adds linear damping, −γ dθ/dτ, to Eq. (4): a friction torque proportional to each pendulum's angular velocity. γ is per time unit, so a free pendulum's quality factor is Q = 1/γ. It can take one value per run.
+- The default γ = 0 is the paper's chain: the stored test-pool labels reproduce exactly, and no config id changes. A new test checks that the energy a damped chain loses equals γ ∫ Σθ̇² dτ (to 10⁻⁵).
+- With damping, a run localizes when one site holds 10% of the energy the chain still holds, not 10% of its initial energy.
+- **Pools** (`scripts/make_robustness_pools.py`):
+  - six fixed-damping pools of 5,000 runs (γ = 0, 10⁻⁴, 3×10⁻⁴, 10⁻³, 3×10⁻³, 10⁻²) with the same initial conditions, so their differences are damping alone
+  - train / val / test pools of 60,000 / 10,000 / 10,000 runs with γ log-uniform in [10⁻⁴, 10⁻²]; 80% of these runs localize by τ = 150
+- **Scripts:**
+  - physics: `scripts/damping_physics.py` (`results/damping_physics.json`, [Fig. 20](../figures/fig20_damping.png))
+  - trained models re-scored without retraining: `scripts/robustness.py`
+  - retraining: the Phase 6 `damping` group (`phase6_damping`, 4 configs × 3 seeds, ~7 min each). Runs that never localize are left out of the site and time losses (`ignore_unlocalized`).
+  - tables: `results/headline.md`, Sec. 9
+
+**Physics** (each run compared with itself undamped)
+
+| γ | Q | Swing's 1/e decay (2/γω₀), 20 cm pendulum | Localize by τ = 150 | Median delay | v1's label: same site / ±1 / ±3 | Swing-averaged label ±1 |
+|---|---|---|---|---|---|---|
+| 10⁻⁴ | 10,000 | 48 min | 100% | 0 | 62% / 80% / 96% | 97% |
+| 3×10⁻⁴ | 3,300 | 16 min | 100% | +1 | 32% / 60% / 94% | 95% |
+| 10⁻³ | 1,000 | 4.8 min | 99.9% | +3 | 24% / 54% / 93% | 90% |
+| 3×10⁻³ | 330 | 95 s | 71% | +9 | 20% / 52% / 87% | 82% |
+| 10⁻² | 100 | 29 s | 0% | n/a | n/a | n/a |
+
+- **The swing decays toward A_c.** A run localizes only if its perturbation grows enough before the swing gets there.
+  - At Q = 330 this becomes an amplitude threshold: below A ≈ 1.69 almost no run localizes, and above 1.75 every run does (half at 1.71).
+  - At Q = 100 a swing released at A = 1.75 falls below A_c after 17.5 time units (2.5 s), with 1.3 e-folds of growth available.
+- **Late is the same as never.** Re-simulated to τ = 600, the same 2,000 runs localize exactly as often as by τ = 150 (100% at Q = 1,000, 73.3% at Q = 330).
+- **A two-stage Floquet picture predicts the delay.** Undamped runs fit T₀ = 5.13/σ(A₀) + 11.3: about 5 e-folds of linear growth at the fastest Floquet rate σ, then about 11 time units of nonlinear focusing.
+  - Integrating σ along the decaying swing gives the median delay: +3.8 vs +3.0 measured at Q = 1,000, and +9.3 vs +9.0 at Q = 330.
+  - It predicts too few survivors at Q = 330: 41% vs 71%, with the threshold at A = 1.77 instead of 1.71.
+  - Counting all of T₀ as linear growth does worse (21%).
+  - At Q = 330 the survivors finish localizing at a median swing amplitude of 1.60, and 42% of them below A_c. A perturbation that is already large keeps focusing after the linear instability has stopped.
+  - Damping slows the perturbation itself by γ/2, but the swing loses energy almost as fast (⟨θ̇²⟩/E = 0.89 at A = 1.75), so the energy share on the hotspot feels damping almost only through the amplitude.
+- **Damping moves v1's label much more than the swing-averaged one.** At Q = 10,000, only 62% of runs keep v1's exact site, but 97% keep the averaged site within ±1. A slightly later crossing changes which pendulum is caught first within the swing.
+- **Damping removes the shorter growing modes.** At the moment of localization the median swing amplitude is 1.75 undamped (4–6 growing ring modes), 1.69 at Q = 1,000 (3–5) and 1.60 at Q = 330 (0–3).
+
+**Trained undamped, tested damped** (mean distance over the runs that localize, against each model's own label)
+
+"Undamped frames" feeds a model the first frames of the same runs without damping, and scores it against the damped outcome. It separates a changed outcome from changed inputs.
+
+| γ | v1 rebuilt (2 seeds) | v2 final (5 seeds) | v2 final, undamped frames | v2, swing-averaged label (3 seeds) | the same, undamped frames |
+|---|---|---|---|---|---|
+| 0 | 3.22 | 1.56 | n/a | 0.62 | n/a |
+| 10⁻⁴ | not run | 1.49 | 1.51 | 0.63 | 0.61 |
+| 3×10⁻⁴ | not run | 1.49 | 1.50 | 0.64 | 0.60 |
+| 10⁻³ | 5.43 | 2.48 ± 0.28 | 1.68 | 4.23 ± 0.73 | 0.84 |
+| 3×10⁻³ | 12.40 | 4.92 ± 0.37 | 2.47 | 5.21 ± 0.29 | 1.34 |
+
+- **Up to Q ≈ 3,000, damping costs nothing.**
+- **At Q = 1,000, most of the loss comes from the inputs, not the outcome.**
+  - With the undamped frames, v2 final scores 1.68, not 2.48. On the averaged label it scores 0.84, not 4.23.
+  - A slowly decaying swing looks unlike any training run, and both models rely on details of the frames that damping changes.
+- **v1 degrades faster** (3.22 → 5.43 → 12.4), so v2 trained undamped stays ahead.
+
+**Retrained on damped chains** (γ log-uniform in [10⁻⁴, 10⁻²]; mean distance at each γ, over the runs that localize; 3 seeds)
+
+| γ | Recipe | + localizes head | + head, swing-averaged label | + head, camera (every 2nd pendulum, 10⁻³ rad) | Head accuracy |
+|---|---|---|---|---|---|
+| 0 | 1.55 | 1.53 | 0.69 | 2.09 | 100% |
+| 10⁻⁴ | 1.53 | 1.48 | 0.63 | 2.13 | 100% |
+| 3×10⁻⁴ | 1.44 | 1.42 | 0.53 | 2.07 | 100% |
+| 10⁻³ | 1.19 | 1.16 | 0.49 | 1.86 | 99.9% |
+| 3×10⁻³ | 0.84 (92% ±1) | 0.85 | 0.38 (98% ±1) | 1.35 | 99.1% |
+| 10⁻² | n/a | n/a | n/a | n/a | 100% |
+
+On the damped test pool:
+
+| Model | Mean distance | ±1 |
+|---|---|---|
+| v1 rebuilt, trained undamped | 6.22 | 46.8% |
+| v2 final, trained undamped | 2.57 | 64.1% |
+| v2 recipe, trained damped | 1.30 ± 0.02 | 82.0% |
+| + localizes head | 1.31 ± 0.01 | 82.0% |
+| + head, swing-averaged label | 0.50 ± 0.02 | 97.2% |
+| + head, camera | 1.82 ± 0.01 | 78.0% |
+
+- **Retrained, the recipe loses nothing on undamped chains** (1.55 vs 1.56 for v2 final). **It gets better with damping:** 1.19 at Q = 1,000 and 0.84 at Q = 330.
+  - That is not because only easy runs survive. Without damping, v2 final (seed 0) does worse on the runs that localize at Q = 330 than on the rest (1.64 vs 1.31).
+  - Near threshold fewer and longer ring modes grow, so the site depends less on local detail. The coarse answer lives in those modes (Phase 1).
+- **The localizes head tells from the first 4.5 time units whether a run will localize at all.**
+  - On the damped test pool it is right 99.5% of the time, with a ROC area of 0.9999. It misses 0.25% of the runs that localize and raises a false alarm on 1.4% of the rest.
+  - It is still right in 99.1% of runs at Q = 330, where 29% do not localize.
+  - It costs nothing on the site (1.31 vs 1.30).
+- **On the swing-averaged label the retrained recipe reaches 0.50 on damped chains (97.2% within ±1)**, and 0.38 at Q = 330. On undamped chains it costs 0.07 against the undamped-trained model (0.69 vs 0.62).
+- **The recommended camera keeps its accuracy on damped chains:** 1.82 on the damped test pool, against 1.93 for the same setup on undamped chains (Phase 6). Its localizes head is right 99.3% of the time.

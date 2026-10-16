@@ -44,11 +44,13 @@ def sample_index(view, runs, split):
     return start[:, None] + frames[None, :]
 
 
-def observe(theta0, index, params=sim.Params(), onsite=None):
+def observe(theta0, index, params=sim.Params(), onsite=None, gamma=0.0):
     """theta and omega at per-run sample indices (runs, F); returns two float32 arrays (runs, F, N).
-    `params` and `onsite` are the true dynamics (they can differ from the observer's model)."""
+    `params`, `onsite` and `gamma` (damping) are the true dynamics (they can differ from the
+    observer's model)."""
     theta = np.array(theta0, dtype=float)
     omega = np.zeros_like(theta)
+    gamma = sim.damping(gamma)
     stride = round(SAMPLE / params.dt)
     out_t = np.empty((*index.shape, theta.shape[1]), dtype=np.float32)
     out_w = np.empty_like(out_t)
@@ -59,7 +61,7 @@ def observe(theta0, index, params=sim.Params(), onsite=None):
             out_t[rows, cols], out_w[rows, cols] = theta[rows], omega[rows]
         if k < last:
             for _ in range(stride):
-                theta, omega = sim.rk4_step(theta, omega, params.dt, params.g, params.h, onsite)
+                theta, omega = sim.rk4_step(theta, omega, params.dt, params.g, params.h, onsite, gamma)
     return out_t, out_w
 
 
@@ -67,22 +69,24 @@ def _observe_chunk(args):
     return observe(*args)
 
 
-def observe_cached(split, theta0, index, workers=8, chunk=2500, dynamics=None, onsite=None):
+def observe_cached(split, theta0, index, workers=8, chunk=2500, dynamics=None, onsite=None, gamma=None):
     """observe() over a whole split, in parallel, cached by the split, size, sample indices and
-    (when not the defaults) the true dynamics."""
+    (when not the defaults) the true dynamics. `gamma` is one damping value per run."""
     key = index.tobytes() + theta0[:5].tobytes()
     if dynamics is not None:
         key += repr(dynamics).encode()
     if onsite is not None:
         key += onsite.tobytes()
+    if gamma is not None:
+        key += np.asarray(gamma, dtype=float).tobytes()
     tag = hashlib.sha1(key).hexdigest()[:12]
     path = CACHE / f"{split}_{len(theta0)}_{tag}.npz"
     if path.exists():
         with np.load(path) as f:
             return f["theta"], f["omega"]
     dynamics = dynamics or sim.Params()
-    jobs = [(theta0[i:i + chunk], index[i:i + chunk], dynamics, None if onsite is None else onsite[i:i + chunk])
-            for i in range(0, len(theta0), chunk)]
+    jobs = [(theta0[i:i + chunk], index[i:i + chunk], dynamics, None if onsite is None else onsite[i:i + chunk],
+             0.0 if gamma is None else gamma[i:i + chunk]) for i in range(0, len(theta0), chunk)]
     with ProcessPoolExecutor(max_workers=workers) as pool:
         parts = list(pool.map(_observe_chunk, jobs))
     theta = np.concatenate([p[0] for p in parts])
@@ -94,20 +98,23 @@ def observe_cached(split, theta0, index, workers=8, chunk=2500, dynamics=None, o
     return theta, omega
 
 
-def ensure(view, split, theta0, workers=8, dynamics=None, onsite=None):
+def ensure(view, split, theta0, workers=8, dynamics=None, onsite=None, gamma=None):
     """Fill the trajectory cache for a view without building the inputs."""
-    observe_cached(split, theta0, sample_index(view, len(theta0), split), workers, dynamics=dynamics, onsite=onsite)
+    observe_cached(split, theta0, sample_index(view, len(theta0), split), workers, dynamics=dynamics, onsite=onsite,
+                   gamma=gamma)
 
 
-def build(view, split, theta0, workers=8, params=sim.Params(), dynamics=None, onsite=None, calibration=None):
+def build(view, split, theta0, workers=8, params=sim.Params(), dynamics=None, onsite=None, calibration=None,
+          gamma=None):
     """Inputs for one split. Masked (uninstrumented) sites are NaN so they can be standardized
     away; the caller replaces them with 0 after standardizing.
 
-    `params` is the observer's model (used for the energy channel); `dynamics` and `onsite` are
-    the true system when it differs. `calibration`, if given, is a per-site map appended as a
-    static channel (e.g. measured pendulum frequencies)."""
+    `params` is the observer's model (used for the energy channel); `dynamics`, `onsite` and
+    `gamma` (per-run damping) are the true system when it differs. `calibration`, if given, is a
+    per-site map appended as a static channel (e.g. measured pendulum frequencies)."""
     runs, n_sites = theta0.shape
-    theta, omega = observe_cached(split, theta0, sample_index(view, runs, split), workers, dynamics=dynamics, onsite=onsite)
+    theta, omega = observe_cached(split, theta0, sample_index(view, runs, split), workers, dynamics=dynamics, onsite=onsite,
+                                  gamma=gamma)
     if view.noise > 0:
         rng = np.random.default_rng(SPLIT_SEEDS[split] + 7919)
         theta = theta + np.float32(view.noise) * rng.standard_normal(theta.shape, dtype=np.float32)

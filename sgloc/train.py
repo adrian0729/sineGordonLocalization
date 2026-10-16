@@ -82,6 +82,7 @@ def fit_v2(model, loss_fn, train_split, val_split, *, steps, batch_size=256, opt
     n = len(train_split["x"])
     eval_every = eval_every or max(1, steps // 30)
     y_val = val_split["site"].cpu().numpy()
+    keep_val = y_val >= 0 if "site_weight" in val_split else np.ones(len(y_val), dtype=bool)  # see SiteLoss
     best_mae, best_state, best_step, waited, step, running, history = float("inf"), None, 0, 0, 0, 0.0, []
     start = time.time()
     while step < steps:
@@ -103,7 +104,8 @@ def fit_v2(model, loss_fn, train_split, val_split, *, steps, batch_size=256, opt
             step += 1
             running += loss.item()
             if step % eval_every == 0 or step == steps:
-                mae = float(metrics.ring_distance(predict_sites(model, loss_fn, val_split["x"]), y_val).mean())
+                pred = predict_sites(model, loss_fn, val_split["x"])
+                mae = float(metrics.ring_distance(pred[keep_val], y_val[keep_val]).mean())
                 if mae < best_mae:
                     best_mae, best_step, waited = mae, step, 0
                     best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}

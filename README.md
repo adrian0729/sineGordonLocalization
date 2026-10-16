@@ -36,7 +36,8 @@ python3 -m venv .venv
 .venv/bin/python scripts/validate_sim.py                # Phase 0: agreement with the paper's odeint pipeline
 .venv/bin/python scripts/train_v1.py --seed 0           # Phase 0: the paper's CNN-BiLSTM, rebuilt
 .venv/bin/python scripts/phase1.py                      # Phase 1: physics checks and baselines
-.venv/bin/python scripts/make_robustness_pools.py       # Phase 6 test sets (mismatch, impurities, other N)
+.venv/bin/python scripts/make_robustness_pools.py       # Phase 6 test sets (mismatch, impurities, other N, damping)
+.venv/bin/python scripts/damping_physics.py             # damped chains: which runs still localize, and when
 .venv/bin/python scripts/sweep.py phase2 --dry-run      # list an ablation table
 .venv/bin/python scripts/sweep.py phase2                # run it (Apple GPU + CPU slots, resumable)
 .venv/bin/python scripts/summarize.py phase2            # tables: results/phase2_tables.md
@@ -58,7 +59,7 @@ Long jobs can be started detached so they survive the terminal closing, for exam
 
 | Path | What it holds |
 |---|---|
-| `sgloc/sim.py` | Vectorized RK4 for Eq. (4), site energies, localization labels |
+| `sgloc/sim.py` | Vectorized RK4 for Eq. (4) with optional linear damping, site energies, localization labels |
 | `sgloc/floquet.py` | Growth spectrum of the uniform swing, training-free Floquet filter |
 | `sgloc/data.py` | Data pools (initial angles + labels) and model inputs rebuilt from them |
 | `sgloc/models.py` | v1 CNN-BiLSTM (Keras-faithful PyTorch) and the v2 ring models |
@@ -74,6 +75,9 @@ Long jobs can be started detached so they survive the terminal closing, for exam
 
 - Time is dimensionless (τ = ω₀t). Samples are Δτ = 0.5 apart, as in the paper's code.
 - Parameters: g̃ = 0.75, h̃ = 0.5 (the paper's code; Sec. 2.1 of the paper says 0.05 by mistake).
+- Damping is off by default (γ = 0, the paper's conservative chain). With `gamma`, Eq. (4) gains
+  −γ dθ/dτ (γ per time unit, quality factor Q = 1/γ), and the 10% threshold applies to the energy
+  the chain still holds.
 - A run is labeled at the first sample where one site holds more than 10% of the total energy.
   `site_right` uses the paper's code convention (each site owns the spring to its right) and
   is the label used for comparisons with v1. `site_left`, `site_sym` and `site_avg`

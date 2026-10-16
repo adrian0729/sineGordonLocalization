@@ -13,6 +13,7 @@ We simulate the discrete sine-Gordon ring with a global term, Eq. (4) of the pap
   - A ~ U(1.65, 1.85) is drawn once per run.
   - ηₙ ~ U(−0.025, 0.025) is drawn independently for every pendulum.
 - **Time:** dimensionless throughout (τ = ω₀t).
+- **Damping** (Sec. 11 only): an optional term −γ θ̇ₙ, linear friction with γ per time unit, so a free pendulum's quality factor is Q = 1/γ. Everything else uses γ = 0, the paper's conservative chain. With damping, a run is labeled when one site holds 10% of the energy the chain still holds.
 
 ## Simulator
 
@@ -149,6 +150,8 @@ The paper's training notebook is not available, so v1 was rebuilt from Sec. 2.3 
 | N = 80 / 150 | 5,000 each | a shorter or longer ring |
 | One weak pendulum | 5,000 | one random pendulum's gravity term 1% weaker |
 | Impurity train / val / test | 60,000 / 10,000 / 10,000 | one random pendulum's gravity term weaker by U(0, 2%) |
+| Fixed damping | 5,000 each | γ = 0, 10⁻⁴, 3×10⁻⁴, 10⁻³, 3×10⁻³ or 10⁻²; all six share their initial conditions |
+| Damped train / val / test | 60,000 / 10,000 / 10,000 | γ log-uniform in [10⁻⁴, 10⁻²], one value per run |
 
 Sensor noise at test time is added to the nominal test pool (`scripts/robustness.py`).
 
@@ -160,5 +163,7 @@ Sensor noise at test time is added to the nominal test pool (`scripts/robustness
 - a camera on every 2nd pendulum with 10⁻³ rad of noise, from release
 - a coarse camera (10⁻² rad) watching from τ = 20
 - energies at τ = 30, noise-free
+
+**Damped chains** (`scripts/damping_physics.py`, the `damping` group of Phase 6). The final recipe is retrained on the damped pools with three seeds, alone and with v1's "does it localize" head (weight 0.5), on v1's label, on the swing-averaged label, and with the camera setup. Runs that never localize by τ = 150 are left out of the site and time losses.
 
 **Time head and prediction sets** (`scripts/eval_final.py`). The predicted log-time is compared with the true localization time on the test pool. Baselines are the training median and the median time within each of 20 amplitude bins.
