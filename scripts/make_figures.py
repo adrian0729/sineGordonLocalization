@@ -544,15 +544,26 @@ def fig_final_data():
     for n, v in pts:
         ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[0], alpha=0.4)
     ax.plot([n for n, _ in pts], [np.mean(v) for _, v in pts], color=SLOT[0], marker="o", markeredgecolor=SURFACE,
-            markeredgewidth=1.2, label="v2 final recipe (23k parameters)")
-    mirror = phase_records("phase8")  # Phase 8: the same recipe plus the mirror image of every training run
-    mirror = [(n, [r["test"]["mae"] for r in mirror.get((f"n{n}", f"n{n}_mirror"), [])]) for n in (1000, 3000, 10_000, 60_000)]
-    mirror = [(n, v) for n, v in mirror if v]
-    if mirror:
-        for n, v in mirror:
-            ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[1], alpha=0.4)
-        ax.plot([n for n, _ in mirror], [np.mean(v) for _, v in mirror], color=SLOT[1], marker="o",
-                markeredgecolor=SURFACE, markeredgewidth=1.2, label="+ mirror images (Phase 8)")
+            markeredgewidth=1.2, label="v2 final recipe (23k parameters, 7,050 steps)")
+    phase8 = phase_records("phase8")
+    mirror = [(n, phase8.get((f"n{n}", f"n{n}_mirror"), [])) for n in (1000, 3000, 10_000, 60_000)]
+    # the best Phase 8 variant at each size, chosen on the validation pool (needs 3 seeds, as the combinations have)
+    best = [(n, min((rs for (g, _), rs in phase8.items() if g == f"n{n}" and len(rs) >= 3),
+                    key=lambda rs: np.mean([r["val"]["mae"] for r in rs]), default=[])) for n in (1000, 3000, 10_000)]
+    for slot, rows, label in ((1, mirror, "+ mirror images (Phase 8)"),
+                              (2, best, "best regularization per size (Phase 8)")):
+        rows = [(n, [r["test"]["mae"] for r in rs]) for n, rs in rows if rs]
+        if not rows:
+            continue
+        for n, v in rows:
+            ax.plot([n] * len(v), v, linestyle="none", marker="o", markersize=4, color=SLOT[slot], alpha=0.4)
+        sizes = [n for n, _ in pts]
+        for (n0, v0), (n1, v1_) in zip(rows, rows[1:]):  # join only neighbouring sizes: no line across an untested size
+            if sizes.index(n1) == sizes.index(n0) + 1:
+                ax.plot([n0, n1], [np.mean(v0), np.mean(v1_)], color=SLOT[slot])
+        ax.plot([n for n, _ in rows], [np.mean(v) for _, v in rows], color=SLOT[slot], linestyle="none", marker="o",
+                markeredgecolor=SURFACE, markeredgewidth=1.2)
+        ax.plot([], [], color=SLOT[slot], marker="o", markeredgecolor=SURFACE, markeredgewidth=1.2, label=label)
     v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     title = "Data efficiency of the final recipe"
     if v1:
@@ -562,7 +573,7 @@ def fig_final_data():
             title = f"v2 beats v1 from {min(beat):,} training runs, {60_000 // min(beat)}× less data"
     ax.set_xscale("log")
     ax.set_xticks([n for n, _ in pts], [f"{n // 1000}k" for n, _ in pts])
-    ax.set_xlabel("Training runs (same number of gradient steps)")
+    ax.set_xlabel("Training runs")
     ax.set_ylabel("Mean distance on test (sites)")
     ax.legend(loc="center right", handlelength=3.2)
     ax.set_title(title, loc="left")
@@ -576,7 +587,7 @@ def fig_regularization():
         raise FileNotFoundError("no Phase 8 curves yet (scripts/regularization.py)")
     curves = json.loads(path.read_text())
     series = [("fine_eval", "final recipe"), ("mirror", "+ mirror images"), ("wd1", "+ weight decay 1"),
-              ("dropout0.2", "+ dropout 0.2")]  # same colors as Fig. 15: final recipe blue, mirror images orange
+              ("mirror_wd1", "+ both")]  # same colors as Fig. 15: final recipe blue, mirror images orange
     sizes = [n for n in (1000, 3000, 10_000) if f"n{n}_fine_eval" in curves]
     if not sizes:
         raise FileNotFoundError("no Phase 8 runs yet")
@@ -609,7 +620,7 @@ def fig_regularization():
         ax.set_title(f"({'abc'[sizes.index(n)]}) {n:,} training runs", loc="left", fontsize=9)
     axes[0, 0].set_ylabel("Validation mean distance (sites)")
     axes[0, 0].legend(loc="lower right", handlelength=2.4)
-    fig.suptitle("With little data, v2 overfits within a few hundred steps (dots: best checkpoint; seed means)",
+    fig.suptitle("Mirror images delay overfitting, which gives weight decay time to act (smoothed seed means; dots: lowest point)",
                  x=0.01, ha="left", fontweight="bold", fontsize=10)
     save(fig, "fig21_regularization")
 
@@ -761,7 +772,7 @@ if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
                fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff, fig_label_jitter,
-               fig_avg_label_ablations):
+               fig_avg_label_ablations, fig_regularization):
         try:
             fn()
         except FileNotFoundError as err:

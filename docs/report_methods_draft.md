@@ -140,6 +140,14 @@ The paper's training notebook is not available, so v1 was rebuilt from Sec. 2.3 
 
 **Data efficiency.** The final recipe on 1k–100k training runs, two seeds each, with the same number of gradient steps.
 
+**Regularization with little data** (Phase 8, `ablations.phase8`). The final recipe at 1k, 3k and 10k training runs, 2–3 seeds, checkpointed every 47 steps instead of every 235. One change is made at a time:
+- AdamW weight decay 10⁻², 10⁻¹ or 1
+- dropout 0.1 or 0.2 after every hidden activation (`RingNet(dropout=...)`)
+- the mirror image of every training run (`augment: "mirror"` in the config)
+- a 235-, 705- or 2,350-step cosine schedule instead of 7,050 steps
+
+The mirror image reverses the site axis (pendulum n → N − 1 − n), which turns angle inputs into those of the mirrored chain exactly. Under reflection a spring on a pendulum's right moves to its left, so the mirrored run's v1 label is the mirror of the stored left-bond label (`site_left`, `time_left`); the symmetric and swing-averaged labels are simply mirrored. A test simulates the mirrored chains and checks that inputs and labels match. The training set holds both, so an epoch is twice as long at the same number of steps; the input scaling is unchanged. Energy channels (one-sided springs) and sparse sensors do not reverse exactly, and the code refuses them. Two combinations were chosen from these results on the validation pool, and the mirror images were also tested at 60,000 runs (3 seeds).
+
 **Robustness pools** (`scripts/make_robustness_pools.py`). Each is simulated with its own true chain. Trained models are applied without retraining, and any energies are still computed with the nominal g̃ and h̃.
 
 | Pool | Runs | What differs from the nominal chain |

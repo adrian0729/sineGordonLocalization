@@ -690,3 +690,79 @@ The predictions below were written into `ablations.phase7` before the runs start
 **Decision.** The inputs and architecture chosen on v1's label stand on the swing-averaged label, with larger margins. Soft labels become optional.
 - Without noise, watching from release is as good as waiting until τ = 30 on that target (0.58 vs 0.55), and leaves about 25 time units more warning.
 - Whether waiting pays against sensor noise on that target is untested: the noise-and-timing grid was not repeated.
+
+---
+
+## Phase 8: regularization with little data, 16 October 2026
+
+**Question.** In Phase 6's data group the final recipe overfits with little data. At 1,000 and 3,000 training runs the best checkpoint is the first one evaluated (step 235 of 7,050), and the validation error then rises by about 50%. At 60,000 runs the train–test gap is only 0.14. Does regularization rescue v2 with little data?
+
+**Setup**
+- `ablations.phase8`: the final recipe at 1,000, 3,000 and 10,000 training runs, with 7,050 steps as in Phase 6. Phase 6's `final_n*` runs are the controls (same config ids, so they are reused).
+- New runs on the 7,050-step schedule at 1,000–10,000 runs checkpoint every 47 steps instead of every 235 (`eval_every`; 235 = 5 × 47, so the default checkpoints are kept). Each regularizer is compared with "checkpoint every 47 steps" alone.
+- Two new options, both off by default, so no earlier config id changes (checked for every phase):
+  - `dropout` in `RingNet`, after every hidden activation
+  - `augment: "mirror"` in the config: `experiment.prepare` adds the mirror image of every training run
+- The mirror image reverses the site axis (pendulum n → 99 − n), which turns angle inputs into those of the mirrored chain exactly.
+  - v1's label gives each pendulum the spring on its right. In the mirror image that spring is on the left, so the mirrored run's label is the mirror of the stored left-bond label (`site_left`, `time_left`). The swing-averaged and symmetric labels are simply mirrored.
+  - `tests/test_experiment.py` simulates the mirrored chains from scratch: inputs, sites and times match the added runs exactly. Taking the label from `site_right` instead would be 3–7 sites off.
+- Added after the first results (comments in `ablations.phase8`): weight decay 1; 235-, 705- and 2,350-step cosine schedules; two combinations; the mirror images at 60,000 runs.
+- 3 seeds; 2 for weight decay ≤ 10⁻¹, dropout and Phase 6's controls. The runs used the Phase 6 training code plus these default-off options, from a separate worktree, so the damping edits did not reach them.
+- Tables: `results/phase8_tables.md` and `results/phase8_regularization.md` (`scripts/regularization.py`: validation curves, training-set error, train–test gaps). Figures: [Fig. 21](../figures/fig21_regularization.png), and [Fig. 15](../figures/fig15_final_data_efficiency.png) gains two series.
+
+**Results** (test mean distance; mean ± spread over seeds; bold: best on the validation pool at each size)
+
+| Variant | 1k | 3k | 10k | 60k |
+|---|---|---|---|---|
+| Final recipe, checkpoint every 235 steps (Phase 6) | 2.42 ± 0.10 | 2.07 ± 0.01 | 1.80 ± 0.05 | 1.50 ± 0.03 |
+| Checkpoint every 47 steps | 2.30 ± 0.07 | 2.06 ± 0.08 | 1.79 ± 0.01 | |
+| + weight decay 10⁻² | 2.30 ± 0.08 | 2.10 ± 0.04 | 1.79 ± 0.03 | |
+| + weight decay 10⁻¹ | 2.31 ± 0.03 | 2.10 ± 0.01 | 1.77 ± 0.06 | |
+| + weight decay 1 | 2.32 ± 0.02 | 2.04 ± 0.04 | 1.64 ± 0.03 | |
+| + dropout 0.1 | 2.66 ± 0.03 | 2.14 ± 0.04 | 1.93 ± 0.06 | |
+| + dropout 0.2 | 2.68 ± 0.13 | 2.18 ± 0.14 | 1.89 ± 0.05 | |
+| + mirror images | 2.18 ± 0.10 | 1.88 ± 0.01 | 1.65 ± 0.00 | 1.50 ± 0.05 |
+| 235-step schedule | 2.26 ± 0.05 | 1.92 ± 0.01 | 1.81 ± 0.03 | |
+| 705-step schedule | 2.36 ± 0.06 | 1.99 ± 0.06 | 1.70 ± 0.04 | |
+| 2,350-step schedule | 2.36 ± 0.06 | 2.10 ± 0.03 | 1.73 ± 0.04 | |
+| Mirror images + weight decay 1 | 2.16 ± 0.04 | **1.75 ± 0.05** | **1.63 ± 0.03** | |
+| Mirror images + a short schedule (235 steps at 1k–3k, 705 at 10k) | **2.04 ± 0.08** | 1.89 ± 0.06 | 1.65 ± 0.01 | |
+
+At 60,000 runs the control is v2_final's seeds 0–2 (all 5 seeds: 1.49), with checkpoints every 235 steps, like the mirror runs there. The short schedules checkpoint every steps/30 steps, as by default.
+
+How the curves behave at 3,000 runs (validation on the first 5,000 validation runs; train = the saved model on its own training runs):
+
+| At 3,000 runs | Best checkpoint (step) | Validation, best → last step | Train | Test | Gap |
+|---|---|---|---|---|---|
+| Checkpoint every 47 steps | 235–517 | 2.02 → 2.95 (+46%) | 1.42 | 2.06 | +0.64 |
+| + weight decay 1 | 188–940 | 2.03 → 2.37 (+17%) | 1.40 | 2.04 | +0.64 |
+| + mirror images | 564–752 | 1.82 → 2.55 (+40%) | 1.40 | 1.88 | +0.48 |
+| + both | 4,042–4,465 | 1.61 → 1.69 (+4%) | 1.31 | 1.75 | +0.43 |
+| 235-step schedule | 182–224 | 1.93 → 1.94 (+1%) | 1.49 | 1.92 | +0.43 |
+
+- **Finer checkpoints help only at 1,000 runs** (2.42 → 2.30). There the best checkpoint comes at steps 141–188, before the warmup ends (step 211); at larger sizes the default checkpoints already catch it. For the same seed the training is identical, so this gain is pure checkpoint selection.
+- **Weight decay acts too slowly below 10,000 runs.**
+  - AdamW shrinks the weights by the learning rate × the weight decay at each step. By step 141 that is only 1.4% at 10⁻¹, so 10⁻² and 10⁻¹ change nothing at any size.
+  - Weight decay 1 helps only at 10,000 runs (1.79 → 1.64), where training runs long enough for it (best checkpoints at steps 2,900–4,800). There it cuts the train–test gap from 0.37 to 0.13, as small as at 60,000 runs.
+- **Dropout hurts at every size** (+0.08 to +0.38). The validation error is higher from the first checkpoints on, and at 1,000 runs it still rises by about 50% afterwards. A likely reason: the site depends on small differences in the initial state (Phase 1), and the random masks blur them.
+- **Mirror images are worth about twice the data at every size up to 10,000 runs.**
+  - Read off Phase 6's data curve, 2.18, 1.88 and 1.65 are what the recipe reaches with 2.1, 2.4 and 2.0 times the training runs.
+  - v2 builds in the ring's rotations (the same filters at every pendulum) but not its reflection: its filters are not mirror-symmetric, and v1's label is one-sided. So the images are new data, not a constraint the model already has.
+  - They also slow the overfitting. At 10,000 runs the best checkpoint moves from steps 750–1,550 to 3,950–4,700, and the validation error rises by 4% after it instead of 19%.
+  - At 60,000 runs they change nothing (1.50 vs 1.50 on the same seeds; per seed −0.04, −0.02, +0.05).
+- **A shorter schedule beats picking an early checkpoint.** It anneals the learning rate before the model overfits.
+  - The best length grows with the data: 235 steps at 1,000 and 3,000 runs, and 705–2,350 at 10,000. At 10,000 runs 705 steps led on validation after two seeds and went into the combination; with the third seed 2,350 leads on validation (1.710 vs 1.731), while 705 leads on test.
+  - Gains over finer checkpoints: 0.04, 0.14 and 0.09.
+  - Its last checkpoint is within 1–2% of its best, so it needs no validation set to stop.
+- **The combinations work together where each alone gives little.**
+  - At 3,000 runs weight decay 1 alone gains nothing and the images 0.18, but together they gain 0.31 (2.06 → 1.75). The images slow the overfitting enough for the decay to act, and the best checkpoint moves to steps 4,042–4,465 (table above).
+  - At 1,000 runs the model overfits too fast even with the images (best checkpoint at step 235 with both), and the short schedule with mirror images is best: 2.04.
+  - At 10,000 runs both combinations reach 1.63–1.65, close to weight decay 1 or the images alone.
+  - Worth 3.6, 4.3 and 2.2 times the data at 1,000, 3,000 and 10,000 runs.
+
+**Decision.** With little data, the cure is the same as at 60,000 runs: a structural fix beats a penalty, and more data beats both. Here the fix is the one symmetry the architecture leaves out.
+- Use mirror images whenever training runs are scarce (tested up to 10,000 runs; they add nothing at 60,000). Add weight decay 1 from about 3,000 runs. At 1,000 runs, use a short schedule instead.
+- Dropout and weight decay ≤ 10⁻¹ do not help, and dropout hurts.
+- The final recipe at 60,000 runs is unchanged, since the images add nothing there.
+- Checkpoints were chosen on 5,000 validation runs at every size, more than the training set at 1,000–3,000 runs. With a smaller validation set, the short schedule is the safer choice, since it needs no selection.
+- This matters only when runs are expensive, for example when training or fine-tuning on a real chain. The simulator makes 60,000 runs in minutes.

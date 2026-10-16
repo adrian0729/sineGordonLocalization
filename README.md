@@ -44,6 +44,7 @@ python3 -m venv .venv
 .venv/bin/python scripts/lr_range_test.py               # Phase 5 learning-rate range test
 .venv/bin/python scripts/robustness.py --runs runs/<dir> --v1   # Phase 6 shifted-condition tests
 .venv/bin/python scripts/eval_final.py --runs runs/<dir>   # time head and prediction sets of final models
+.venv/bin/python scripts/regularization.py              # Phase 8: curves and train-test gaps with little data
 .venv/bin/python scripts/headline.py                    # v1 vs v2 tables: results/headline.md
 .venv/bin/python scripts/make_figures.py                # report figures into figures/
 .venv/bin/python scripts/watch.py phase6                # live terminal dashboard for a running sweep

@@ -4,7 +4,7 @@
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 340 training runs, 33 GPU-hours on a laptop.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 485 training runs, 40 GPU-hours on a laptop.
 
 - **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%.
   - The label explains part of the gap: which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing.
@@ -334,20 +334,52 @@ Mean distance on the 60,000 training runs, against the test pool:
 - **Where overfitting appears, a structural fix beats a penalty.** v1 overfits despite dropout and early stopping. v1's dense head overfits on v2's backbone too: its best checkpoint comes about a third of the way through training. Switching to one score per site cuts the gap from 0.74 to 0.14 and the test error by 0.31.
 - **Weight decay was tested** (Sec. 9). 0, 10⁻⁴ and 10⁻² are indistinguishable, so it stays at a small default.
 - **Data is the cheaper regularizer.** The simulator makes more runs for free; going from 60,000 to 100,000 lowers the test error from 1.49 to 1.44.
-- **With little data, v2 does overfit.**
-  - At 1,000 and 3,000 runs the best checkpoint is the first one evaluated (step 235 of 7,050), and the validation error then rises by about 50%. At 10,000 runs the best checkpoint comes at steps 705–1,880.
-  - So the small-data numbers in Fig. 15 are pessimistic. Regularization there is untested: earlier stopping, stronger weight decay or dropout, and mirror-image augmentation, which the ring's reflection symmetry allows (v1's one-sided label turns into the left-bond label under reflection).
+- **With little data, v2 does overfit.** At 1,000 and 3,000 runs the best checkpoint is the first one evaluated (step 235 of 7,050), and the validation error then rises by about 50%. At 10,000 runs the best checkpoint comes at steps 705–1,880.
+
+Phase 8 tries the usual remedies with little data ([Fig. 21](../figures/fig21_regularization.png); [results/phase8_regularization.md](../results/phase8_regularization.md); final recipe, 7,050 steps unless a schedule is named; test pool; 3 seeds, 2 for the first row, weight decay ≤ 10⁻¹ and dropout; every row below the first checkpoints every 47 steps instead of every 235):
+
+| Training runs | 1k | 3k | 10k |
+|---|---|---|---|
+| Final recipe (Fig. 15) | 2.42 | 2.07 | 1.80 |
+| Checkpoint every 47 steps | 2.30 | 2.06 | 1.79 |
+| + weight decay 10⁻² / 10⁻¹ | 2.30 / 2.31 | 2.10 / 2.10 | 1.79 / 1.77 |
+| + weight decay 1 | 2.32 | 2.04 | 1.64 |
+| + dropout 0.1 / 0.2 | 2.66 / 2.68 | 2.14 / 2.18 | 1.93 / 1.89 |
+| + mirror images | 2.18 | 1.88 | 1.65 |
+| A shorter schedule: 235 steps (1k, 3k), 705 (10k) | 2.26 | 1.92 | 1.70 |
+| Mirror images + weight decay 1 | 2.16 | **1.75** | **1.63** |
+| Mirror images + the shorter schedule | **2.04** | 1.89 | 1.65 |
+
+(Bold: the best on the validation pool at each size.)
+
+- **Penalties do little.**
+  - AdamW shrinks the weights by the learning rate × the weight decay at each step, and at 1,000 runs the model overfits within about 150 steps, before the warmup ends. So weight decay up to 10⁻¹ changes nothing at any size.
+  - Weight decay 1 helps only at 10,000 runs, where the best checkpoint comes late enough (steps 2,900–4,800) for the decay to act. There it cuts the train–test gap from 0.37 to 0.13, as small as at 60,000 runs.
+  - Dropout makes every size worse (+0.1 to +0.4). A likely reason: the site depends on small differences in the initial state (Sec. 3), and dropout's random masks blur them.
+- **The mirror images are worth about twice the data** (2.0–2.4 times, read off Fig. 15's curve).
+  - v2 builds in the ring's rotations (the same filters at every pendulum) but not its reflection: its filters are not mirror-symmetric, and v1's label is one-sided. Reflecting a run (pendulum n → 99 − n) gives a new valid run, labeled with the mirror of the stored left-bond label.
+  - They also slow the overfitting: at 10,000 runs the best checkpoint moves from steps 750–1,550 to 3,950–4,700.
+  - At 60,000 runs they change nothing (1.50 vs 1.50, 3 seeds each).
+- **Stopping earlier helps once the learning rate comes down with it.** Finer checkpoints recover 0.12 at 1,000 runs and nothing at larger sizes. A short cosine schedule, which has annealed by the time the model would overfit, gains up to 0.14. Its last checkpoint is within 1–2% of its best, so it needs no validation set to stop.
+- **Together, the remedies are worth 2–4 times the data.**
+  - At 3,000 and 10,000 runs the best is mirror images + weight decay 1, which work together. The images slow the overfitting enough for the decay to act. At 3,000 runs the best checkpoint moves from steps 560–750 to 4,040–4,470, and the error falls to 1.75, worth 4.3 times the data, where weight decay alone gains nothing.
+  - At 1,000 runs the model overfits too fast even with the images, and the short schedule works better: 2.04 with mirror images, worth 3.6 times the data.
+- **The lesson from 60,000 runs holds with little data.** A structural fix beats a penalty, here the one symmetry the architecture leaves out, and more data beats both.
+  - Checkpoints were chosen on 5,000 validation runs at every size, more than the training set at 1,000–3,000 runs. With a smaller validation set, the short schedule is the safer choice, since it needs no selection.
+  - Small data matters only when runs are expensive, for example when training or fine-tuning on a real chain.
 
 ### Data efficiency
 
-([Fig. 15](../figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, same number of gradient steps)
+([Fig. 15](../figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, 7,050 gradient steps at every size; Phase 8 rows, 3 seeds)
 
 | Training runs | 1k | 3k | 10k | 30k | 60k | 100k |
 |---|---|---|---|---|---|---|
 | v2 mean distance | 2.42 | 2.07 | 1.80 | 1.56 | 1.49 | 1.44 |
+| + mirror images (Phase 8) | 2.18 | 1.88 | 1.65 | | 1.50 | |
+| Best regularization at each size (Phase 8, above) | 2.04 | 1.75 | 1.63 | | | |
 
-- Trained on 1,000 runs, v2 (2.42) already beats v1 trained on 60,000 (3.14): 60 times less data.
-- Beyond 60,000 runs the gains are small (1.44 at 100,000).
+- Trained on 1,000 runs, v2 (2.42) already beats v1 trained on 60,000 (3.14): 60 times less data. Regularized for little data, it reaches 2.04.
+- Beyond 60,000 runs the gains are small (1.44 at 100,000). At 60,000 runs the mirror images add nothing.
 
 ### When, as well as where
 
