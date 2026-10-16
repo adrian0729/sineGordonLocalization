@@ -3,6 +3,7 @@
 Config keys: phase, group, name, note (why the run exists), seed, n_train, view (sgloc.views.View
 fields), test_view (optional overrides for the test inputs), model (sgloc.models.build spec),
 loss (sgloc.losses.SiteLoss fields), optim (optimizer, schedule, steps or epochs, batch_size).
+Optional: augment ("mirror": add the mirror image of every training run).
 """
 import copy
 import hashlib
@@ -84,8 +85,37 @@ def views_for(cfg):
             "test": views.View(**{k: tuple(v) if isinstance(v, list) else v for k, v in test.items()})}
 
 
+MIRROR_LABEL = {"right": "left", "left": "right", "sym": "sym", "avg": "avg"}  # each label's source under reflection
+
+
+def mirror_pool(pool):
+    """The pool of the mirror-image chains (site n -> N-1-n), which the ring's reflection symmetry makes
+    valid runs. The one-sided labels swap: v1's label of a mirrored chain (each site owns the spring to
+    its right) is the mirror of the original's left-bond label. "sym" and "avg" are simply mirrored."""
+    n_sites = pool["theta0"].shape[1]
+    out = dict(pool, theta0=pool["theta0"][:, ::-1])
+    if "onsite" in pool:
+        out["onsite"] = pool["onsite"][:, ::-1]
+    for name, source in MIRROR_LABEL.items():
+        if f"site_{source}" in pool:
+            site = pool[f"site_{source}"]
+            out[f"site_{name}"] = np.where(site >= 0, n_sites - 1 - site, site).astype(site.dtype)
+            out[f"time_{name}"] = pool[f"time_{source}"]
+    return out
+
+
+def mirror_inputs(view, x):
+    """Inputs of the mirror-image chains. Reversing the site axis mirrors angles, velocities and the static
+    per-site channels exactly, but not one-sided site energies or a sparse sensor layout."""
+    if "E" in view.channels or view.stride > 1:
+        raise ValueError("mirror augmentation needs inputs that reverse exactly: no site-energy channel "
+                         "(each site owns the spring to its right) and every pendulum observed")
+    return np.ascontiguousarray(x[..., ::-1])
+
+
 def prepare(cfg, pools, workers=1):
-    """Standardized input tensors and targets for train/val/test."""
+    """Standardized input tensors and targets for train/val/test. With cfg["augment"] = "mirror", the
+    training split also holds the mirror image of every run (twice the runs; same input scaling)."""
     split_views = views_for(cfg)
     xs = {s: build_inputs(split_views[s], s, pools[s], workers) for s in pools}
     channel_axis = 1 if split_views["train"].layout == "channels" else 2
@@ -96,6 +126,14 @@ def prepare(cfg, pools, workers=1):
     if cfg.get("loss", {}).get("profile", 0):
         profiles = {s: views.profile_target(s, pools[s]["theta0"], workers) for s in pools}
         p_mean, p_std = profiles["train"].mean(), profiles["train"].std()
+    augment = cfg.get("augment")
+    if augment == "mirror":  # treated as a fourth split below, then appended to the training runs
+        xs["train_mirror"] = mirror_inputs(split_views["train"], xs["train"])
+        pools = dict(pools, train_mirror=mirror_pool(pools["train"]))
+        if profiles is not None:  # the profile uses the symmetric energy, so it simply mirrors
+            profiles["train_mirror"] = np.ascontiguousarray(profiles["train"][:, ::-1])
+    elif augment is not None:
+        raise ValueError(f"unknown augmentation {augment!r}")
     label = cfg.get("label", "right")  # which localization-site convention to learn (sim.LABELS)
     out = {}
     for s, x in xs.items():
@@ -108,6 +146,9 @@ def prepare(cfg, pools, workers=1):
         if profiles is not None:
             split["profile"] = torch.from_numpy(((profiles[s] - p_mean) / p_std).astype(np.float32))
         out[s] = split
+    if "train_mirror" in out:
+        mirrored = out.pop("train_mirror")
+        out["train"] = {k: torch.cat([v, mirrored[k]]) for k, v in out["train"].items()}
     return out, (mean, std)
 
 

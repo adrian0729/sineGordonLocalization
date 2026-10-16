@@ -355,5 +355,33 @@ def phase7():
     return t.configs
 
 
+FINE_EVAL = 47  # checkpoint every 47 steps instead of every 235 (= 5 x 47, so the default checkpoints are kept)
+
+
+def phase8():
+    """Regularization with little data. In Phase 6's data group (final recipe, 7,050 steps at every size), the
+    best checkpoint at 1,000 and 3,000 training runs is the first one evaluated (step 235), and the validation
+    error then rises by about 50%. Does regularization rescue v2 there? Final recipe, same 7,050 steps."""
+    t = Table(final_recipe(), 8)
+    fine = {"eval_every": FINE_EVAL}
+    for n in (1000, 3000, 10_000):
+        g = f"n{n}"
+        # the matched control is Phase 6's final_n{n} (same config id, so it is reused, not rerun)
+        t.add(g, f"n{n}_control", f"Phase 8: final recipe on {n} runs, checkpoint every 235 steps (Phase 6's final_n{n})",
+              (0, 1), n_train=n)
+        t.add(g, f"n{n}_fine_eval", f"Phase 8: as the control, checkpoint every {FINE_EVAL} steps: how much of the "
+              "small-data loss is a late first checkpoint?", (0, 1, 2), n_train=n, optim=fine)
+        # each regularizer below also checkpoints every 47 steps, so it is compared with n{n}_fine_eval
+        for wd in (1e-2, 1e-1):
+            t.add(g, f"n{n}_wd{wd:g}", f"Phase 8: AdamW weight decay {wd:g} (final recipe: 1e-4)", (0, 1),
+                  n_train=n, optim=dict(fine, weight_decay=wd))
+        for p in (0.1, 0.2):
+            t.add(g, f"n{n}_dropout{p:g}", f"Phase 8: dropout {p:g} after every hidden activation", (0, 1),
+                  n_train=n, model={"dropout": p}, optim=fine)
+        t.add(g, f"n{n}_mirror", "Phase 8: add the mirror image of every training run (the ring's reflection symmetry; "
+              "v1's one-sided label becomes the mirrored left-bond label)", (0, 1), n_train=n, augment="mirror", optim=fine)
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
-          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase7": phase7}
+          "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase7": phase7, "phase8": phase8}

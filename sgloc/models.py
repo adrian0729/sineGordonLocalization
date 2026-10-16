@@ -175,25 +175,33 @@ class RingNet(nn.Module):
     head="site" keeps the model shift-equivariant on the ring; head="dense" flattens the features
     into a v1-style dense head instead. Optional auxiliary outputs: "time" (log localization
     time), "localizes" (binary logit), "profile" (later energy profile, one value per site).
+    `dropout` > 0 adds dropout after every hidden activation (none by default, so the layer
+    indices and saved weights of earlier models are unchanged).
     """
 
     def __init__(self, c_in, n_sites=100, width=32, depth=2, kernel=5, dilations=None, modes=6,
-                 local=True, spectral=True, padding="circular", head="site", aux=()):
+                 local=True, spectral=True, padding="circular", head="site", aux=(), dropout=0.0):
         super().__init__()
         assert local or spectral
+
+        def drop():
+            return [nn.Dropout(dropout)] if dropout else []
+
         self.local = None
         if local:
             layers, channels = [], c_in
             for d in dilations or [1] * depth:
-                layers += [ring_conv(channels, width, kernel, d, padding), nn.GELU()]
+                layers += [ring_conv(channels, width, kernel, d, padding), nn.GELU(), *drop()]
                 channels = width
             self.local = nn.Sequential(*layers)
         self.spectral = SpectralConv(c_in, width, modes) if spectral else None
+        self.spectral_drop = nn.Dropout(dropout) if dropout else nn.Identity()
         features = width * (int(local) + int(spectral))
         if head == "site":
-            self.head = nn.Sequential(ring_conv(features, width, 3, 1, padding), nn.GELU(), ring_conv(width, 1, 1))
+            self.head = nn.Sequential(ring_conv(features, width, 3, 1, padding), nn.GELU(), *drop(), ring_conv(width, 1, 1))
         else:
-            self.head = nn.Sequential(nn.Flatten(), nn.Linear(features * n_sites, 64), nn.ReLU(), nn.Linear(64, n_sites))
+            self.head = nn.Sequential(nn.Flatten(), nn.Linear(features * n_sites, 64), nn.ReLU(), *drop(),
+                                      nn.Linear(64, n_sites))
         self.head_kind = head
         self.aux = nn.ModuleDict()
         for name in aux:
@@ -204,7 +212,7 @@ class RingNet(nn.Module):
         if self.local is not None:
             parts.append(self.local(x))
         if self.spectral is not None:
-            parts.append(F.gelu(self.spectral(x)))
+            parts.append(self.spectral_drop(F.gelu(self.spectral(x))))
         h = torch.cat(parts, dim=1)
         scores = self.head(h)
         out = {"site": scores.squeeze(1) if self.head_kind == "site" else scores}
