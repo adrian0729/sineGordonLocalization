@@ -434,6 +434,41 @@ def phase8():
     return t.configs
 
 
+def phase3_avg():
+    """Phase 3's noise-and-timing grid again, on the swing-averaged label. On v1's label waiting also helps without
+    noise, because that label fires at a moment in the swing; on the averaged label it gains only 0.03 (Phase 7). So
+    this grid measures the Floquet trade-off without the label's own dependence on time. Each config is a Phase 3
+    noise_time config plus label="avg", with every other setting unchanged (Phase 3 base, screening budget, seed 0).
+    Its control is the Phase 3 run itself: listed here without the label key, it has the same config id and is
+    reused, not rerun."""
+    # Predictions, written before the runs started:
+    # - Camera (S1): the noise threshold is set by when the growing modes rise above the sensor noise, which does not
+    #   depend on the label. So the error should again depend only on sigma_s * exp(-sigma_1 * tau), and a 10x
+    #   noisier sensor should cost about ln 10 / sigma_1 = 19.5 time units of waiting. With the label's own time
+    #   dependence gone, the noise-free cells should be flat in tau, so the collapse should reach down to them.
+    # - Noise should cost a larger share of the error than on v1's label (at full budget x2.0-2.2 against x1.3-1.4,
+    #   Phase 7): its misses land on the wrong hump, which no label removes, while the floor drops from ~1.5 to ~0.6.
+    # - S2 and S3 (one frame) should still degrade faster from release (no frames to average the noise) and gain less
+    #   from waiting (velocity noise enters at first order once the chain moves, and a fixed later frame lands at an
+    #   amplitude-dependent point of the swing). Neither cause involves the label.
+    # Refined prediction, added after re-fitting Phase 3's cells (scripts/noise_tradeoff.py) and before any tau > 0
+    # cell of this grid finished. On v1's label a fit of all 24 camera cells gives k = 0.087 (26.5 time units per 10x
+    # noise, 95% CI 23-30), not 0.118. Split by the test runs' amplitude, k follows the mean growth rate of the
+    # growing modes, sigma_bar(A), rather than the fastest one: k = 0.070, 0.077, 0.111, 0.115 for A in 1.65-1.70,
+    # 1.70-1.75, 1.75-1.80, 1.80-1.85, against sigma_bar = 0.070, 0.085, 0.101, 0.116 and sigma_1 = 0.087, 0.109,
+    # 0.128, 0.145. White sensor noise is the same in every ring mode, and the site depends on all the growing modes.
+    # So on the averaged label: k per amplitude bin ~ sigma_bar(A), and about ln 10 / 0.093 = 25 time units per 10x
+    # noise for the whole test pool.
+    configs = []
+    for cfg in phase3():
+        if cfg["group"] == "noise_time":
+            configs.append(merge(cfg, {"name": f"{cfg['name']}_avg", "label": "avg",
+                                       "note": f"Phase 3 on the swing-averaged label: {cfg['note']}"}))
+            configs.append(merge(cfg, {"name": f"{cfg['name']}_v1label",
+                                       "note": f"{cfg['note']}; v1's label (matched control, Phase 3's run)"}))
+    return configs
+
+
 def phase9():
     """Is one pendulum the right target? When v1's label fires, the hotspot is a hump about 8 pendulums wide, and the
     label jitters by 1-3 sites within a swing. The swing-averaged label removes the jitter but fires later (median tau
@@ -460,4 +495,4 @@ def phase9():
 
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
-          "phase7": phase7, "phase8": phase8, "phase9": phase9}
+          "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9}
