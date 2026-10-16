@@ -1,0 +1,13 @@
+v1_seed0_avglabel_20261015-194642 on mps: inputs built in 73s; train 60000, val 20000, test 20000; channel mean [1.1782 1.75  ], std [0.0594 0.0596]
+epoch   1  train 4.5644  val 3.5468  best 3.5468 (epoch 1)  129s
+epoch   2  train 2.4164  val 2.0069  best 2.0069 (epoch 2)  126s
+epoch   3  train 1.9282  val 1.7944  best 1.7944 (epoch 3)  126s
+epoch   4  train 1.7510  val 1.6826  best 1.6826 (epoch 4)  126s
+epoch   5  train 1.6268  val 1.6614  best 1.6614 (epoch 5)  127s
+epoch   6  train 1.5365  val 1.6019  best 1.6019 (epoch 6)  128s
+epoch   7  train 1.4559  val 1.6939  best 1.6019 (epoch 6)  127s
+epoch   8  train 1.3855  val 1.5771  best 1.5771 (epoch 8)  127s
+epoch   9  train 1.3235  val 1.5764  best 1.5764 (epoch 9)  125s
+epoch  10  train 1.2659  val 1.5587  best 1.5587 (epoch 10)  127s
+epoch  11  train 1.1981  val 1.5986  best 1.5587 (epoch 10)  128s
+epoch  12  train 1.1412  val 1.6062  best 1.5587 (epoch 10)  127s

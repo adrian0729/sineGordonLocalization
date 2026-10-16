@@ -279,6 +279,25 @@ The time head was added only as a training aid (H3.4), but it is accurate on its
 
 From 4.5 time units of observation, v2 predicts when localization will happen to within about 0.8 time units (0.12 s for a 20 cm pendulum), roughly 50 time units ahead.
 
+### What is left of the error is mostly the label's own jitter
+
+v1's label is the first pendulum whose instantaneous energy passes 10% of the total, with each spring booked to the pendulum on its left. Within one swing, a forming hotspot's energy moves between a pendulum's motion and the springs on either side, so which pendulum crosses 10% first depends on the moment in the swing ([Fig. 18](../figures/fig18_label_jitter.png)).
+- With plain cross-entropy, v2's misses land two sites away more often than one. Half of those two-site misses, and three in four of the ones to the left, sit exactly on the hotspot's swing-averaged position.
+- A label without the jitter is the first pendulum whose energy, with springs split evenly and averaged over one swing (8 time units), passes 10%. It agrees exactly with v1's label in only 33% of test runs, usually sitting 1–3 sites to the left.
+
+Same inputs, architecture and training; only the target changes (test pool; 5 seeds on v1's label, 3 on the averaged one):
+
+| Target | Mean distance | Exact | ±1 | ±3 |
+|---|---|---|---|---|
+| v1's label (first instantaneous crossing) | 1.49 ± 0.03 | 27.7% | 77.2% | 97.3% |
+| **Swing-averaged label** | **0.58 ± 0.01** | **70.5%** | **96.4%** | **98.5%** |
+
+- Where the energy settles is predictable to within one pendulum in 96% of runs, from 4.5 time units of watching.
+- Most of v2's remaining error on v1's label is the label's own jitter, not a failure to predict where the energy goes.
+- For applications, the swing-averaged label is the better target.
+
+*Pending: the symmetric label without averaging, and the rebuilt v1 trained on the swing-averaged label (running).*
+
 ### A set of sites instead of one
 
 The model outputs a probability for every site, so it can name the smallest set of sites that holds a chosen share of the probability ([results/prediction_sets.json](../results/prediction_sets.json); 5 seeds, test pool):

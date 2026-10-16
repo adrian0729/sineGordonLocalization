@@ -561,6 +561,50 @@ def fig_final_data():
     save(fig, "fig15_final_data_efficiency")
 
 
+def fig_label_jitter():
+    """Why v1's label is hard: the first pendulum over 10% jitters around the swing-averaged hotspot."""
+    from sgloc import ablations, data, experiment
+    pool = data.load_pool(ROOT / "data" / "pool_test.npz")
+    right, avg = pool["site_right"].astype(int), pool["site_avg"].astype(int)
+    errors = np.arange(-4, 5)
+
+    def signed(a, b):
+        return (a - b + 50) % 100 - 50
+
+    def histogram(name, truth):
+        hs = []
+        for c in ablations.phase6():
+            path = ROOT / "runs" / f"{c['name']}_s{c['seed']}_{experiment.config_id(c)}" / "pred_test.npy"
+            if c["name"] == name and path.exists():
+                e = signed(np.load(path).astype(int), truth)
+                hs.append([100 * np.mean(e == k) for k in errors])
+        return np.mean(hs, axis=0) if hs else None
+
+    series = [("v2, plain cross-entropy, on v1's label", histogram("plain_cross_entropy", right)),
+              ("v2 final (soft labels), on v1's label", histogram("v2_final", right)),
+              ("v2 recipe on the swing-averaged label", histogram("final_avg_label", avg))]
+    series = [(lab, h) for lab, h in series if h is not None]
+    if len(series) < 2:
+        raise FileNotFoundError("label runs not finished yet")
+    fig, (a, b) = plt.subplots(1, 2, figsize=(10.5, 3.4), layout="constrained")
+    offset = signed(avg, right)
+    a.bar(errors, [100 * np.mean(offset == k) for k in errors], width=0.6, color=SLOT[0], linewidth=0)
+    a.set_xticks(errors)
+    a.set_xlabel("Swing-averaged site minus v1's site (pendulums)")
+    a.set_ylabel("Share of test runs (%)")
+    a.set_title("(a) The two labels agree in only a third of runs", loc="left", fontsize=9)
+    width = 0.8 / len(series)
+    for i, (lab, h) in enumerate(series):
+        b.bar(errors + (i - (len(series) - 1) / 2) * width, h, width=width * 0.9, color=SLOT[i], linewidth=0, label=lab)
+    b.set_xticks(errors)
+    b.set_xlabel("Predicted minus true site (pendulums)")
+    b.set_title("(b) Errors of v2 against each label", loc="left", fontsize=9)
+    b.legend(loc="upper left", fontsize=7.5)
+    fig.suptitle("The first pendulum over 10% jitters around where the energy settles", x=0.01, ha="left",
+                 fontweight="bold", fontsize=10)
+    save(fig, "fig18_label_jitter")
+
+
 ROBUST_LABELS = [("pool_test", "nominal test pool"), ("robust_g-10", "neighbour coupling g −10%"),
                  ("robust_g+10", "neighbour coupling g +10%"), ("robust_h-10", "global coupling h −10%"),
                  ("robust_h+10", "global coupling h +10%"), ("robust_noise2x", "twice the initial spread"),
@@ -617,7 +661,7 @@ def fig_robustness():
 if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_inputs, fig_losses, fig_optimizers, fig_sparse,
-               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff):
+               fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff, fig_label_jitter):
         try:
             fn()
         except FileNotFoundError as err:

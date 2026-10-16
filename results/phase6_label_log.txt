@@ -2,3 +2,4 @@ phase6_label: 3 configs, 3 still to run
 trajectory cache ready in 1s
 [1/3   377s mps] label/final_avg_label seed 0: mean 0.577  ±1 96.32%  ±3 98.52%  >10 0.69%  (367s, 22786 params)
 [2/3   756s mps] label/final_avg_label seed 1: mean 0.563  ±1 96.46%  ±3 98.57%  >10 0.65%  (366s, 22786 params)
+[3/3  1129s mps] label/final_avg_label seed 2: mean 0.590  ±1 96.40%  ±3 98.48%  >10 0.74%  (360s, 22786 params)
