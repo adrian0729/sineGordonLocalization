@@ -483,7 +483,7 @@ Table~\ref{tab:setups} retrains the final recipe on realistic sensing setups at 
 
 % TODO-AUTHOR-REVIEW: This section is still being discussed with the corresponding author of
 % Ref. [mittal2026jand] (wording of the discrepancy; access to the original training notebook).
-% Keep it neutral and within what docs/report.md (Sec. 2) supports. Do not post before agreed.
+% Keep it neutral and within what REPORT.md (Sec. 2) supports. Do not post before agreed.
 \authorreview{This section is under discussion with the corresponding author of Ref.~\cite{mittal2026jand}, including how to word the discrepancy and whether the original training code can be recovered. It states only what the rebuild shows; do not post before the wording is agreed.}
 
 \paragraph{The rebuild.} The training notebook and dataset of Ref.~\cite{mittal2026jand} are not available to us, so we rebuilt the CNN-BiLSTM from the description in Sec.~2.3 and the Appendix of that paper (Sec.~\ref{sec:predictors}). The rebuild keeps the defaults of the original Keras implementation: the same layers, initializers, dropout masks, loss weights and optimizer, early stopping on the validation loss, and the same 60/20/20 split of the data. Its data come from the simulator of Sec.~\ref{sec:pools}, which gives the same localization site and time as the original simulation code on 1,000 of 1,000 test runs. The only deliberate change is that the input scaler is fitted on the training pool alone.
@@ -513,8 +513,8 @@ Future work should measure a real chain's quality factor and damping law, test t
 % ===========================================================================
 \section*{Data and code availability}
 
-% TODO-AUTHORS: add the repository URL (and a version tag or DOI) once it is public.
-The simulator, data-generation scripts, training code, run logs and figure scripts used in this study are available from the author on request [TODO: repository URL].
+% TODO-AUTHORS: add a version tag or DOI (e.g. a Zenodo archive) when posting.
+The simulator, data-generation scripts, training code, run logs and figure scripts used in this study are available at \url{https://github.com/adrian0729/sineGordonLocalization}.
 
 \section*{Acknowledgements}
 

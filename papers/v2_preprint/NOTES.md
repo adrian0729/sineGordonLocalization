@@ -1,13 +1,13 @@
-# paper_v2: notes and open TODOs
+# v2 preprint: notes and open TODOs
 
-Draft arXiv preprint of the physics-guided v2 study, built from `docs/report.md`,
-`docs/report_methods_draft.md`, `results/headline.md` and the results tables. Written in the
+Draft arXiv preprint of the physics-guided v2 study, built from `REPORT.md`,
+`docs/methods.md`, `results/headline.md` and the results tables. Written in the
 voice of the v1 paper (first person plural, narrative physics prose; Fig./Eq./Ref. conventions).
 
 ## Build
 
 ```bash
-cd paper_v2 && pdflatex main && bibtex main && pdflatex main && pdflatex main
+cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
 - Current state: 20 pages (11pt article, 1 in margins), no LaTeX warnings, no overfull boxes.
@@ -23,7 +23,7 @@ cd paper_v2 && pdflatex main && bibtex main && pdflatex main && pdflatex main
 
 1. **TODO-AUTHOR-REVIEW: Sec. 5, "Reproduction of the earlier model".** Still being discussed with
    L.Q. English (wording of the discrepancy; whether the original training notebook can be
-   recovered). The section states only what `docs/report.md` Sec. 2 supports, worded as "could not
+   recovered). The section states only what `REPORT.md` Sec. 2 supports, worded as "could not
    be reproduced from the published description". Keep every other mention consistent with the
    agreed wording:
    - abstract ("a rebuild of the earlier network from its published description")
@@ -34,15 +34,14 @@ cd paper_v2 && pdflatex main && bibtex main && pdflatex main && pdflatex main
 2. **Authors.** Adrian Mittal only for now (`% TODO-AUTHORS` in `main.tex`). Decide coauthors,
    order and affiliations; confirm the affiliation (copied from v1); add a contact e-mail if wanted.
 3. **Acknowledgements** are a placeholder `[TODO]`.
-4. **Data and code availability** has a placeholder for the repository URL (and a tag or DOI,
-   e.g. a Zenodo archive of this repo).
+4. **Data and code availability** now gives the repository URL. Add a version tag or DOI
+   (e.g. a Zenodo archive of this repo) when posting.
 
 ### Should check
 
 5. **v1 cross-references in Sec. 5** ("Sec. 2.1", "Sec. 2.3 and the Appendix", "Figs. 2–5 and 7",
-   "Eq. (5)") use the numbering of `overleaf/sine-Gordon localization prediction/JAND_D_24_00092.tex`
-   and `docs/report.md`. Confirm they match the published JAND version.
-6. **New references** (not in v1's `refe.bib`) were added from memory and should be verified:
+   "Eq. (5)"): checked against the published JAND PDF on 2026-10-17, and the numbering matches.
+6. **New references** (not in `papers/jand2026_arxiv/refs.bib`) were added from memory and should be verified:
    `sievers1988intrinsic`, `flach2008discrete`, `magnus1966hill`, `virtanen2020scipy`,
    `karniadakis2021physics`, `cohen2016group`, `yu2016multiscale`, `oord2016wavenet`,
    `li2021fourier`, `cho2014learning`, `hendrycks2016gelu`, `kingma2015adam`,
@@ -50,9 +49,9 @@ cd paper_v2 && pdflatex main && bibtex main && pdflatex main && pdflatex main
    `szegedy2016rethinking`, `srivastava2014dropout`, `liu1989limited`, `paszke2019pytorch`,
    `guo2017calibration`. Three use "and others" for long author lists (Virtanen, Paszke, Chen).
 7. **Edits to reused v1 references:** `thakur2007driven` now says 2008 (J. Phys. D 41, 015503;
-   refe.bib had 2007) and lists the author as "Basu Thakur, R."; `cuevas2014sine` is now a
-   `@book` with editors (refe.bib had it as an article); the SciPy citation is now Virtanen et al.
-   (2020) instead of refe.bib's `scipy` web entry. Revert if the v1 forms are preferred.
+   the v1 bibliography had 2007) and lists the author as "Basu Thakur, R."; `cuevas2014sine` is now a
+   `@book` with editors (the v1 bibliography had it as an article); the SciPy citation is now Virtanen et al.
+   (2020) instead of the v1 bibliography's `scipy` web entry. Revert if the v1 forms are preferred.
 8. **Interpretive sentences to confirm** (they frame v1's findings; numbers are from the report):
    - Sec. 4.1: "the energetic clusters identified there are the growing long waves, seen through
      a low-pass filter"
@@ -78,7 +77,7 @@ cd paper_v2 && pdflatex main && bibtex main && pdflatex main && pdflatex main
 
 ## Traceability
 
-Every number in `main.tex` was checked against `docs/report.md`, `docs/report_methods_draft.md`,
+Every number in `main.tex` was checked against `REPORT.md`, `docs/methods.md`,
 `results/headline.md`, `results/*.md`, `results/*.json`, the v1 source (for quoted v1 values) and
 `sgloc/` (for model constants such as the dilations). An automated pass found every numeric token
 in those sources, and each was then checked in context by hand. Notes:

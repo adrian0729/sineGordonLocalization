@@ -1,0 +1,121 @@
+\begin{thebibliography}{10}
+
+\bibitem{campbell2004localizing}
+Campbell, D.~K., Flach, S., and Kivshar, Y.~S. (2004) Localizing energy through
+  nonlinearity and discreteness. {\em Physics Today\/}, {\bf 57}, 43--49.
+
+\bibitem{sato2006colloquium}
+Sato, M., Hubbard, B., and Sievers, A. (2006) Colloquium: Nonlinear energy
+  localization and its manipulation in micromechanical oscillator arrays. {\em
+  Reviews of Modern Physics\/}, {\bf 78}, 137--157.
+
+\bibitem{green2006failure}
+Green, D. and Unruh, W.~G. (2006) The failure of the {T}acoma {B}ridge: A
+  physical model. {\em American Journal of Physics\/}, {\bf 74}, 706--716.
+
+\bibitem{ARIOLI2015901}
+Arioli, G. and Gazzola, F. (2015) A new mathematical explanation of what
+  triggered the catastrophic torsional mode of the {T}acoma {N}arrows {B}ridge.
+  {\em Applied Mathematical Modelling\/}, {\bf 39}, 901--912.
+
+\bibitem{zhang2017wind}
+Zhang, M., Zhao, G., Wang, L., Li, J., et~al. (2017) Wind-induced coupling
+  vibration effects of high-voltage transmission tower-line systems. {\em Shock
+  and Vibration\/}, {\bf 2017}.
+
+\bibitem{sharon2001propagating}
+Sharon, E., Cohen, G., and Fineberg, J. (2001) Propagating solitary waves along
+  a rapidly moving crack front. {\em Nature\/}, {\bf 410}, 68--71.
+
+\bibitem{zhou1997nonlinear}
+Zhou, S., Gr{\o}nbech-Jensen, N., Bishop, A., Lomdahl, P., and Holian, B.
+  (1997) A nonlinear-discrete model of dynamic fracture instability. {\em
+  Physics Letters A\/}, {\bf 232}, 183--188.
+
+\bibitem{kivshar1993creation}
+Kivshar, Y.~S. (1993) Creation of nonlinear localized modes in discrete
+  lattices. {\em Physical Review E\/}, {\bf 48}, 4132.
+
+\bibitem{extreme}
+He, Y., Witt, A., Trillo, S., Chabchoub, A., and Hoffmann, N. (2022) Extreme
+  wave excitation from localized phase-shift perturbations. {\em Physical
+  Review E\/}, {\bf 106}, L043101.
+
+\bibitem{cross1993pattern}
+Cross, M.~C. and Hohenberg, P.~C. (1993) Pattern formation outside of
+  equilibrium. {\em Reviews of Modern Physics\/}, {\bf 65}, 851.
+
+\bibitem{cuevas2014sine}
+Cuevas-Maraver, J., Kevrekidis, P.~G., and Williams, F. (eds.) (2014) {\em The
+  sine-{G}ordon Model and its Applications: From Pendula and {J}osephson
+  Junctions to Gravity and High-Energy Physics\/}, vol.~10 of {\em Nonlinear
+  Systems and Complexity\/}. Springer.
+
+\bibitem{helal2002soliton}
+Helal, M. (2002) Soliton solution of some nonlinear partial differential
+  equations and its applications in fluid mechanics. {\em Chaos, Solitons \&
+  Fractals\/}, {\bf 13}, 1917--1929.
+
+\bibitem{kivshar1989dynamics}
+Kivshar, Y.~S. and Malomed, B.~A. (1989) Dynamics of solitons in nearly
+  integrable systems. {\em Reviews of Modern Physics\/}, {\bf 61}, 763.
+
+\bibitem{ferre2017localized}
+Ferr{\'e}, M.~A., Clerc, M.~G., Coulibally, S., Rojas, R.~G., and Tlidi, M.
+  (2017) Localized structures and spatiotemporal chaos: comparison between the
+  driven damped sine-{G}ordon and the {L}ugiato-{L}efever model. {\em The
+  European Physical Journal D\/}, {\bf 71}, 1--8.
+
+\bibitem{lomdahl1985solitons}
+Lomdahl, P. (1985) Solitons in {J}osephson junctions: An overview. {\em Journal
+  of Statistical Physics\/}, {\bf 39}, 551--561.
+
+\bibitem{thakur2007driven}
+Thakur, R.~B., English, L.~Q., and Sievers, A. (2007) Driven intrinsic
+  localized modes in a coupled pendulum array. {\em Journal of Physics D:
+  Applied Physics\/}, {\bf 41}, 015503.
+
+\bibitem{Chaos_Ott_2017}
+Pathak, J., Lu, Z., Hunt, B.~R., Girvan, M., and Ott, E. (2017) Using machine
+  learning to replicate chaotic attractors and calculate {L}yapunov exponents
+  from data. {\em Chaos: An Interdisciplinary Journal of Nonlinear Science\/},
+  {\bf 27}, 121102.
+
+\bibitem{PhysRevLett_Ott_2018}
+Pathak, J., Hunt, B., Girvan, M., Lu, Z., and Ott, E. (2018) Model-free
+  prediction of large spatiotemporally chaotic systems from data: A reservoir
+  computing approach. {\em Physical Review Letters\/}, {\bf 120}, 024102.
+
+\bibitem{PhysRevE.69.016618}
+Rumpf, B. (2004) Simple statistical explanation for the localization of energy
+  in nonlinear lattices with two conserved quantities. {\em Physical Review
+  E\/}, {\bf 69}, 016618.
+
+\bibitem{english2003modulational}
+English, L.~Q., Sato, M., and Sievers, A. (2003) Modulational instability of
+  nonlinear spin waves in easy-axis antiferromagnetic chains. {II}. {I}nfluence
+  of sample shape on intrinsic localized modes and dynamic spin defects. {\em
+  Physical Review B\/}, {\bf 67}, 024403.
+
+\bibitem{cuevas2009discrete}
+Cuevas, J., English, L.~Q., Kevrekidis, P.~G., and Anderson, M. (2009) Discrete
+  breathers in a forced-damped array of coupled pendula: Modeling, computation,
+  and experiment. {\em Physical Review Letters\/}, {\bf 102}, 224101.
+
+\bibitem{press1992numerical}
+Press, W.~H., Teukolsky, S.~A., Vetterling, W.~T., and Flannery, B.~P. (1992)
+  {\em Numerical recipes in C\/}. Cambridge university press New York, NY.
+
+\bibitem{scikit-learn}
+Pedregosa, F., et~al. (2011) Scikit-learn: Machine learning in {P}ython. {\em
+  Journal of Machine Learning Research\/}, {\bf 12}, 2825--2830.
+
+\bibitem{Goodfellow-et-al-2016}
+Goodfellow, I., Bengio, Y., and Courville, A. (2016) {\em Deep Learning\/}. MIT
+  Press, \url{http://www.deeplearningbook.org}.
+
+\bibitem{Hochreiter1997}
+Hochreiter, S. and Schmidhuber, J. (1997) Long short-term memory. {\em Neural
+  Computation\/}, {\bf 9}, 1735--1780.
+
+\end{thebibliography}
