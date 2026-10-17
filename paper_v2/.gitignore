@@ -1,0 +1,9 @@
+# LaTeX build artifacts (main.bbl is kept: arXiv needs it and does not run BibTeX)
+*.aux
+*.log
+*.blg
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+main.pdf
