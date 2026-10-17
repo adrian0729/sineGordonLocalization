@@ -1,3 +1,4 @@
+"""Experiment checks: mirror augmentation, dropout, and that later phases reuse earlier runs without changing their config ids."""
 import numpy as np
 import pytest
 import torch

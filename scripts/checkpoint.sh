@@ -7,9 +7,9 @@ interval=$(( ${1:-30} * 60 ))
 while true; do
   sleep $interval
   [ -e .git/index.lock ] && continue
-  git add -A sgloc scripts tests docs results figures pilot README.md requirements.txt .gitignore pytest.ini 2>/dev/null
+  git add -A sgloc scripts tests docs results figures pilot papers v1_original README.md REPORT.md requirements.txt .gitignore pytest.ini 2>/dev/null
   if ! git diff --cached --quiet; then
-    logged=$(cat results/phase*_log.txt 2>/dev/null | grep -c '^\[')
+    logged=$(cat results/logs/phase*_log.txt 2>/dev/null | grep -c '^\[')
     git commit -q -m "Checkpoint $(date '+%Y-%m-%d %H:%M'): ${logged} sweep runs logged
 
 Automatic checkpoint while experiments run.

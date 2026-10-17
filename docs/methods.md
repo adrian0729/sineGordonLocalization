@@ -1,4 +1,6 @@
-# Methods (draft for the v2 report)
+# Methods
+
+The full methods behind [the report](../REPORT.md): model system, simulator, labels, data pools, metrics, the v1 rebuild and the v2 training recipe.
 
 ## Model system
 

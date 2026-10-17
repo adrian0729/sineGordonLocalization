@@ -1,3 +1,4 @@
+"""Simulator checks: the uniform swing, energy conservation, spring conventions, ring symmetries, step-size independence of the labels, damping and the hump label."""
 import numpy as np
 import pytest
 

@@ -1,1 +1,0 @@
-phase3: trajectory cache ready in 1710s

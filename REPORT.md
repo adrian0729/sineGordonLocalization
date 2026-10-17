@@ -1,5 +1,22 @@
 # Predicting where energy localizes in a sine-Gordon pendulum ring: a physics-guided v2
 
+This report is the full write-up of the follow-up (v2) to Mittal et al., *J. Appl. Nonlinear Dyn.* 15(2), 277–290 (2026), [doi:10.5890/JAND.2026.06.001](https://doi.org/10.5890/JAND.2026.06.001). The code that produced every number is described in the [README](README.md). The detailed methods are in [docs/methods.md](docs/methods.md), and a paper-style draft is in [papers/v2_preprint](papers/v2_preprint/).
+
+**Contents**
+- [Summary](#summary)
+- [1. Motivation and what v1 did](#1-motivation-and-what-v1-did)
+- [2. What this work corrects](#2-what-this-work-corrects)
+- [3. Physics of the type-III instability](#3-physics-of-the-type-iii-instability)
+- [4. Methods](#4-methods)
+- [5. Baselines](#5-baselines)
+- [6. Architecture (Q2)](#6-architecture-q2)
+- [7. Which inputs to measure (Q1)](#7-which-inputs-to-measure-q1)
+- [8. Loss function (Q3)](#8-loss-function-q3)
+- [9. Optimizer (Q4)](#9-optimizer-q4)
+- [10. The final model against v1 (Q5)](#10-the-final-model-against-v1-q5)
+- [11. Robustness and real-world sensing](#11-robustness-and-real-world-sensing)
+- [12. Limitations and next steps](#12-limitations-and-next-steps)
+
 ## Summary
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
@@ -179,7 +196,7 @@ Three explanations remain, and cannot be distinguished without the original code
 
 ### Growth spectrum
 
-Linearizing the dynamics about the uniform swing gives one Hill equation per Fourier mode of the ring ([Fig. 1](../figures/fig1_growth_spectrum.png)).
+Linearizing the dynamics about the uniform swing gives one Hill equation per Fourier mode of the ring ([Fig. 1](figures/fig1_growth_spectrum.png)).
 - The uniform swing becomes unstable at A_c = 1.577. The paper's Fig. 3b shows an asymptote near 1.59.
 - At A = 1.75 only the five longest waves grow (wavelengths 100, 50, 33, 25 and 20 sites).
 - The fastest grows by a factor of e every 8.4 time units.
@@ -188,12 +205,12 @@ Linearizing the dynamics about the uniform swing gives one Hill equation per Fou
 ### The best smoothing width is the Floquet band edge
 
 A box-car of width K first cancels ring mode N/K. The best width should cancel the first stable mode, which gives K* = N/m_c.
-- Measured on 2,000 runs at each of seven amplitudes, the prediction matches from just above threshold (A = 1.60) to A = 1.90 ([Fig. 2](../figures/fig2_best_width.png)).
+- Measured on 2,000 runs at each of seven amplitudes, the prediction matches from just above threshold (A = 1.60) to A = 1.90 ([Fig. 2](figures/fig2_best_width.png)).
 - That includes the paper's empirical optimum of 17 at A = 1.75.
 
 ### The label is deterministic but needs a precise initial state
 
-([Fig. 3](../figures/fig3_label_sensitivity.png))
+([Fig. 3](figures/fig3_label_sensitivity.png))
 - Perturbing the initial angles by 10⁻⁶ rad never changes the label, and neither does halving the integration step.
 - The accuracy ceiling is therefore close to 100%. Chaos does not limit it; measurement precision does.
 - A white error of 10⁻⁴ rad moves 4% of labels by more than one site; 10⁻³ rad moves 25%.
@@ -204,7 +221,7 @@ The coarse answer lives in about ten numbers (the five growing modes); local det
 
 ## 4. Methods
 
-See [report_methods_draft.md](report_methods_draft.md) for:
+See [docs/methods.md](docs/methods.md) for:
 - the simulator
 - data pools of 100k/20k/20k runs with no overlap
 - the four label conventions
@@ -219,7 +236,7 @@ In short:
 
 ## 5. Baselines
 
-([Fig. 4](../figures/fig4_baselines.png); test pool, mean distance in sites)
+([Fig. 4](figures/fig4_baselines.png); test pool, mean distance in sites)
 
 | Predictor | Parameters | Mean distance | ±1 | ±3 |
 |---|---|---|---|---|
@@ -233,15 +250,15 @@ A convex, 200-parameter model built on the physics beats the 26.5M-parameter v1 
 
 ## 6. Architecture (Q2)
 
-All models below see v1's information and get the same training budget ([Fig. 7](../figures/fig7_architectures.png)).
+All models below see v1's information and get the same training budget ([Fig. 7](figures/fig7_architectures.png)).
 
 | Hypothesis | Verdict | Evidence (test mean distance) |
 |---|---|---|
 | H2.1: the 10 frames need no recurrent model | Partly refuted | Stacked frames 1.75; per-site MLP 1.66; per-site GRU 1.59. Single frame 1.81 |
-| H2.2: a site must see most of the ring | Supported ([Fig. 5](../figures/fig5_receptive_field.png)) | Receptive field 9 / 17 / 33 / 65 / 129 sites: 4.79 / 2.75 / 1.82 / 1.63 / **1.54** |
+| H2.2: a site must see most of the ring | Supported ([Fig. 5](figures/fig5_receptive_field.png)) | Receptive field 9 / 17 / 33 / 65 / 129 sites: 4.79 / 2.75 / 1.82 / 1.63 / **1.54** |
 | H2.3: global Fourier branch + local branch | Refined | Together 1.75 beats Fourier-only (1.94) and local-only (4.90); modes 1–3 / 6 / 12 / 25 give 2.58 / 1.75 / 1.77 / 1.81, saturating at the unstable band. A deep nonlinear whole-ring stack does better (1.54) |
 | H2.4: small kernels and widths suffice | Supported | 2k–115k parameters all give 1.68–2.01 |
-| H2.5: ring symmetry saves data | Strongly supported ([Fig. 6](../figures/fig6_data_efficiency.png)) | Equivariant model at 1k runs: 2.46; v1-style dense head at 60k runs: 2.73 |
+| H2.5: ring symmetry saves data | Strongly supported ([Fig. 6](figures/fig6_data_efficiency.png)) | Equivariant model at 1k runs: 2.46; v1-style dense head at 60k runs: 2.73 |
 | H2.6: the Floquet field as an input helps with little data | Refuted | 2.02 vs 2.00 at 3k runs |
 
 **Choice.** Three models tie on validation within one standard error: the whole-ring dilated CNN (1.557, 3 seeds), dilated + Fourier (1.570) and the per-site GRU (1.571). v2 uses the cheapest and simplest of them:
@@ -254,7 +271,7 @@ Combining it with the Fourier branch, the MLP front or the GRU front, or doublin
 
 ## 7. Which inputs to measure (Q1)
 
-Every input set was tested with the Phase 2 architecture on 15-epoch screening runs ([Fig. 9](../figures/fig9_inputs.png), [Fig. 8](../figures/fig8_noise_vs_time.png)).
+Every input set was tested with the Phase 2 architecture on 15-epoch screening runs ([Fig. 9](figures/fig9_inputs.png), [Fig. 8](figures/fig8_noise_vs_time.png)).
 
 ### Information (noise-free, observed from release)
 
@@ -277,7 +294,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 - **Camera alone (8 angle frames), watching from release:** fine up to about 10⁻³ rad of noise (about 95% within ±3, mean distance 2.2), then degrades. At 10⁻² rad it reaches a mean distance of 7.0.
 - **Noise first causes far misses, not one-site slips.** ±1 accuracy stays at 64–67% up to 3×10⁻³ rad, while the share of runs more than 10 sites off triples. Noise picks the wrong hump before it blurs the right one.
 - **Later observation recovers the loss.** At 10⁻² rad, watching from τ = 10, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 noise-free.
-- **The trade-off follows the Floquet growth of the unstable modes** ([Fig. 13](../figures/fig13_noise_collapse.png), [Fig. 13b](../figures/fig13b_noise_avg_label.png)):
+- **The trade-off follows the Floquet growth of the unstable modes** ([Fig. 13](figures/fig13_noise_collapse.png), [Fig. 13b](figures/fig13b_noise_avg_label.png)):
   - For the camera, the error depends on noise σ_s and start time τ only through σ_s·e^{−kτ}, the noise relative to the grown signal.
   - The rate k is about the mean growth rate of the growing modes, 0.09–0.10, not the fastest one's σ₁ = 0.118. So each 10× worse sensor costs about 23–26 time units of waiting, not ln 10 / σ₁ = 19.5. Phase 3's cleanest cells suggested about 20; a fit of all of them gives 26.5.
   - Split by swing amplitude, the rate rises as the growth rates do.
@@ -288,7 +305,7 @@ A single frame of energy reaches 1.80. Energy barely changes along the swing, so
 
 ### Fewer sensors
 
-([Fig. 12](../figures/fig12_sparse_sensors.png); camera from release, noise-free)
+([Fig. 12](figures/fig12_sparse_sensors.png); camera from release, noise-free)
 
 | Pendulums tracked | Mean distance | ±3 |
 |---|---|---|
@@ -309,7 +326,7 @@ One camera tracking every pendulum, or every 2nd, at 30–60 frames per second, 
 
 ## 8. Loss function (Q3)
 
-([Fig. 10](../figures/fig10_losses.png); 15-epoch screening runs, 3 seeds, v1's inputs)
+([Fig. 10](figures/fig10_losses.png); 15-epoch screening runs, 3 seeds, v1's inputs)
 
 | Loss | Mean distance | ±1 |
 |---|---|---|
@@ -331,7 +348,7 @@ Each hypothesis maps onto a row:
 
 ## 9. Optimizer (Q4)
 
-([Fig. 11](../figures/fig11_optimizers.png); 15-epoch screening runs, 3 seeds, v1's inputs, plain cross-entropy)
+([Fig. 11](figures/fig11_optimizers.png); 15-epoch screening runs, 3 seeds, v1's inputs, plain cross-entropy)
 
 | Optimizer or setting | Mean distance | ±1 |
 |---|---|---|
@@ -361,7 +378,7 @@ It trains for 30 epochs on the same 60,000 runs as v1.
 
 ### Headline
 
-([results/headline.md](../results/headline.md); test pool of 20,000 runs; mean ± standard deviation over seeds)
+([results/headline.md](results/headline.md); test pool of 20,000 runs; mean ± standard deviation over seeds)
 
 | Model | Parameters | Training | Mean distance | ±1 | ±3 | >10 off |
 |---|---|---|---|---|---|---|
@@ -381,7 +398,7 @@ v2 does not reach the paper's reported 94.4% within ±1 (Sec. 2 discusses why th
 
 ### Which choices matter
 
-([Fig. 14](../figures/fig14_leave_one_out.png); each row retrains the final model with one choice reverted, 3 seeds; Δ is against the final model's 1.49, ± its standard error)
+([Fig. 14](figures/fig14_leave_one_out.png); each row retrains the final model with one choice reverted, 3 seeds; Δ is against the final model's 1.49, ± its standard error)
 
 | Final model, but … | Mean distance | Δ | ±1 |
 |---|---|---|---|
@@ -427,7 +444,7 @@ Mean distance on the 60,000 training runs, against the test pool:
 - **Data is the cheaper regularizer.** The simulator makes more runs for free; going from 60,000 to 100,000 lowers the test error from 1.49 to 1.44.
 - **With little data, v2 does overfit.** At 1,000 and 3,000 runs the best checkpoint is the first one evaluated (step 235 of 7,050), and the validation error then rises by about 50%. At 10,000 runs the best checkpoint comes at steps 705–1,880.
 
-Phase 8 tries the usual remedies with little data ([Fig. 21](../figures/fig21_regularization.png); [results/phase8_regularization.md](../results/phase8_regularization.md); final recipe, 7,050 steps unless a schedule is named; test pool; 3 seeds, 2 for the first row, weight decay ≤ 10⁻¹ and dropout; every row below the first checkpoints every 47 steps instead of every 235):
+Phase 8 tries the usual remedies with little data ([Fig. 21](figures/fig21_regularization.png); [results/phase8_regularization.md](results/phase8_regularization.md); final recipe, 7,050 steps unless a schedule is named; test pool; 3 seeds, 2 for the first row, weight decay ≤ 10⁻¹ and dropout; every row below the first checkpoints every 47 steps instead of every 235):
 
 | Training runs | 1k | 3k | 10k |
 |---|---|---|---|
@@ -461,7 +478,7 @@ Phase 8 tries the usual remedies with little data ([Fig. 21](../figures/fig21_re
 
 ### Data efficiency
 
-([Fig. 15](../figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, 7,050 gradient steps at every size; Phase 8 rows, 3 seeds)
+([Fig. 15](figures/fig15_final_data_efficiency.png); final recipe, 2 seeds per size, 7,050 gradient steps at every size; Phase 8 rows, 3 seeds)
 
 | Training runs | 1k | 3k | 10k | 30k | 60k | 100k |
 |---|---|---|---|---|---|---|
@@ -474,7 +491,7 @@ Phase 8 tries the usual remedies with little data ([Fig. 21](../figures/fig21_re
 
 ### When, as well as where
 
-The time head was added only as a training aid (H3.4). Is the time worth predicting, or is it just a trend in the parameters? The predictors below go from the simplest rule to the network ([results/hotspot_timing.json](../results/hotspot_timing.json), `scripts/hotspot_timing.py`; test pool):
+The time head was added only as a training aid (H3.4). Is the time worth predicting, or is it just a trend in the parameters? The predictors below go from the simplest rule to the network ([results/hotspot_timing.json](results/hotspot_timing.json), `scripts/hotspot_timing.py`; test pool):
 
 | Predictor of the localization time | Median error | Within 10% | Log-time variance explained |
 |---|---|---|---|
@@ -491,7 +508,7 @@ The time head was added only as a training aid (H3.4). Is the time worth predict
 
 ### What is left of the error is mostly the label's own jitter
 
-v1's label is the first pendulum whose instantaneous energy passes 10% of the total, with each spring booked to the pendulum on its left. Within one swing, a forming hotspot's energy moves between a pendulum's motion and the springs on either side, so which pendulum crosses 10% first depends on the moment in the swing ([Fig. 18](../figures/fig18_label_jitter.png)).
+v1's label is the first pendulum whose instantaneous energy passes 10% of the total, with each spring booked to the pendulum on its left. Within one swing, a forming hotspot's energy moves between a pendulum's motion and the springs on either side, so which pendulum crosses 10% first depends on the moment in the swing ([Fig. 18](figures/fig18_label_jitter.png)).
 - With plain cross-entropy, v2's misses land two sites away more often than one. Half of those two-site misses, and three in four of the ones to the left, sit exactly on the hotspot's swing-averaged position.
 - A label without the jitter is the first pendulum whose energy, with springs split evenly and averaged over one swing (8 time units), passes 10%. It agrees exactly with v1's label in only 33% of test runs, usually sitting 1–3 sites to the left.
 
@@ -513,7 +530,7 @@ Same inputs, architecture and training; only the target changes (test pool; seed
 
 ### Is one pendulum the right target?
 
-What the hotspot looks like at the moment v1's label fires (2,000 test runs; [results/hotspot_timing.json](../results/hotspot_timing.json)):
+What the hotspot looks like at the moment v1's label fires (2,000 test runs; [results/hotspot_timing.json](results/hotspot_timing.json)):
 
 | Property | Median (10th–90th percentile) |
 |---|---|
@@ -538,7 +555,7 @@ What the hotspot looks like at the moment v1's label fires (2,000 test runs; [re
 
 ### The event at the hump's scale, and a second site
 
-Phase 9 tests recommendation 5 and the two-site output. The hump label fires at the first sample where the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, and names the window's centre. The threshold makes it fire with v1's label (median τ 54.5 against 55), about 5 time units before the swing-averaged label. Same final recipe; only the target changes (test pool; seeds in brackets; [results/phase9_tables.md](../results/phase9_tables.md)):
+Phase 9 tests recommendation 5 and the two-site output. The hump label fires at the first sample where the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, and names the window's centre. The threshold makes it fire with v1's label (median τ 54.5 against 55), about 5 time units before the swing-averaged label. Same final recipe; only the target changes (test pool; seeds in brackets; [results/phase9_tables.md](results/phase9_tables.md)):
 
 | Target | Fires at (median τ) | Mean distance | Exact | ±1 | >10 off |
 |---|---|---|---|---|---|
@@ -548,7 +565,7 @@ Phase 9 tests recommendation 5 and the two-site output. The hump label fires at 
 
 - **The hump label is the best target.** It halves the error of the swing-averaged label and warns as early as v1's label. Its time is predicted best too (1.1% median error, against 1.5% on v1's label).
 
-**Why it is easier.** It is read when the hump forms, and it locates the hump by the centre of 3 pendulums. Phase 10 separates the two with a control label, `hump_top`, which fires with the hump label but names the top pendulum, as the swing-averaged label does ([results/phase10_tables.md](../results/phase10_tables.md), [results/hump_label.json](../results/hump_label.json)):
+**Why it is easier.** It is read when the hump forms, and it locates the hump by the centre of 3 pendulums. Phase 10 separates the two with a control label, `hump_top`, which fires with the hump label but names the top pendulum, as the swing-averaged label does ([results/phase10_tables.md](results/phase10_tables.md), [results/hump_label.json](results/hump_label.json)):
 
 | Label [3 seeds] | Read | Located by | Mean distance | Exact | ±1 | >10 off |
 |---|---|---|---|---|---|---|
@@ -563,7 +580,7 @@ Phase 9 tests recommendation 5 and the two-site output. The hump label fires at 
   - The top pendulum flips between neighbours when the hump's top is flat, and in 0.3% of runs it sits in another hump than the 3-pendulum centre. So it is a noisy marker: the model trained on `hump_top` scores better on the hump label (0.33) than on its own.
 - **The first 4.5 time units decide where the hump forms.** Even the model trained on v1's label is within ±1 of the hump label in 91% of runs, against 77% of its own label.
 
-**A second site** is the highest peak of the predicted distribution at least 5 sites from the most likely one ([results/top2.json](../results/top2.json)). The rival-hump test above, applied to all 20,000 test runs, flags 16% of them (18% in its 2,000-run sample).
+**A second site** is the highest peak of the predicted distribution at least 5 sites from the most likely one ([results/top2.json](results/top2.json)). The rival-hump test above, applied to all 20,000 test runs, flags 16% of them (18% in its 2,000-run sample).
 
 | Model (its own label) | ±1, one site | ±1, either of two | Rival-hump runs: one → two | Second site only at ≥ 5% probability: runs with two, ±1 |
 |---|---|---|---|---|
@@ -577,7 +594,7 @@ Phase 9 tests recommendation 5 and the two-site output. The hump label fires at 
 
 ### The same choices win on the swing-averaged label
 
-Every choice in Secs. 6–9 was made on v1's jittery label. Phase 7 repeats the key ones on the swing-averaged label. Each run is the final recipe at the full budget with one choice changed, beside a matched control on v1's label ([Fig. 19](../figures/fig19_avg_label_ablations.png); 3 seeds; test pool; Δ against the final recipe on the same label, ± its standard error):
+Every choice in Secs. 6–9 was made on v1's jittery label. Phase 7 repeats the key ones on the swing-averaged label. Each run is the final recipe at the full budget with one choice changed, beside a matched control on v1's label ([Fig. 19](figures/fig19_avg_label_ablations.png); 3 seeds; test pool; Δ against the final recipe on the same label, ± its standard error):
 
 | Final recipe, but … | v1's label | Δ | Averaged label | Δ | ±1, v1's / averaged |
 |---|---|---|---|---|---|
@@ -611,7 +628,7 @@ The recommended setups (Sec. 11) keep their order:
 
 ### The key choices and setups on the hump label
 
-Phase 10 repeats Phase 7 on the hump label: the final recipe at the full budget, 3 seeds, with Phase 7's runs as the controls ([results/phase10_tables.md](../results/phase10_tables.md); Δ against the final recipe on the same label, ± its standard error):
+Phase 10 repeats Phase 7 on the hump label: the final recipe at the full budget, 3 seeds, with Phase 7's runs as the controls ([results/phase10_tables.md](results/phase10_tables.md); Δ against the final recipe on the same label, ± its standard error):
 
 | Final recipe, but … | Averaged label | Δ | Hump label | Δ | ±1, averaged / hump |
 |---|---|---|---|---|---|
@@ -632,14 +649,14 @@ Phase 10 repeats Phase 7 on the hump label: the final recipe at the full budget,
 | Coarse camera (10⁻² rad), from τ = 20 | 2.05 | 1.27 | 1.06 | 94.9% | 96.8% | 96.2% (4.6%) |
 | Energies at τ = 30, noise-free | 1.24 | 0.55 | 0.26 | 99.4% | 99.8% | 99.7% (1.8%) |
 
-- **The cheap camera is within ±1 of where the hump forms in 96.8% of runs**, from release. With a second site in 5.6% of runs, 98.3% ([results/top2_deploy.json](../results/top2_deploy.json)).
+- **The cheap camera is within ±1 of where the hump forms in 96.8% of runs**, from release. With a second site in 5.6% of runs, 98.3% ([results/top2_deploy.json](results/top2_deploy.json)).
 - **Noise costs about the same number of sites on both labels** (+0.65 and +0.79 here, +0.60 and +0.69 on the averaged label). Its far misses (2% of runs more than 10 sites off) are the wrong hump, whatever the label.
   - Those are the misses a second site catches. On rival-hump runs the two cameras go from 86–87% to 96.5–97.4% within ±1 with two sites.
 - **Without noise, waiting does not pay on this label either** (energies at τ = 30: 0.26 against 0.27).
 
 ### A set of sites instead of one
 
-The model outputs a probability for every site, so it can name the smallest set of sites that holds a chosen share of the probability ([results/prediction_sets.json](../results/prediction_sets.json); 5 seeds, test pool):
+The model outputs a probability for every site, so it can name the smallest set of sites that holds a chosen share of the probability ([results/prediction_sets.json](results/prediction_sets.json); 5 seeds, test pool):
 
 | Probability held by the set | Sites in the set (mean) | True site inside |
 |---|---|---|
@@ -655,7 +672,7 @@ The model outputs a probability for every site, so it can name the smallest set 
 
 ### Shifted chains, without retraining
 
-([Fig. 16](../figures/fig16_robustness.png); both models trained on the nominal chain; shifted pools of 5,000 runs)
+([Fig. 16](figures/fig16_robustness.png); both models trained on the nominal chain; shifted pools of 5,000 runs)
 
 | Test condition | v1 rebuilt | v2 final | What changes in the growth spectrum at A = 1.75 |
 |---|---|---|---|
@@ -691,7 +708,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Chains with an impurity
 
-(One random pendulum's restoring force 0–2% weaker; 10,000 test runs; [results/headline.md](../results/headline.md))
+(One random pendulum's restoring force 0–2% weaker; 10,000 test runs; [results/headline.md](results/headline.md))
 
 | Model | Mean distance | ±1 | ±3 |
 |---|---|---|---|
@@ -707,7 +724,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Damped chains
 
-(Linear damping −γ dθ/dτ, so a free pendulum's quality factor is Q = 1/γ. Six pools of 5,000 runs share their initial conditions and differ only in γ. Sites are scored over the runs that localize by τ = 150. [Fig. 20](../figures/fig20_damping.png); [results/headline.md](../results/headline.md))
+(Linear damping −γ dθ/dτ, so a free pendulum's quality factor is Q = 1/γ. Six pools of 5,000 runs share their initial conditions and differ only in γ. Sites are scored over the runs that localize by τ = 150. [Fig. 20](figures/fig20_damping.png); [results/headline.md](results/headline.md))
 
 | Q (γ) | Swing's 1/e decay, 20 cm pendulum | Localize by τ = 150 | Median delay | v1 rebuilt, trained undamped | v2 final, trained undamped | v2 recipe, trained on damped chains |
 |---|---|---|---|---|---|---|
@@ -737,7 +754,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### The recommended setups, at full budget
 
-([results/headline.md](../results/headline.md) and, for the later coarse-camera starts, [results/deploy_start_tables.md](../results/deploy_start_tables.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
+([results/headline.md](results/headline.md) and, for the later coarse-camera starts, [results/deploy_start_tables.md](results/deploy_start_tables.md); median warning is the median localization time, τ = 55, minus the end of the observation; seconds for a 20 cm pendulum)
 
 | Setup | Mean distance | ±1 | ±3 | Median warning |
 |---|---|---|---|---|
@@ -752,7 +769,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 - **A realistic, cheap setup works.** One camera tracking every 2nd pendulum to 10⁻³ rad predicts right after release with a mean distance of 1.93, well ahead of the noise-free v1 (3.14).
 - **On the hump label** (Sec. 10) the same camera is within ±1 of where the hump forms in 96.8% of runs, and in 98.3% when it may name a second site (5.6% of runs).
-- **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](../figures/fig17_warning_tradeoff.png)).
+- **A ten times coarser camera** gets nearly the same accuracy (2.05) by starting at τ = 20, and still leaves about 4 s of warning ([Fig. 17](figures/fig17_warning_tradeoff.png)).
   - To match a 10⁻³ rad camera on every pendulum (1.72), it must wait until τ ≈ 25–26 (1.77 from τ = 24, 1.67 from τ = 28; 3 seeds). That leaves about 3.6 s of warning.
   - On the swing-averaged label it catches up at τ ≈ 25 too (1.05 from τ = 24 and 0.84 from τ = 28, against 0.99), as the start-time rule of Sec. 7 predicts.
 - **Energies at τ = 30** give the best accuracy (1.24), but they need gyroscopes and leave less warning. On the swing-averaged label their edge nearly vanishes (0.55 vs 0.58, Sec. 10).

@@ -1,3 +1,4 @@
+"""Floquet checks: the swing period, which ring modes grow, the instability threshold, and why the global term must be strong enough for type III."""
 import numpy as np
 
 from sgloc import floquet, sim

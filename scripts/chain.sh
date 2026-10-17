@@ -4,4 +4,4 @@
 cd "$(dirname "$0")/.."
 wait_pid=$1; phase=$2; shift 2
 while kill -0 "$wait_pid" 2>/dev/null; do sleep 15; done
-.venv/bin/python scripts/sweep.py "$phase" "$@" >> "results/${phase}_log.txt" 2>&1
+.venv/bin/python scripts/sweep.py "$phase" "$@" >> "results/logs/${phase}_log.txt" 2>&1

@@ -107,7 +107,7 @@ The original notebook, or the ~3 GB HDF5 dataset, would settle it. With the data
 
 ## Phase 1: physics checks and baselines (15 October 2026)
 
-Script: `scripts/phase1.py`. Results: `results/phase1.json` and `results/phase1_log.txt`. Figures (made with
+Script: `scripts/phase1.py`. Results: `results/phase1.json` and `results/logs/phase1_log.txt`. Figures (made with
 `scripts/make_figures.py`):
 
 - [Fig. 1](../figures/fig1_growth_spectrum.png): growth spectrum

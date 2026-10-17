@@ -29,8 +29,8 @@ DONE_LINE = re.compile(r"^\[(\d+)/(\d+)\s+(\d+)s (\w+)\] (\S+) seed (\d+): mean 
 
 def phase_log(phase):
     if phase:
-        return phase, ROOT / "results" / f"{phase}_log.txt"
-    logs = sorted((ROOT / "results").glob("phase*_log.txt"), key=lambda p: p.stat().st_mtime)
+        return phase, ROOT / "results" / "logs" / f"{phase}_log.txt"
+    logs = sorted((ROOT / "results" / "logs").glob("phase*_log.txt"), key=lambda p: p.stat().st_mtime)
     log = logs[-1]
     return log.stem.replace("_log", ""), log
 

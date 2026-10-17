@@ -1,3 +1,4 @@
+"""Model checks: the rebuilt v1 matches the paper's parameter count and Keras behaviour; losses and ring-distance metrics."""
 import numpy as np
 import torch
 
