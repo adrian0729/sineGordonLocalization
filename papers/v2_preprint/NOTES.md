@@ -1,7 +1,7 @@
 # v2 preprint: notes and open TODOs
 
 Draft arXiv preprint of the physics-guided v2 study, built from `REPORT.md`,
-`docs/methods.md`, `results/headline.md` and the results tables. Written in the
+`REPORT.md` Sec. 4, `results/headline.md` and the results tables. Written in the
 voice of the v1 paper (first person plural, narrative physics prose; Fig./Eq./Ref. conventions).
 
 ## Build
@@ -77,7 +77,7 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 
 ## Traceability
 
-Every number in `main.tex` was checked against `REPORT.md`, `docs/methods.md`,
+Every number in `main.tex` was checked against `REPORT.md` (including its Methods, Sec. 4),
 `results/headline.md`, `results/*.md`, `results/*.json`, the v1 source (for quoted v1 values) and
 `sgloc/` (for model constants such as the dilations). An automated pass found every numeric token
 in those sources, and each was then checked in context by hand. Notes:

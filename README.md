@@ -10,10 +10,9 @@ It is the follow-up (v2) to our paper:
 
 | | |
 |---|---|
-| **[REPORT.md](REPORT.md)** | The full write-up: every finding, including the ones that did not pay off, with figures and tables |
+| **[REPORT.md](REPORT.md)** | The full write-up: methods, what was tried, why each choice was made, and every finding (including the ones that did not pay off), with figures and tables |
 | **[papers/](papers/)** | Both papers as LaTeX: the published paper (arXiv version, typos corrected) and a draft of the v2 preprint |
 | [results/headline.md](results/headline.md) | The headline tables, v1 against v2 |
-| [docs/](docs/) | The improvement plan, the progress log (lab notebook) and the full methods |
 
 ## Results
 
@@ -38,13 +37,11 @@ Test pool of 20,000 simulated runs. Mean distance is in pendulums, measured arou
 |---|---|
 | [REPORT.md](REPORT.md) | The report |
 | [papers/](papers/) | The two papers, as LaTeX ready for Overleaf and arXiv |
-| [docs/](docs/) | The improvement plan, the progress log and the methods |
 | [sgloc/](sgloc/) | The Python package: simulator, Floquet tools, data pools, models, losses, metrics, training loop and the ablation tables |
 | [scripts/](scripts/) | Command-line entry points for data, sweeps, analyses, tables and figures ([scripts/README.md](scripts/README.md)) |
 | [tests/](tests/) | Physics and model checks (`pytest`, about 30 s) |
 | [results/](results/) | Tables, analysis outputs and the record of every training run ([results/README.md](results/README.md)) |
 | [figures/](figures/) | The report's figures, as PNG and PDF ([figures/README.md](figures/README.md)) |
-| [pilot/](pilot/) | The pilot scripts behind the numbers in the plan |
 | [v1_original/](v1_original/) | The original Colab code behind the published paper, unchanged |
 | `data/`, `runs/` | Generated data pools and model checkpoints (not tracked; several GB) |
 

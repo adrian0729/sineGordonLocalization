@@ -4,7 +4,7 @@ Run every script from the repository root with the project's environment, for ex
 
 ## The phases of the study
 
-Each phase answers one question of the [improvement plan](../docs/improvement_plan.md) and is written up in the [report](../REPORT.md). Phases 2–10 are ablation tables in [sgloc/ablations.py](../sgloc/ablations.py), run with `sweep.py <table>` and summarized with `summarize.py <table>`.
+Each phase answers one question of the study and is written up in the [report](../REPORT.md). Phases 2–10 are ablation tables in [sgloc/ablations.py](../sgloc/ablations.py), run with `sweep.py <table>` and summarized with `summarize.py <table>`.
 
 | Phase | Question | How to run it | Results |
 |---|---|---|---|
@@ -30,13 +30,12 @@ Each phase answers one question of the [improvement plan](../docs/improvement_pl
 | `add_labels.py` | Adds labels that are not computed by default (`hump`, `hump_top`) to existing pools, re-simulated from their stored initial angles | `data/pool_*.npz` |
 | `make_robustness_pools.py` | Test pools for Phase 6: shifted couplings, more initial noise, other ring lengths, impurities and damping | `data/robust_*.npz` |
 | `validate_sim.py` | Checks the simulator against the paper's own `odeint` pipeline, step-size convergence, the paper's box-car number and the Floquet threshold | `results/validation.json` |
-| `prebuild.py` | Fills the trajectory cache for a phase, so its sweep starts training at once | `data/cache/` |
 
 ## Training
 
 | Script | What it does | Writes |
 |---|---|---|
-| `sweep.py` | Runs one phase's ablation table on GPU and CPU slots, skipping configs already in `results/runs.jsonl` | `runs/<run>/`, `results/runs.jsonl` |
+| `sweep.py` | Runs one phase's ablation table on GPU and CPU slots, skipping configs already in `results/runs.jsonl`. It fills the trajectory cache in `data/cache/` first. | `runs/<run>/`, `results/runs.jsonl` |
 | `run_config.py` | Runs one config in its own process, so memory is returned when it finishes (called by `sweep.py`) | as above |
 | `run_one.py` | Runs a single config of a table, by phase, name and seed | as above |
 | `train_v1.py` | Trains the rebuilt v1, the paper's CNN-BiLSTM | `runs/<run>/`, `results/runs.jsonl` |
@@ -64,18 +63,3 @@ Each phase answers one question of the [improvement plan](../docs/improvement_pl
 |---|---|---|
 | `headline.py` | The v1 against v2 headline tables | `results/headline.md` |
 | `make_figures.py` | Every report figure whose inputs exist | `figures/*.png`, `figures/*.pdf` |
-
-## Long jobs
-
-| Script | What it does |
-|---|---|
-| `watch.py` | Live terminal dashboard for a running sweep. It only reads the sweep's log and `results/runs.jsonl`. |
-| `chain.sh` | Starts a sweep once another process exits (it waits by PID), logging to `results/logs/<phase>_log.txt` |
-| `v1_label_test.sh` | Trains the rebuilt v1 on the swing-averaged label once a GPU slot frees up |
-| `checkpoint.sh` | Commits and pushes progress every N minutes while sweeps run |
-
-To keep a long sweep running after the terminal closes, start it detached:
-
-```bash
-nohup .venv/bin/python scripts/sweep.py phase3 > results/logs/phase3_log.txt 2>&1 &
-```

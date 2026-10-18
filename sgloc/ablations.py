@@ -1,4 +1,4 @@
-"""The ablation tables of the improvement plan, one function per phase.
+"""The ablation tables of the study, one function per phase (written up in REPORT.md).
 
 Each config's `note` records the hypothesis it tests, so results/runs.jsonl says why every run
 exists. Defaults for later phases are set from earlier results; each such choice is commented.
@@ -94,7 +94,7 @@ def phase2():
     return t.configs
 
 
-# ---- choices carried forward; each is set from the previous phase's results (see docs/progress.md) ----
+# ---- choices carried forward; each is set from the previous phase's results (see REPORT.md) ----
 # Phase 2 winner: the whole-ring dilated CNN (local_rf129). It ties the best validation score (1.561 vs
 # 1.570 for dilated + Fourier and 1.571 for the per-site GRU, all within one standard error) and is the
 # cheapest and simplest of the three: 23k parameters, no Fourier layer, no recurrence.
@@ -405,7 +405,7 @@ def phase8():
                   n_train=n, model={"dropout": p}, optim=fine)
         t.add(g, f"n{n}_mirror", "Phase 8: add the mirror image of every training run (the ring's reflection symmetry; "
               "v1's one-sided label becomes the mirrored left-bond label)", (0, 1, 2), n_train=n, augment="mirror", optim=fine)
-        # follow-ups after the first results at 1,000 runs (docs/progress.md, Phase 8). There the best checkpoint comes
+        # follow-ups after the first results at 1,000 runs (REPORT.md, Sec. 10). There the best checkpoint comes
         # at steps 141-188, still in the learning-rate warmup (211 steps). By then AdamW, which shrinks the weights by
         # lr x wd per step, has shrunk them by only 1.4-2.5% at wd 0.1, so 1e-2 and 1e-1 change nothing. Does wd 1 help?
         t.add(g, f"n{n}_wd1", "Phase 8 follow-up: AdamW weight decay 1", (0, 1, 2), n_train=n,

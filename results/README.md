@@ -41,7 +41,3 @@ Each `<table>_tables.md` gives, for every config of an ablation table, the mean 
 | `phase8_curves.json`, `phase8_train.json` | Validation curves and training-set scores of the Phase 8 runs | `scripts/regularization.py` |
 | `top2.json`, `top2_deploy.json` | Second-site output for the final models and the sensing setups | `scripts/top2.py` |
 | `hump_label.json` | Why the hump label is easier to predict | `scripts/hump_label.py` |
-
-## Logs
-
-[logs/](logs/) holds the console output of each sweep and long job, kept as the raw record behind the tables. For example, `logs/v1_seed2_stdout.txt` shows the rebuilt v1 seed that never trained.

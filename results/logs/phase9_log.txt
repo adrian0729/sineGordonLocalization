@@ -1,5 +1,0 @@
-phase9: 3 configs, 3 still to run
-trajectory cache ready in 1s
-[1/3   257s mps] label/final_hump_label seed 0: mean 0.274  ±1 99.44%  ±3 99.59%  >10 0.36%  (249s, 22786 params)
-[2/3   490s mps] label/final_hump_label seed 1: mean 0.264  ±1 99.43%  ±3 99.63%  >10 0.34%  (221s, 22786 params)
-[3/3   729s mps] label/final_hump_label seed 2: mean 0.283  ±1 99.39%  ±3 99.58%  >10 0.39%  (227s, 22786 params)

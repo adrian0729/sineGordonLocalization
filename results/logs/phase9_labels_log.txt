@@ -1,3 +1,0 @@
-pool_val: hump for 20000 runs in 85.6 s; localized 100.00%; median time 54.5, mean 56.47
-pool_test: hump for 20000 runs in 82.6 s; localized 100.00%; median time 54.5, mean 56.47
-pool_train: hump for 100000 runs in 392.7 s; localized 100.00%; median time 54.5, mean 56.48
