@@ -101,3 +101,7 @@ If you use this code, please cite the published paper:
   doi     = {10.5890/JAND.2026.06.001}
 }
 ```
+
+## License
+
+The code is released under the [MIT License](LICENSE). The papers in [papers/](papers/) are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The published paper is © 2026 The Authors.

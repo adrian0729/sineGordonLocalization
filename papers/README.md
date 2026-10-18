@@ -25,3 +25,7 @@ cd papers/jand2026_arxiv && tar -czf ../jand2026_arxiv.tar.gz main.tex main.bbl 
 ```
 
 After changing a citation, run BibTeX again and commit the new `main.bbl`. The values for the arXiv form are in [jand2026_arxiv/README.md](jand2026_arxiv/README.md) and [v2_preprint/NOTES.md](v2_preprint/NOTES.md).
+
+## License
+
+Both papers are licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The published paper is © 2026 The Authors. The code in the rest of the repository is under the [MIT License](../LICENSE).
