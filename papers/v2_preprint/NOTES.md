@@ -1,8 +1,8 @@
 # v2 preprint: notes and open TODOs
 
-Draft arXiv preprint of the physics-guided v2 study, built from `REPORT.md`,
-`REPORT.md` Sec. 4, `results/headline.md` and the results tables. Written in the
-voice of the v1 paper (first person plural, narrative physics prose; Fig./Eq./Ref. conventions).
+arXiv preprint of the physics-guided v2 study, built from `REPORT.md` (including its Methods, Sec. 4),
+`results/headline.md` and the results tables. Written in the voice of the v1 paper (first person plural,
+narrative physics prose; Fig./Eq./Ref. conventions; no bullet lists or run-in headings in the body).
 
 ## Build
 
@@ -10,80 +10,93 @@ voice of the v1 paper (first person plural, narrative physics prose; Fig./Eq./Re
 cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
-- Current state: 20 pages (11pt article, 1 in margins), no LaTeX warnings, no overfull boxes.
+- Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
+  The five PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
+- Current state (2026-10-21): 17 pages (11pt article, 1 in margins), about 7,000 words of text and
+  700 of captions, 6 figures, 4 tables, 36 references. No LaTeX warnings or overfull boxes.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
-- Checked: `main.tex` + `main.bbl` + `figures/` alone compile cleanly with two pdflatex passes.
-- Upload to arXiv: `main.tex`, `main.bbl`, `figures/*.pdf`. Not `main.pdf`, `refs.bib` is optional.
-- Set `\draftnotesfalse` in `main.tex` to hide the red TODO-AUTHOR-REVIEW box once Sec. 5 is agreed.
+- Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
+- Set `\draftnotesfalse` in `main.tex` to hide the red TODO-AUTHOR-REVIEW box once Sec. 4 is agreed.
+
+## Length and what was left out
+
+The 2026-10-17 draft was 20 pages, about 7,500 words with roughly twice v1's density of numbers, and
+8 tables; it read like a condensed `REPORT.md`. The 2026-10-21 rewrite brings it to about v1's length
+(v1 is 16 pages in the same layout), halves the number density, and adds the reasons behind each design
+decision (moving away from the LSTM, angles instead of energies, the ring symmetry, the loss, the time head,
+regularization, the hump label, damping), a schematic of both networks (Fig. 3) and a table pairing each
+v1-to-v2 change with its physical reason and its cost (Table 2). Left to `REPORT.md`, with at most a sentence
+here: the regularization grid with little data, the key choices repeated on three labels, the damping table
+and figure, the sensing-setup table and coarse-camera start times, the second-site rule and prediction sets,
+the hump-top control, the Floquet clocks, the unknown-start numbers, and the optimizer list.
 
 ## Open TODOs
 
 ### Before posting (blocking)
 
-1. **TODO-AUTHOR-REVIEW: Sec. 5, "Reproduction of the earlier model".** Still being discussed with
-   L.Q. English (wording of the discrepancy; whether the original training notebook can be
-   recovered). The section states only what `REPORT.md` Sec. 2 supports, worded as "could not
-   be reproduced from the published description". Keep every other mention consistent with the
-   agreed wording:
-   - abstract ("a rebuild of the earlier network from its published description")
-   - Introduction, 4th paragraph
-   - footnote in Sec. 2.1 (the printed h̃ = 0.05)
-   - Table 1 caption and the first paragraph of Sec. 4.5 (94.4%; wrap-around of the 1.44)
+1. **TODO-AUTHOR-REVIEW: Sec. 4, "Reproduction of the earlier network".** Under discussion with
+   L.Q. English (wording; whether the original training notebook or dataset can be recovered). A reply
+   that stresses the discrepancy is drafted in `overleaf/arxiv_submission/email_to_lars_2.md` (local, not in
+   git). It raises further points about the published numbers that are deliberately not in the paper; keep
+   them out until Lars has replied. Keep every mention of the published 94.4% consistent with the agreed
+   wording:
+   - abstract ("falls short of the accuracy originally reported")
+   - Introduction, paragraphs 2 and 5
+   - Table 1 and its caption (wrap-around of the 1.44)
+   - Sec. 3.5, second paragraph
+   - Sec. 4
    - Conclusions, limitations paragraph
-2. **Authors.** Adrian Mittal only for now (`% TODO-AUTHORS` in `main.tex`). Decide coauthors,
-   order and affiliations; confirm the affiliation (copied from v1); add a contact e-mail if wanted.
-3. **Acknowledgements** are a placeholder `[TODO]`.
-4. **Data and code availability** now gives the repository URL. Add a version tag or DOI
-   (e.g. a Zenodo archive of this repo) when posting.
+   - Appendix B
+2. **Authors and affiliation.** Adrian Mittal only for now (`% TODO-AUTHORS` in `main.tex`). Decide
+   coauthors and order. The affiliation is still the one used in v1; update it (the author is now at CMU).
+3. **Acknowledgements** are a placeholder `[TODO]`. If the v1 coauthors are not authors here, credit them,
+   e.g. for building the CNN-BiLSTM studied here and for the simulation code that served as the reference.
+4. **Data and code availability** gives the repository URL. Add a version tag or DOI (e.g. a Zenodo archive).
 
 ### Should check
 
-5. **v1 cross-references in Sec. 5** ("Sec. 2.1", "Sec. 2.3 and the Appendix", "Figs. 2–5 and 7",
-   "Eq. (5)"): checked against the published JAND PDF on 2026-10-17, and the numbering matches.
-6. **New references** (not in `papers/jand2026_arxiv/refs.bib`) were added from memory and should be verified:
+5. **v1 cross-references** ("Sec. 2.1", "Sec. 2.3 and the Appendix", "Figs. 2–5 and 7", "Eq. (5)",
+   "Fig. 6" in the email) were checked against the published JAND PDF.
+6. **References added from memory** (not in `papers/jand2026_arxiv/refs.bib`) should be verified:
    `sievers1988intrinsic`, `flach2008discrete`, `magnus1966hill`, `virtanen2020scipy`,
-   `karniadakis2021physics`, `cohen2016group`, `yu2016multiscale`, `oord2016wavenet`,
-   `li2021fourier`, `cho2014learning`, `hendrycks2016gelu`, `kingma2015adam`,
-   `loshchilov2019decoupled`, `loshchilov2017sgdr`, `smith2019super`, `chen2023symbolic`,
-   `szegedy2016rethinking`, `srivastava2014dropout`, `liu1989limited`, `paszke2019pytorch`,
-   `guo2017calibration`. Three use "and others" for long author lists (Virtanen, Paszke, Chen).
-7. **Edits to reused v1 references:** `thakur2007driven` now says 2008 (J. Phys. D 41, 015503;
-   the v1 bibliography had 2007) and lists the author as "Basu Thakur, R."; `cuevas2014sine` is now a
-   `@book` with editors (the v1 bibliography had it as an article); the SciPy citation is now Virtanen et al.
-   (2020) instead of the v1 bibliography's `scipy` web entry. Revert if the v1 forms are preferred.
-8. **Interpretive sentences to confirm** (they frame v1's findings; numbers are from the report):
-   - Sec. 4.1: "the energetic clusters identified there are the growing long waves, seen through
-     a low-pass filter"
-   - Conclusions: "To answer the question left open in Ref. [v1], the features that decide the
-     localization site are largely the projections of the early state onto the few growing long
-     waves"
+   `karniadakis2021physics`, `cohen2016group`, `yu2016multiscale`, `oord2016wavenet`, `li2021fourier`,
+   `cho2014learning`, `hendrycks2016gelu`, `kingma2015adam`, `loshchilov2019decoupled`,
+   `loshchilov2017sgdr`, `szegedy2016rethinking`, `srivastava2014dropout`, `liu1989limited`,
+   `paszke2019pytorch`. `smith2019super`, `chen2023symbolic` and `guo2017calibration` are still in
+   `refs.bib` but no longer cited.
+7. **Edits to reused v1 references:** `thakur2007driven` says 2008 (J. Phys. D 41, 015503) and lists the
+   author as "Basu Thakur, R."; `cuevas2014sine` is a `@book` with editors; SciPy is cited as Virtanen et al.
+   (2020). Revert if the v1 forms are preferred.
+8. **Interpretive sentences to confirm:**
+   - Sec. 3.1: "The energetic clusters identified in Ref. [v1] thus appear to be the growing long waves,
+     seen through a low-pass filter."
+   - Sec. 3.3: the critique of the CNN-BiLSTM design (one frame and nine pendulums per convolutional
+     feature, 98.9% of the parameters in position-tied LSTM input weights, zero padding, bidirectionality).
+   - Sec. 3.7: the reason offered for the waiting rate (white noise in every mode, the site depending on all
+     growing modes) is an interpretation, not a derivation.
+   - Conclusions: "the features that decide the localization site are largely the projections of the early
+     state onto the few growing long waves".
 9. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
    localization in a sine-Gordon pendulum ring".
 10. Once the v1 preprint has an arXiv ID, consider adding it to the `mittal2026jand` entry.
 
-### Optional
-
-11. **Figures** are copies of `figures/*.pdf`. They carry slide-style titles inside the plots and
-    some small fonts; for a journal version, re-render without in-plot titles. Eight figure files
-    are used, in seven floats (fig1, fig2, fig3, fig5 + fig6 side by side, fig13b, fig18, fig20).
-    Dropped for length, with their numbers kept in the text or
-    tables: 4, 7, 8, 10, 11, 12, 14, 15, 16, 17, 19, 21. They could go into supplementary material.
-12. Details from the report left out for length: the hump-anatomy table, the timing and
-    prediction-set tables, the second-site table, the full Phase 3 input list, checkpoint-step
-    details of Phase 8, and the later coarse-camera start times beyond Table 8.
-13. arXiv metadata: abstract is about 1,670 characters (limit 1,920); planned primary nlin.CD with
-    cross-list cs.LG.
-
 ## Traceability
 
-Every number in `main.tex` was checked against `REPORT.md` (including its Methods, Sec. 4),
-`results/headline.md`, `results/*.md`, `results/*.json`, the v1 source (for quoted v1 values) and
-`sgloc/` (for model constants such as the dilations). An automated pass found every numeric token
-in those sources, and each was then checked in context by hand. Notes:
+Every number in `main.tex` was checked against `REPORT.md`, `results/headline.md`, `results/*.md` and
+`*.json`, `results/runs.jsonl`, the plan and progress logs (git 7641a57), `sgloc/` and the v1 source. An
+independent verification pass (2026-10-21) found and corrected these, among others: "both networks lose
+3–4 sites" for a 10% error in h̃ (v1 loses 1.2–2.8; also corrected in `REPORT.md`); two different "17-site"
+networks (Table 2: the seven layers without dilation, 15 sites; Sec. 3.6: a four-layer stack with dilations
+1, 2, 4, 1); weight decay, which does help with little data once combined with mirror images; and a wrong
+physical argument that energies lose the sign of the perturbation (to first order, E_n(0) is a rescaled copy
+of θ_n(0)). Notes:
 
-- Table 4's first-crossing column uses seeds 0–2 of the final model (1.50), as in report Sec. 10
-  (Phase 7); everywhere else the five-seed value 1.49 is used.
-- "Floquet clocks ... 4.1–4.2%" covers the two clock variants in report Sec. 10 (4.2% and 4.1%).
-- The h̃ = 0.5 footnote, the τ ≈ 57 localization time, the spring bookkeeping (21% of runs) and
-  the scaler leakage are from report Secs. 1–2.
+- 26.2 million of v1's 26,499,205 parameters (98.9%) are the BiLSTM's input weights (25,600 × 512 per
+  direction, two directions), from instantiating the rebuild in `sgloc/models.py`.
+- A disturbance travels at most about 0.45 pendulums per time unit (largest linear group velocity), so
+  about two pendulums in the 4.5-unit window; growth over the window is 1.70× at A = 1.75, 1.99× at 1.85.
+- The waiting rate per tenfold noise: 24.8 predicted from the mean growth rate before the swing-averaged
+  grid was run, 25.5 measured there; 26.5 on the first-crossing label, where the rate was first found.
+- The damped-chain claim that the Q ≈ 330 survivors are not the easy runs (v2 undamped: 1.64 on them
+  against 1.31 on the rest, seed 0) is from the progress log, Phase 6 damping addendum.

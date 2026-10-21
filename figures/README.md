@@ -1,6 +1,6 @@
 # Figures
 
-The report's figures, each saved as PNG (used by [REPORT.md](../REPORT.md)) and PDF (used by the [v2 preprint](../papers/v2_preprint/)). `scripts/make_figures.py` redraws every figure whose inputs exist. Fig. 20 is drawn by `scripts/damping_physics.py --figure`.
+The report's figures, each saved as PNG (used by [REPORT.md](../REPORT.md)) and PDF. `scripts/make_figures.py` redraws every figure whose inputs exist. Fig. 20 is drawn by `scripts/damping_physics.py --figure`. The [v2 preprint](../papers/v2_preprint/) uses paper-style versions of Figs. 1, 2–3, 5–6, 18 and 13/13b, drawn by `scripts/make_figures.py --paper` into `papers/v2_preprint/figures/`.
 
 | Figure | What it shows | Report section |
 |---|---|---|

@@ -62,4 +62,4 @@ Each phase answers one question of the study and is written up in the [report](.
 | Script | What it does | Writes |
 |---|---|---|
 | `headline.py` | The v1 against v2 headline tables | `results/headline.md` |
-| `make_figures.py` | Every report figure whose inputs exist | `figures/*.png`, `figures/*.pdf` |
+| `make_figures.py` | Every report figure whose inputs exist; with `--paper`, only the five data figures of the v2 preprint, in paper style | `figures/*.png`, `figures/*.pdf`; `papers/v2_preprint/figures/paper_fig*.pdf` |

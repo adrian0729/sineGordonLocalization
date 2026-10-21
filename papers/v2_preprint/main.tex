@@ -11,12 +11,16 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{array}
 \usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds,decorations.pathreplacing}
 \usepackage[font=small,labelfont=bf]{caption}
 \usepackage[numbers,sort&compress]{natbib}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,citecolor=blue!50!black,urlcolor=blue!50!black]{hyperref}
 
 \graphicspath{{figures/}}
+\setlength{\emergencystretch}{1.5em}
 
 % Pack floats more tightly than the LaTeX defaults.
 \renewcommand{\topfraction}{0.9}
@@ -50,7 +54,8 @@
 \title{Physics-guided machine-learning prediction of spontaneous energy localization in a sine-Gordon pendulum ring}
 
 % TODO-AUTHORS: Adrian Mittal is listed alone for now. Decide the coauthors (and their
-% affiliations and order) before posting, and confirm the affiliation below.
+% affiliations and order) before posting, and update the affiliation below (the one used
+% in Ref. [mittal2026jand] is kept as a placeholder).
 \author{Adrian Mittal\\[2pt]
 {\small International Research Institute of North Carolina, Sanford, NC 27330}}
 % TODO-AUTHORS: add a contact e-mail if wanted.
@@ -62,191 +67,99 @@
 \maketitle
 
 \begin{abstract}
-In a ring of torsionally coupled pendulums with a weak global coupling, a nearly uniform swing is destabilized by a type-III instability and, after several swing periods, concentrates its energy on a few pendulums. In earlier work we predicted the site of this hotspot from early-time data, by spatial smoothing and with a convolutional-recurrent neural network. Here we revisit the problem starting from the Floquet growth spectrum of the uniform swing. Only a handful of the longest ring modes grow, which accounts for the optimal smoothing width found before, and the site is a deterministic function of the initial state, so that prediction is limited by measurement precision rather than by chaos. Posing each design choice as a hypothesis grounded in this spectrum and testing it by ablation, we arrive at a whole-ring dilated circular convolutional network with 22,786 parameters. It locates the site with a mean ring distance of 1.49 pendulums (77.2\% within $\pm1$), against 3.14 (60.4\%) for a rebuild of the earlier network from its published description, and outperforms that rebuild with 60 times less training data. Much of the remaining error belongs to the label, which jitters within a swing; defined at the scale of the forming hump of energy, the event is located with a mean distance of 0.27 (99.4\% within $\pm1$) and the same warning time. Sensor noise can be offset by waiting, at a cost set by the mean growth rate of the unstable modes, and the response to parameter shifts, impurities and damping follows the same spectrum. In simulation, one camera tracking every second pendulum to $10^{-3}$~rad locates the forming hump within $\pm1$ pendulum in 96.8\% of runs.
+In a ring of torsionally coupled pendulums with a weak global coupling, a nearly uniform swing is destabilized by a type-III instability and, after several swing periods, concentrates its energy on a few pendulums. In earlier work we predicted where this hotspot forms from early-time data, first by spatial smoothing and then with a convolutional and recurrent neural network. Here we revisit the problem starting from the physics of the instability. The Floquet growth spectrum of the uniform swing shows that only a handful of the longest ring modes grow, which accounts for the optimal smoothing width found before. The site is fixed by the initial state, so prediction is limited by measurement precision rather than by chaos. Letting the spectrum guide the design, and testing every choice by ablation, we replace the recurrent network with a small convolutional network built around the ring's symmetry. With a thousandth of the parameters, it halves the error of our rebuild of the earlier network, which falls short of the accuracy originally reported, and outperforms that rebuild with 60 times less training data. Much of the remaining error belongs to the target itself: the first pendulum to cross an energy threshold jitters within a swing, whereas the hump of energy that forms is located within one pendulum in 99.4\% of runs. We close with the limits that sensor noise, parameter errors, impurities and damping set in a real chain.
 \end{abstract}
 
 % ===========================================================================
 \section{Introduction}
 \label{sec:intro}
 
-Dynamic energy localization, whereby a significant share of a nonlinear system's energy becomes concentrated on a small part of it, is observed in many nonlinear oscillating systems \cite{sievers1988intrinsic,campbell2004localizing,flach2008discrete}, from micromechanical oscillator arrays \cite{sato2006colloquium} to large structures such as the Tacoma Narrows Bridge \cite{green2006failure,ARIOLI2015901} and wind-driven transmission lines \cite{zhang2017wind}. Because such ``hotspots'' often precede mechanical failure, predicting where they form is of practical as well as fundamental interest. A well-known pathway to localization is the modulational instability of a plane-wave mode \cite{kivshar1993creation,dauxois1993energy,extreme}. Among the three classes of instability distinguished by the wavenumber of the fastest-growing perturbation \cite{cross1993pattern}, type III often leads to catastrophic localization \cite{english2003modulational}, as observed in driven pendulum chains \cite{thakur2007driven,cuevas2009discrete}. Since the instability is seeded by noise, the site at which the energy localizes depends sensitively on the initial conditions.
+Dynamic energy localization, whereby a significant portion of a nonlinear system's energy becomes concentrated on a small part of it, is observed in many nonlinear oscillating systems \cite{sievers1988intrinsic,campbell2004localizing,flach2008discrete}, from micromechanical oscillator arrays \cite{sato2006colloquium} to large structures such as bridges \cite{green2006failure,ARIOLI2015901} and transmission lines \cite{zhang2017wind}. Because such ``hotspots'' often precede mechanical failure, predicting where they form is of practical as well as fundamental interest. A well-known pathway to localization is the modulational instability of a plane-wave mode \cite{kivshar1993creation,dauxois1993energy,extreme}. Of the three classes of instability distinguished by the wavenumber of the fastest-growing perturbation \cite{cross1993pattern}, type III often leads to catastrophic localization \cite{english2003modulational,thakur2007driven,cuevas2009discrete}. Since the instability is seeded by noise, where the energy localizes depends sensitively on the initial conditions.
 
-In a previous paper \cite{mittal2026jand} we studied this problem numerically in the discrete sine-Gordon model \cite{cuevas2014sine}, realized as a ring of torsionally coupled pendulums with a weak global (mean-field) coupling that selects an instability of type III. Smoothing the early energy profile with a box-car of about 17 pendulums substantially improved predictions of the localization site, suggesting that the instability is sensitive to energetic clusters rather than to single pendulums. A convolutional neural network combined with a bidirectional long short-term memory network \cite{Hochreiter1997} (CNN-BiLSTM), trained on the first 4.5 time units after release, was then reported to locate the site within $\pm1$ pendulum in 94.4\% of test cases. We concluded that the network had found features beyond energy clusters, in line with neural-network forecasts of chaotic dynamics well beyond the Lyapunov time \cite{Chaos_Ott_2017,PhysRevLett_Ott_2018}, and that a future study should aim at teasing out those features.
+In a previous paper \cite{mittal2026jand} we studied this problem numerically in the discrete sine-Gordon model \cite{cuevas2014sine}, realized as a ring of torsionally coupled pendulums with a weak global coupling that selects an instability of type III. Smoothing the early energy profile with a box-car of about 17 pendulums substantially improved predictions of the localization site, suggesting that the instability is sensitive to energetic clusters rather than to single pendulums. We then reported that a convolutional neural network combined with a bidirectional long short-term memory network \cite{Hochreiter1997} (CNN-BiLSTM) located the site within $\pm1$ pendulum in 94.4\% of test cases. We concluded that the network had found features beyond energy clusters, and that a future study should aim at teasing them out.
 
-The present paper is that study. Rather than treat the predictor as a black box, we start from the linear stability of the uniform swing, its Floquet growth spectrum, and use it to pose a physical hypothesis for each design question: which quantities to measure (Q1), what architecture to use (Q2), which loss (Q3) and optimizer (Q4) to train with, and which choices matter in the final model (Q5). Each hypothesis is tested by an ablation that could refute it, in the spirit of physics-informed machine learning \cite{karniadakis2021physics}, where known structure such as a symmetry is built into the model rather than learned from data \cite{cohen2016group}. About 600 networks were trained (44 GPU-hours on a laptop), and we report the choices that did not pay off alongside those that did. We find that only a handful of the longest ring modes are unstable, which explains the smoothing width of Ref.~\cite{mittal2026jand}; that a small network built around the ring's symmetry halves the error of our rebuild of the CNN-BiLSTM; and that much of the remaining error belongs to the label, which jitters within a swing.
+The present paper is that study. Rather than treat the predictor as a black box, we begin with the linear stability of the uniform swing, its Floquet growth spectrum, and ask what it implies for each design question: what to measure, what architecture to use, and how to train it. For each question we stated a hypothesis before running the experiment, grounded in the spectrum wherever the physics had something to say, and tested it with an ablation, a controlled comparison that could refute it, in the spirit of physics-informed machine learning \cite{karniadakis2021physics}. We also wanted a predictor that is efficient and easy to implement, small enough to train in minutes on a laptop and fed with measurements that a real chain could provide. We report the choices that did not pay off alongside those that did.
 
-We could not reproduce the accuracy reported in Ref.~\cite{mittal2026jand} from its published description: our rebuild of that network reaches 60.4\% within $\pm1$ rather than 94.4\% (Sec.~\ref{sec:repro}). Comparisons with the earlier model, which we call \emph{v1} (and the present one \emph{v2}), therefore use this rebuild on the same test runs; the physics baselines do not depend on it. Sections~\ref{sec:model} and \ref{sec:methods} introduce the model, its Floquet spectrum and our methods, Sec.~\ref{sec:results} presents the results question by question, Sec.~\ref{sec:repro} discusses the reproduction of v1, and Sec.~\ref{sec:conclusions} concludes.
+Three findings stand out. First, only a handful of the longest ring modes are unstable, and this explains the smoothing width of Ref.~\cite{mittal2026jand}. Second, a network built around the ring's symmetry needs no recurrent layer, and with a thousandth of the parameters it halves the error of our rebuild of the CNN-BiLSTM. Third, much of the remaining error belongs to the label, because the first pendulum to cross an energy threshold jitters within a swing; defined at the scale of the hump of energy that forms, the site becomes almost fully predictable.
 
-% ===========================================================================
-\section{Model and Floquet growth spectrum}
-\label{sec:model}
-
-\subsection{The pendulum ring}
-
-We consider the same system as in Ref.~\cite{mittal2026jand}: a ring of $N$ pendulums with torsional nearest-neighbour coupling and a global coupling to the chain mean. In dimensionless time $\tau=\omega_0 t$, the angles obey
-\begin{equation}
-\label{eq:eom}
-\ddot\theta_n = -\sin\theta_n + \gt\,(\theta_{n+1}+\theta_{n-1}-2\theta_n) + \htl\,(\bar\theta-\theta_n),
-\end{equation}
-where $\bar\theta$ is the mean angle over the ring, indices are taken modulo $N$, and the dot denotes $d/d\tau$. We use $N=100$, $\gt=0.75$ and $\htl=0.5$.\footnote{Section~2.1 of Ref.~\cite{mittal2026jand} prints $\htl=0.05$. The code behind all results there uses $\htl=0.5$, and only this value gives the instability threshold near $A=1.59$ reported there (Secs.~\ref{sec:floquet} and \ref{sec:repro}).} Each run starts at rest with $\theta_n(0)=A+\eta_n$, where the amplitude $A\sim\mathcal{U}(1.65,1.85)$ is drawn once per run and the offsets $\eta_n\sim\mathcal{U}(-0.025,0.025)$ independently for every pendulum. The energy of site $n$ is
-\begin{equation}
-\label{eq:energy}
-E_n = \tfrac12\dot\theta_n^2 + (1-\cos\theta_n) + \tfrac{\gt}{2}(\theta_{n+1}-\theta_n)^2 + \tfrac{\htl}{2}(\theta_n-\bar\theta)^2 ,
-\end{equation}
-which assigns to each pendulum the spring to its right-hand neighbour, as in the code of Ref.~\cite{mittal2026jand}; other conventions are discussed in Sec.~\ref{sec:labels}. The total energy $\Etot=\sum_n E_n$ is conserved. Released in a nearly uniform swing, the ring keeps swinging almost uniformly for several tens of time units. Then, after about 57 time units on average, the energy suddenly concentrates: one pendulum holds more than 10\% of the total, ten times its equipartition share. For pendulums 20~cm long this happens about 8~s after release. We ask how well the early behaviour of the ring predicts which pendulum this will be.
-
-\subsection{Linear stability of the uniform swing}
-\label{sec:floquet}
-
-Without offsets, every pendulum follows the same swing $\Theta(\tau)$, with $\ddot\Theta=-\sin\Theta$, $\Theta(0)=A$ and $\dot\Theta(0)=0$, whose period is $T(A)=4K\!\left(\sin^2(A/2)\right)$, $K$ being the complete elliptic integral of the first kind. Writing $\theta_n=\Theta+\delta\theta_n$ and expanding the perturbation in ring modes, $\delta\theta_n=\sum_m a_m(\tau)\,e^{2\pi i mn/N}$, we linearize Eq.~(\ref{eq:eom}) and obtain for every mode $m\ge1$ a Hill equation \cite{magnus1966hill},
-\begin{equation}
-\label{eq:hill}
-\ddot a_m + \left[\cos\Theta(\tau) + \htl + 4\gt\sin^2\!\left(\frac{\pi m}{N}\right)\right] a_m = 0 ,
-\end{equation}
-whose coefficient is periodic with period $T(A)$. The global term adds the same stiffness $\htl$ to every mode except the uniform one ($m=0$), which is the swing itself; as discussed in Ref.~\cite{mittal2026jand}, this shift is what selects an instability of type III. Integrating Eq.~(\ref{eq:hill}) over one period gives the $2\times2$ monodromy matrix $M_m(A)$, whose eigenvalue of largest modulus, $\mu_m$, defines the growth rate
-\begin{equation}
-\label{eq:sigma}
-\sigma_m(A) = \frac{\ln|\mu_m(A)|}{T(A)} ;
-\end{equation}
-mode $m$ grows when $\sigma_m>0$.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.95\linewidth]{fig1_growth_spectrum.pdf}
-  \caption{Floquet growth spectrum of the uniform swing, Eqs.~(\ref{eq:hill}) and (\ref{eq:sigma}). (a)~Growth rate $\sigma_m$ of ring mode $m$ (wavelength $100/m$ sites) against the swing amplitude $A$; the swing becomes unstable at $A_c=1.577$, and the bar marks the amplitudes in the data. (b)~At $A=1.75$ only modes $m=1$--$5$ grow; the labels give the $e$-folding time of each mode in time units.}
-  \label{fig:spectrum}
-\end{figure}
-
-Figure~\ref{fig:spectrum} shows the resulting spectrum. The uniform swing becomes unstable at $A_c=1.577$, consistent with the vertical asymptote of the localization time near $A=1.59$ found numerically in Ref.~\cite{mittal2026jand}. As the amplitude increases, more long waves become unstable, but only a few do in the range used here: at $A=1.75$ only the five longest waves grow, with wavelengths of 100, 50, 33, 25 and 20 sites. The fastest, $m=1$, grows at $\sigma_1=0.1185$, by a factor of $e$ every 8.4 time units, so over the observation window of Ref.~\cite{mittal2026jand}, $\tau\le4.5$, the perturbation grows at most about twofold.
-
-Two expectations follow, and they guide everything below. First, since the growing modes are the longest waves of the ring, the eventual site should be a property of the whole ring rather than of a local neighbourhood. Second, since so little growth occurs during the observation window, a predictor must essentially read the initial perturbation and project it onto the growing modes, rather than watch the hotspot form.
+One caveat applies throughout. The training code of Ref.~\cite{mittal2026jand} is not available to us, and our rebuild of that network from its published description reaches 60.4\% within $\pm1$ rather than 94.4\% (Sec.~\ref{sec:repro}). We therefore compare the two networks, which we call \emph{v1} and \emph{v2}, on the same test runs using this rebuild, and compare both with physics baselines that do not depend on it. Section~\ref{sec:methods} introduces the model, its growth spectrum and our methods, Sec.~\ref{sec:results} presents the results, Sec.~\ref{sec:repro} discusses the reproduction of v1, and Sec.~\ref{sec:conclusions} concludes.
 
 % ===========================================================================
 \section{Methods}
 \label{sec:methods}
 
-\subsection{Simulator and data}
+\subsection{The pendulum ring}
+
+We consider the same system as in Ref.~\cite{mittal2026jand}: a ring of $N$ pendulums with torsional nearest-neighbour coupling and a global coupling to the chain average. In dimensionless time $\tau=\omega_0 t$, the angles obey
+\begin{equation}
+\label{eq:eom}
+\ddot\theta_n = -\sin\theta_n + \gt\,(\theta_{n+1}+\theta_{n-1}-2\theta_n) + \htl\,(\bar\theta-\theta_n),
+\end{equation}
+where $\bar\theta$ is the mean angle over the ring, indices are taken modulo $N$, and the dot denotes $d/d\tau$. We use $N=100$, $\gt=0.75$ and $\htl=0.5$.\footnote{Section~2.1 of the journal version of Ref.~\cite{mittal2026jand} prints $\htl=0.05$, a typographical error: Sec.~2.3 there and the simulation code use $\htl=0.5$, the value that gives the instability threshold near $A=1.59$ reported there (Sec.~\ref{sec:floquet}).} Each run starts at rest with $\theta_n(0)=A+\eta_n$, where the amplitude $A\sim\mathcal{U}(1.65,1.85)$ is drawn once per run and the offsets $\eta_n\sim\mathcal{U}(-0.025,0.025)$ independently for every pendulum. The energy of site $n$ is
+\begin{equation}
+\label{eq:energy}
+E_n = \tfrac12\dot\theta_n^2 + (1-\cos\theta_n) + \tfrac{\gt}{2}(\theta_{n+1}-\theta_n)^2 + \tfrac{\htl}{2}(\theta_n-\bar\theta)^2 ,
+\end{equation}
+which assigns to each pendulum the spring to its right-hand neighbour, as in the code of Ref.~\cite{mittal2026jand}; the total energy $\Etot=\sum_n E_n$ is conserved. After swinging almost uniformly for several tens of time units, about 57 on average, the ring suddenly concentrates its energy, and one pendulum holds more than 10\% of the total, ten times its equipartition share. For pendulums 20~cm long this happens about 8~s after release. We ask how well the early behaviour of the ring predicts which pendulum this will be.
+
+\subsection{Linear stability of the uniform swing}
+\label{sec:floquet}
+
+Without offsets, every pendulum follows the same swing $\Theta(\tau)$, with $\ddot\Theta=-\sin\Theta$, $\Theta(0)=A$ and $\dot\Theta(0)=0$, whose period is $T(A)=4\mathcal{K}\!\left(\sin^2(A/2)\right)$, $\mathcal{K}$ being the complete elliptic integral of the first kind. Writing $\theta_n=\Theta+\delta\theta_n$ and expanding the perturbation in ring modes, $\delta\theta_n=\sum_m a_m(\tau)\,e^{2\pi i mn/N}$, we linearize Eq.~(\ref{eq:eom}) and obtain for every mode $m\ge1$ a Hill equation \cite{magnus1966hill},
+\begin{equation}
+\label{eq:hill}
+\ddot a_m + \left[\cos\Theta(\tau) + \htl + 4\gt\sin^2\!\left(\frac{\pi m}{N}\right)\right] a_m = 0 ,
+\end{equation}
+whose coefficient is periodic with period $T(A)$. The global term adds the same stiffness $\htl$ to every mode except the uniform one, which is the swing itself; as discussed in Ref.~\cite{mittal2026jand}, this shift is what selects an instability of type III. Integrating Eq.~(\ref{eq:hill}) over one period gives the $2\times2$ monodromy matrix $M_m(A)$, whose eigenvalue of largest modulus, $\mu_m$, defines the growth rate $\sigma_m(A)=\ln|\mu_m(A)|/T(A)$; mode $m$ grows when $\sigma_m>0$.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{paper_fig1_spectrum.pdf}
+  \caption{Floquet growth spectrum of the uniform swing, Eq.~(\ref{eq:hill}). (a)~Growth rate $\sigma_m$ of ring mode $m$ (wavelength $100/m$ pendulums) against the swing amplitude $A$; the swing becomes unstable at $A_c=1.577$, and the bar marks the amplitudes in the data. (b)~At $A=1.75$ only modes $m=1$--$5$ grow; the labels give the $e$-folding time of each mode.}
+  \label{fig:spectrum}
+\end{figure}
+
+Figure~\ref{fig:spectrum} shows the resulting spectrum. The uniform swing becomes unstable at $A_c=1.577$, consistent with the vertical asymptote of the localization time near $A=1.59$ found numerically in Ref.~\cite{mittal2026jand}. As the amplitude increases, more long waves become unstable, but only a few do in the range used here: at $A=1.75$ only the five longest waves grow, with wavelengths of 100, 50, 33, 25 and 20 pendulums. The fastest grows by a factor of $e$ every 8.4 time units, so during the first 4.5 time units after release, the observation window of Ref.~\cite{mittal2026jand}, the perturbation grows by less than a factor of two.
+
+Three expectations follow, and they guide everything below. First, since the growing modes are the longest waves of the ring, the eventual site should be a property of the whole ring rather than of a local neighbourhood. Second, since so little growth occurs in the observation window, a predictor must essentially read the initial perturbation and project it onto the growing modes, rather than watch the hotspot form. Third, little else happens in time during that window: a small-amplitude estimate of the largest group velocity gives about half a pendulum per time unit, so a disturbance moves by only about two pendulums. Moreover, since the ring is released from rest, the initial angles $\theta_n(0)$ are its complete state, and every later frame is a function of them.
+
+\subsection{Simulation, labels and metrics}
 \label{sec:pools}
 
-We integrate Eq.~(\ref{eq:eom}) with a fourth-order Runge--Kutta scheme \cite{press1992numerical} with step $\Delta\tau=0.05$, vectorized across runs, and store samples every 0.5 time units, as in Ref.~\cite{mittal2026jand}. The total energy drifts by $3.4\times10^{-6}$ over $\tau=150$, and halving the step changes no label on 1,000 of 1,000 test runs. Rerun through the simulation code of Ref.~\cite{mittal2026jand}, with its \texttt{odeint} integration \cite{virtanen2020scipy}, energy formula and first-crossing detection, 1,000 test runs give exactly the same localization site and time as our simulator, which is about 100 times faster.
+Training some 600 networks requires far more simulated runs than Ref.~\cite{mittal2026jand} did, so we replaced its run-by-run \texttt{odeint} integration \cite{virtanen2020scipy} with a fourth-order Runge--Kutta scheme \cite{press1992numerical} that integrates thousands of runs at once (step $\Delta\tau=0.05$, samples every 0.5 time units, as before). On 1,000 test runs it gives exactly the same localization site and time as the simulation code of Ref.~\cite{mittal2026jand}, about 100 times faster. Since the simulation is deterministic, we store only the initial angles of each run and regenerate any model input from them. Models are trained on up to 100,000 runs, the first 60,000 matching the training budget of Ref.~\cite{mittal2026jand}; a validation pool of 20,000 runs serves for every model choice, and a test pool of 20,000 runs only for the numbers we report. The pools are generated with different random seeds, so no run appears in two of them, and inputs are standardized with statistics of the training pool alone.
 
-Models are trained on a pool of 100,000 runs, of which the first 60,000 match the training budget of Ref.~\cite{mittal2026jand}. A validation pool of 20,000 runs serves for checkpoint selection and for every model choice, and a test pool of 20,000 runs only for the numbers we report; the pools are generated with different random seeds, so no run appears in two of them. Every model input is rebuilt deterministically from the stored initial angles: angles, velocities or site energies, any set of frames and start time, an unknown start within the first swing, Gaussian sensor noise of standard deviation $\sigma_s$ on every pendulum and frame, or only every $s$-th pendulum, standardized with training-pool statistics. We call the site energies at $\tau=0,0.5,\dots,4.5$ together with $\theta_n(0)$ ``v1's inputs''; they are the base input of Phases~2, 4 and 5 (Sec.~\ref{sec:predictors}), whereas the final model sees the angles at the same ten times. For the robustness tests, further pools are simulated with their own true chain (Sec.~\ref{sec:robust}); damping adds a term $-\gamma\dot\theta_n$ to Eq.~(\ref{eq:eom}), so that a free pendulum has quality factor $Q=1/\gamma$.
-
-\subsection{Localization labels}
-\label{sec:labels}
-
-Following Ref.~\cite{mittal2026jand}, a run localizes at the first sample $\tau_k=0.5k$ at which one site holds more than 10\% of the total energy, $\max_n E_n(\tau_k)>0.1\,\Etot$, and its label is that site. With $E_n$ from Eq.~(\ref{eq:energy}) we call this the \emph{first-crossing label}; it is used for every comparison with v1. A variant splits each spring's energy evenly between the two pendulums it joins, which gives a symmetric site energy $E^{\mathrm{s}}_n$. Within each swing, energy moves back and forth between a pendulum's motion and the springs on either side of it, so the pendulum that first crosses the threshold depends on the moment in the swing. To remove this exchange, the \emph{swing-averaged label} averages the symmetric energy over the last 16 samples (8 time units, about one swing),
-\begin{equation}
-\label{eq:avg}
-\bar E_n(\tau_k) = \frac{1}{16}\sum_{j=0}^{15} E^{\mathrm{s}}_n(\tau_{k-j}) ,
-\end{equation}
-fires when $\max_n\bar E_n>0.1\,\Etot$, and names the top pendulum; its time is the end of the window. Finally, the \emph{hump label} defines the event at the scale of the hump of energy that forms (Sec.~\ref{sec:target}). It fires at the first sample at which
-\begin{equation}
-\label{eq:hump}
-\max_n H_n > 0.15\,\Etot , \qquad H_n = \bar E_{n-1} + \bar E_n + \bar E_{n+1} ,
-\end{equation}
-and names the centre of that three-pendulum window. The threshold of 15\% makes it fire together with the first-crossing label (median $\tau=54.5$ against 55). A control label, \emph{hump-top}, fires with the hump label but names the top pendulum of $\bar E_n$. With damping, every threshold is a fraction of the energy the chain still holds.
-
-\subsection{Metrics}
-
-All distances are measured around the ring, $d(n,n')=\min(|n-n'|,\,N-|n-n'|)$. We report the mean distance between the predicted and the true site, in sites; the accuracy exactly at the site, within $\pm1$ and within $\pm3$; and the share of runs more than 10 sites off, which we call far misses. Unless noted otherwise, numbers are on the 20,000-run test pool, which resolves an accuracy to about $\pm0.3\%$ (95\%), and are given as the mean $\pm$ standard deviation over training seeds; differences $\Delta$ between two models are given $\pm$ their standard error.
+Following Ref.~\cite{mittal2026jand}, a run localizes at the first sample at which one site holds more than 10\% of the total energy, $\max_n E_n>0.1\,\Etot$, and its label is that site. We call this the \emph{first-crossing label} and use it for every comparison with v1; two smoother labels are introduced in Sec.~\ref{sec:target}. Distances are measured around the ring, $d(n,n')=\min(|n-n'|,\,N-|n-n'|)$. Accuracy within $\pm1$, the metric of Ref.~\cite{mittal2026jand}, was chosen there because the localized energy spans several pendulums, a point that Sec.~\ref{sec:target} bears out; it also partly rewards a convention, since in 21\% of runs which pendulum crosses first depends on how the spring energy in Eq.~(\ref{eq:energy}) is shared between neighbours. We therefore also report the mean distance between predicted and true site, the accuracy within $\pm3$, and the share of runs more than 10 sites off, which we call far misses. The test pool resolves an accuracy to about $\pm0.3\%$.
 
 \subsection{Predictors and protocol}
 \label{sec:predictors}
 
-\paragraph{Physics baselines.} The \emph{box-car} predictor of Ref.~\cite{mittal2026jand} takes the largest site of a moving average of the site energy, with the width and frame chosen on the validation pool. The \emph{Floquet filter} needs no training: it evolves the mean-subtracted initial angles through the linearized dynamics for $p$ swing periods, multiplying each ring mode by the $(1,1)$ element of $M_m(A)^p$ for the run's estimated amplitude, and predicts the largest site of the evolved field ($p=6$, chosen on the validation pool). The \emph{learned linear ring filter} is a multinomial logistic regression whose site scores are a full-ring circular convolution of the inputs, fitted to its global optimum with L-BFGS \cite{liu1989limited}, with an amplitude-dependent filter (200 parameters) or on v1's inputs (1,100 parameters).
+We compare the networks with three physics baselines. The \emph{box-car} predictor of Ref.~\cite{mittal2026jand} picks the site where a moving average of the site energy peaks, with the width and the time of the snapshot chosen on the validation pool. The \emph{Floquet filter} needs no training at all: it evolves the mean-subtracted initial angles through the linearized dynamics for six swing periods, multiplying each ring mode by its response computed from $M_m(A)$ at the run's estimated amplitude, and picks the site where the result peaks. The \emph{linear ring filter} is the simplest trained model that respects the ring, a multinomial logistic regression whose score at each site is a circular convolution of the initial angles over the whole ring, with amplitude-dependent weights (200 parameters); it is convex, and we fit it to its global optimum with L-BFGS \cite{liu1989limited}. We rebuilt v1 in PyTorch \cite{paszke2019pytorch} from Sec.~2.3 and the Appendix of Ref.~\cite{mittal2026jand}, with the layers, inputs, loss, optimizer and early stopping described there (26,499,205 parameters; Appendix~\ref{app:training}).
 
-\paragraph{v1, rebuilt.} v1 is rebuilt in PyTorch \cite{paszke2019pytorch} from Sec.~2.3 and the Appendix of Ref.~\cite{mittal2026jand}, keeping the defaults of the original Keras code (Sec.~\ref{sec:repro}): four time-distributed convolutions (32 to 256 filters), a bidirectional LSTM with 128 units and 20\% dropout, a dense layer and two heads, a sigmoid ``localizes'' head and a softmax over the 100 sites, 26,499,205 parameters in all. It is trained with Adam \cite{kingma2015adam} at a constant learning rate of $10^{-3}$, batch size 64, and early stopping on the validation loss.
-
-\paragraph{v2 ring models.} The models we compare share a backbone built for the ring: a local branch of circular convolutions, so that the ring has no ends; an optional global Fourier branch that keeps ring modes $1,\dots,M$ and mixes channels with one complex weight per mode, the form of the linear Floquet stage \cite{li2021fourier}; and a per-site head that gives one score per pendulum, so that the model is equivariant under rotations of the ring \cite{cohen2016group}. Several frames are stacked as channels, passed through a GRU \cite{cho2014learning} at each site, or convolved over time and site together. Hidden activations are GELUs \cite{hendrycks2016gelu}.
-
-\paragraph{Final model.} The final model (Sec.~\ref{sec:final}) is a whole-ring dilated CNN. The ten angle frames enter as channels of a signal on the ring, $x\in\mathbb{R}^{10\times N}$. Seven circular convolutions with kernel 3, dilations 1, 2, 4, 8, 16, 32 and 1 \cite{yu2016multiscale,oord2016wavenet}, 32 channels and GELUs give every pendulum a receptive field of 129 sites, more than the whole ring. A circular convolution with kernel 3, a GELU and a $1\times1$ convolution then give a score $s_n$ per site and the probability $p_n=e^{s_n}/\sum_{n'}e^{s_{n'}}$, and a second head, linear in the ring-averaged features, predicts the logarithm of the localization time $\tau_{\mathrm{loc}}$. The model has 22,786 parameters, none tied to a particular pendulum. With $y$ the true site, it is trained on
-\begin{equation}
-\label{eq:loss}
-\mathcal{L} = -\sum_n q_n\ln p_n + \lambda_d\sum_n p_n\, d(n,y) + \lambda_t\left(\hat\ell-\ln\tau_{\mathrm{loc}}\right)^2,
-\qquad q_n\propto\exp\!\left[-\frac{d(n,y)^2}{2\sigma^2}\right],
-\end{equation}
-that is, cross-entropy against circular-Gaussian soft labels of width $\sigma=1$ site \cite{szegedy2016rethinking}, plus $\lambda_d=0.1$ times the expected ring distance, plus $\lambda_t=0.1$ times the squared error of the (standardized) log-time prediction $\hat\ell$.
-
-\paragraph{Training and protocol.} v2 models are trained with AdamW \cite{loshchilov2019decoupled} (learning rate $3\times10^{-3}$, weight decay $10^{-4}$), a cosine decay \cite{loshchilov2017sgdr} with 3\% warmup and batch size 256 for 7,050 steps (30 epochs of 60,000 runs), keeping the checkpoint with the lowest validation mean distance (evaluated every 235 steps on 5,000 validation runs). The final model trains in about 6 minutes on a laptop GPU (Apple M3 Pro), the v1 rebuild in about 23. The study proceeded in phases, each testing hypotheses set out in advance: physics and baselines (Phase~1); architecture (Phase~2, 30-epoch runs); inputs, loss and optimizer (Phases~3--5, 15-epoch screening runs, three seeds); the final model with one-at-a-time removals and data-efficiency and robustness tests (Phase~6, 30 epochs, five seeds); the key choices on the swing-averaged label (Phase~7); regularization with little data (Phase~8); and the hump label (Phases~9 and 10). Every run is logged with its configuration, the hypothesis it tests, and its metrics.
+The study proceeded question by question. We first compared architectures, with v1's inputs, then the inputs, the loss and the optimizer, changing one choice at a time; finally we combined the best choices and removed them again one at a time to see which mattered. Inputs, losses and optimizers were compared in shorter screening runs with three training seeds (random initializations of the network), the final model with five. Every network was trained on one laptop (an Apple M3 Pro, on its built-in GPU); training details are given in Appendix~\ref{app:training}.
 
 % ===========================================================================
 \section{Results}
 \label{sec:results}
 
-\subsection{Physics of the instability}
+\subsection{What the growth spectrum explains}
 \label{sec:physics}
 
-\paragraph{The best smoothing width is the Floquet band edge.} Let us first return to the box-car smoothing of Ref.~\cite{mittal2026jand}. A box-car of width $K$ first cancels the ring mode $m=N/K$: a wider box-car also suppresses longer waves, and a narrower one lets shorter ones through. The best width should therefore cancel the first stable mode, $m_c$, while keeping the growing ones, which gives $K^*=N/m_c$; at $A=1.75$, where modes 1--5 grow, this is $100/6\approx17$. Figure~\ref{fig:width} compares the prediction with the best width measured on 2,000 runs at each of seven amplitudes. The two agree from just above threshold ($A=1.60$) to $A=1.90$, including the empirical optimum of 17 found in Ref.~\cite{mittal2026jand}. This suggests that the energetic clusters identified there are the growing long waves, seen through a low-pass filter.
+Let us first return to the box-car smoothing of Ref.~\cite{mittal2026jand}, whose best width, 17 pendulums, was found empirically. A box-car of width $K$ first cancels the ring mode $m=N/K$; a wider box-car also suppresses longer waves, and a narrower one lets shorter ones through. The best width should therefore cancel the first stable mode, $m_c$, while keeping all the growing ones, which gives $K^*=N/m_c$, or $100/6\approx17$ at $A=1.75$, where modes 1--5 grow. Figure~\ref{fig:physics}(a) shows that this prediction matches the best width measured at seven amplitudes, from just above threshold to $A=1.90$. The energetic clusters identified in Ref.~\cite{mittal2026jand} thus appear to be the growing long waves, seen through a low-pass filter.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
   \centering
-  \includegraphics[width=0.5\linewidth]{fig2_best_width.pdf}
-  \caption{The best box-car width follows the Floquet band edge, $K^*=N/m_c$, where $m_c$ is the first stable mode at the given amplitude (line). Dots are the measured best widths (2,000 runs per amplitude; bars, 16--84\% bootstrap range). The empirical optimum $K=17$ of Ref.~\cite{mittal2026jand} lies on the prediction.}
-  \label{fig:width}
+  \includegraphics[width=\linewidth]{paper_fig2_physics.pdf}
+  \caption{(a)~The best box-car width (dots, with 16--84\% bootstrap ranges; 2,000 runs per amplitude) follows the Floquet band edge $K^*=N/m_c$ (line), where $m_c$ is the first stable mode; the empirical optimum of Ref.~\cite{mittal2026jand} lies on it. (b)~Share of labels moved by more than one or three sites when white noise of the given size is added to the initial angles; diamonds give the share moved by more than one site when a $10^{-3}$~rad error is placed only in the growing or only in the stable modes. (c)~Share of labels moved by more than three sites when the initial perturbation keeps only the modes $m\le M$, or loses the growing ones.}
+  \label{fig:physics}
 \end{figure}
 
-\paragraph{The outcome is deterministic but needs a precise initial state.} Since the localization process is noise-activated, one may ask whether chaos limits how well it can be predicted. Figure~\ref{fig:sensitivity}(a) shows that it does not. Perturbing the initial angles by $10^{-6}$~rad never changes the label, and neither does halving the integration step, so the label is a deterministic function of the initial state and the accuracy ceiling is close to 100\%. What limits prediction is how precisely the initial state is known: a white error of $10^{-4}$~rad moves 4\% of labels by more than one site, and $10^{-3}$~rad moves 25\%. The error matters most in the growing modes: placed only in modes 1--5, the same $10^{-3}$~rad error moves 50\% of labels, and placed only in the stable modes, 4.5\%. Conversely [Fig.~\ref{fig:sensitivity}(b)], deleting every initial mode except the growing ones keeps the site within $\pm3$ in 91\% of runs, while deleting the growing modes makes the site random. The coarse answer thus lives in about ten numbers, the amplitudes and phases of the five growing modes, and local detail decides the last site or two.
+Since the localization process is noise-activated, one may ask next whether chaos limits how well it can be predicted. Figure~\ref{fig:physics}(b) shows that it does not. Perturbing the initial angles by $10^{-6}$~rad never changes the label, and neither does halving the integration step, so the label is a deterministic function of the initial state and the best possible accuracy is close to 100\%. What limits prediction is how precisely that state is known: an error of $10^{-3}$~rad on every pendulum moves a quarter of the labels by more than one site, and placed only in the growing modes, it moves half of them. Conversely [Fig.~\ref{fig:physics}(c)], deleting every initial mode except the growing ones keeps the site within $\pm3$ in 91\% of runs, whereas deleting the growing modes makes the site random. The coarse answer thus lives in about ten numbers, the amplitudes and phases of the five growing modes, while local detail decides the last site or two.
 
-\begin{figure}[htbp]
+The physics alone already gets far (Table~\ref{tab:headline}). The best box-car reaches a mean distance of 5.07 sites, close to the 5.4 reported in Ref.~\cite{mittal2026jand}. The Floquet filter, which simply grows the measured initial perturbation and has no trained parameters, matches the mean distance of the rebuilt v1 (3.12 against 3.14), although it is less often within $\pm1$. The 200-parameter linear ring filter beats the rebuilt v1 on every metric. These baselines set the bar that any network has to clear.
+
+\begin{table}[t]
   \centering
-  \includegraphics[width=0.95\linewidth]{fig3_label_sensitivity.pdf}
-  \caption{Sensitivity of the localization site to the initial state. (a)~Share of labels moved by more than one (blue) or three (orange) sites when white noise of the given size is added to the initial angles; diamonds place a $10^{-3}$~rad error only in the growing modes ($m\le5$) or only in the stable ones ($m\ge6$). (b)~Share of labels moved by more than three sites when the initial perturbation keeps only modes $m\le M$, or loses the growing modes.}
-  \label{fig:sensitivity}
-\end{figure}
-
-\paragraph{Physics alone gets far.} Table~\ref{tab:headline} compares the physics baselines with the rebuilt v1. The box-car at its best frame reaches a mean distance of 5.07 sites (38.0\% within $\pm1$), close to the 5.4 reported in Ref.~\cite{mittal2026jand}. The Floquet filter, which simply grows the measured initial perturbation for six swing periods through Eq.~(\ref{eq:hill}) and picks the largest site, has no trained parameters and matches the mean distance of the rebuilt v1 (3.12 against 3.14), although it is less often within $\pm1$ (52.0\% against 60.4\%). A linear ring filter with amplitude-dependent weights reaches 2.17 (67.4\%), and linear filters on v1's inputs 2.02 (68.2\%). A convex, 200-parameter model built on the physics thus beats the 26.5-million-parameter rebuild on every metric.
-
-\subsection{Architecture (Q2)}
-\label{sec:arch}
-
-We now turn to the architecture, with v1's inputs and a 30-epoch budget for every model. The spectrum suggests that a pendulum's score should depend on the whole ring, and this is borne out [Fig.~\ref{fig:rf}(a)]: widening the receptive field of a dilated circular CNN from 9 to 17, 33, 65 and 129 sites takes the mean distance from 4.79 to 2.75, 1.82, 1.63 and 1.54. A global Fourier branch combined with a local one (1.75) beats either alone (1.94 for the Fourier branch, 4.90 for the local one) and saturates once the unstable band is included (keeping ring modes 1--3, 6, 12 or 25 gives 2.58, 1.75, 1.77 and 1.81), but the deep whole-ring stack does better still.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.49\linewidth]{fig5_receptive_field.pdf}\hfill
-  \includegraphics[width=0.49\linewidth]{fig6_data_efficiency.pdf}
-  \caption{(a)~Mean test distance of a dilated circular CNN against its receptive field; the line is the 200-parameter linear ring filter. (b)~Mean test distance against the number of training runs for the dilated CNN with circular padding and one score per site, with zero padding, and with a v1-style flatten and dense head; the diamond is the rebuilt v1 at 60,000 runs.}
-  \label{fig:rf}
-\end{figure}
-
-The ring's symmetry also saves data [Fig.~\ref{fig:rf}(b)]. Since the dynamics are the same at every pendulum, a model that applies the same filters everywhere and scores every site the same way needs to learn each pattern only once. Trained on 1,000 runs, such a model (2.46) already beats a v1-style flatten and dense head trained on 60,000 runs (2.73). Small models suffice: networks from 2k to 115k parameters all land between 1.68 and 2.01.
-
-Three further hypotheses did not pay off. A recurrent model over each pendulum's frames helps a small CNN (stacked frames 1.75, a per-site MLP 1.66, a per-site GRU 1.59, a single frame 1.81), but the whole-ring CNN ties it without one, so v1's LSTM is not needed; the Fourier branch adds nothing to the dilated stack; and feeding the Floquet-evolved field as an extra input does not help even with little data (2.02 against 2.00 at 3,000 runs). Three models tie on the validation pool within one standard error: the whole-ring dilated CNN (1.557, three seeds), the same with a Fourier branch (1.570), and the per-site GRU (1.571). We choose the cheapest and simplest, the whole-ring dilated CNN, with about 1/1,000 of v1's parameters; other fronts or a doubled width do not improve it (1.57--1.61).
-
-\subsection{Inputs and sensing (Q1)}
-\label{sec:inputs}
-
-\paragraph{What to measure.} With noise-free data observed from release, angle frames at $\tau=0,\dots,4.5$ are the best input (mean distance 1.56, 76.7\% within $\pm1$; screening runs), ahead of $\theta(0)$ alone (1.66) and v1's inputs (1.75). In clean data $\theta(0)$ is the complete state; the further frames make it easier to learn, and energies, which need velocities and the model's parameters, never beat angles. If observation starts at an unknown point in the swing, angles need about a full swing of frames (16 frames: 1.85, against 2.87 with one), whereas a single frame of energies, which barely change along the swing, reaches 1.80.
-
-\paragraph{Sensor noise and when to watch.} Section~\ref{sec:physics} showed that a $10^{-3}$~rad error in the initial state already moves a quarter of the labels. We therefore add Gaussian noise of $10^{-4}$ to $10^{-2}$~rad to three sensing setups (a camera recording eight angle frames over four time units; angles and velocities in one frame; and the energies computed from them) and start the observation at $\tau=0$, 10, 20 or 30 (one seed per cell). The camera, watching from release, is fine up to about $10^{-3}$~rad (about 95\% within $\pm3$, mean distance 2.2) and reaches 7.0 at $10^{-2}$~rad. Noise first causes far misses rather than one-site slips: the share within $\pm1$ stays at 64--67\% up to $3\times10^{-3}$~rad, while the share of far misses triples. Noise picks the wrong hump before it blurs the right one. Later observation recovers the loss: at $10^{-2}$~rad, watching from $\tau=10$, 20 and 30 gives 4.0, 2.3 and 1.7, against 1.55 without noise.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.85\linewidth]{fig13b_noise_avg_label.pdf}
-  \caption{Waiting divides the sensor noise by the growth of the unstable modes. (a)--(c)~On the swing-averaged label, the mean distance of the three sensing setups (camera with eight angle frames; angles and velocities in one frame; energies), observed from $\tau=0$, 10, 20 or 30, against $\sigma_s e^{-\sigma_1\tau}$; the horizontal line is the noise-free error from release. (d)~Waiting per tenfold noise for the camera in four amplitude bins, on both labels (dots, fits; bars, 95\% intervals), against the predictions from the mean growth rate of the growing modes (black) and from the fastest mode (grey). (e)~The same for the whole test pool and each setup (S1, camera; S2, angles and velocities; S3, energies).}
-  \label{fig:collapse}
-\end{figure}
-
-The trade-off follows the growth of the unstable modes (Fig.~\ref{fig:collapse}). For the camera, the error depends on the noise $\sigma_s$ and the start time $\tau$ only through $\sigma_s e^{-k\tau}$, the noise relative to the grown signal, with $k$ close to the mean growth rate of the growing modes, 0.09--0.10, rather than the fastest rate, $\sigma_1=0.118$. Each tenfold worse sensor therefore costs about 23--26 time units of waiting (a fit to all cells gives 26.5), as the mean growth rate predicts (24.8), rather than $\ln10/\sigma_1=19.5$; split by swing amplitude, the rate rises as the growth rates do [Fig.~\ref{fig:collapse}(d)]. The label does not create this trade-off: on the swing-averaged label the camera's waiting cost is 25.5 time units per tenfold noise (95\% confidence interval 23--29), and noise adds about the same error on both labels (about $+0.7$ sites at $10^{-3}$~rad from release). Single-frame setups degrade faster and gain less from waiting (30--34 time units per tenfold noise). Without noise, waiting helps mostly on the first-crossing label: energies at $\tau=30$ reach 1.24 (82\% within $\pm1$), the best result of Phase~3, but on the swing-averaged label waiting until $\tau=30$ gains only 0.03. Where the energy settles can already be read at release.
-
-\paragraph{Fewer sensors.} Tracking every second pendulum costs nothing (mean distance 1.68 against 1.60 for all 100, both 96.3\% within $\pm3$), with or without noise, and every fourth pendulum costs little (1.86). Every eighth pendulum fails (5.27, 78.0\% within $\pm3$), even though 13 sensors satisfy the Nyquist criterion for the five growing modes: at release the stable modes hold about 90\% of the perturbation, and on 13 sensors they alias onto the wavenumbers of the growing modes. Watching later partly rescues the sparse camera (3.60 from $\tau=20$), as the growing modes rise above their aliases.
-
-\subsection{Loss (Q3) and optimizer (Q4)}
-\label{sec:loss}
-
-Turning to the loss (screening runs with v1's inputs), plain cross-entropy, v1's site loss, reaches a mean distance of $1.75\pm0.09$ (71.5\% within $\pm1$). Circular regression, which predicts a position on the ring, does worst ($1.94\pm0.11$, 63.2\%), because it averages competing humps into a site between them. Soft labels that credit the neighbouring sites help most ($\sigma=1$: $1.58\pm0.02$, 75.0\%) and cut the spread between seeds fourfold. An explicit expected-distance term adds nothing at small weight and makes the model hedge at a weight of 0.3, whereas predicting when localization happens helps a little: soft labels plus $0.1\times$ the expected distance plus the time head reach $1.55\pm0.02$ (74.6\%). A later-energy-profile head does as well ($1.52\pm0.04$) but needs extra simulation, and v1's binary ``localizes'' head adds nothing ($1.61\pm0.06$), since every run localizes. We choose Eq.~(\ref{eq:loss}).
-
-As expected, the physics does not choose the optimizer. Every adaptive optimizer and schedule lands within the spread between seeds: Adam at v1's constant rate of $10^{-3}$ ($1.68\pm0.05$), AdamW with a cosine ($1.75\pm0.09$) or one-cycle schedule \cite{smith2019super} ($1.65\pm0.08$), and Lion \cite{chen2023symbolic} ($1.74\pm0.01$); SGD with Nesterov momentum did not train at the one learning rate tried. Batch 1,024 matches batch 256 and trains about twice as fast, and weight decay of 0 or $10^{-2}$ makes no difference. We keep AdamW with a cosine schedule. The physics-guided choices moved the error by 0.2--3 sites; the optimizer moves it by at most 0.1.
-
-\subsection{The final model (Q5)}
-\label{sec:final}
-
-The final model puts together the winners: the whole-ring dilated CNN (Q2), angle frames at $\tau=0,\dots,4.5$, the same observation window as v1 (Q1), the loss of Eq.~(\ref{eq:loss}) (Q3), and AdamW with a cosine schedule (Q4). It trains for 30 epochs on the same 60,000 runs as v1. Against the rebuilt v1 (Table~\ref{tab:headline}), v2 halves the mean distance (3.14 to 1.49), cuts the far misses from 5.7\% to 1.5\%, and raises the share within $\pm1$ from 60\% to 77\% and within $\pm3$ from 90\% to 97\%, with 1/1,163 of the parameters, about four times faster training, and six times less spread between seeds; no v2 seed failed to train, whereas one of three v1 seeds never left chance level. v2 does not reach the 94.4\% within $\pm1$ reported in Ref.~\cite{mittal2026jand}, whose mean error of 1.44 does not state whether distances wrap around the ring; v2 scores 1.49 around the ring and 2.43 without wrapping.
-
-\begin{table}[htbp]
-  \centering
-  \caption{v1 against v2 and the physics baselines on the 20,000-run test pool (first-crossing label; mean $\pm$ standard deviation over the seeds in brackets). Distances in sites, accuracies in \%. The first row is quoted from Ref.~\cite{mittal2026jand} and could not be reproduced (Sec.~\ref{sec:repro}).}
+  \caption{Predictors on the 20,000-run test pool (first-crossing label; mean over the seeds in brackets, $\pm$ standard deviation). Distances in sites, accuracies in \%. The first row is quoted from Ref.~\cite{mittal2026jand}, which does not state whether its distances wrap around the ring (without wrapping, v2 scores 2.43); see Sec.~\ref{sec:repro}.}
   \label{tab:headline}
   \small
   \setlength{\tabcolsep}{4pt}
@@ -255,230 +168,191 @@ The final model puts together the winners: the whole-ring dilated CNN (Q2), angl
     Predictor [seeds] & Parameters & Mean dist. & Exact & $\pm1$ & $\pm3$ & $>10$ off \\
     \midrule
     v1, as published \cite{mittal2026jand} & 26.5M & 1.44 & & 94.4 & & \\
-    v1, rebuilt [2] & 26.5M & $3.14\pm0.19$ & $22.5\pm1.0$ & $60.4\pm1.9$ & $90.3\pm0.9$ & $5.7\pm0.4$ \\
-    Box-car, $K=17$, best frame & 0 & 5.07 & 12.9 & 38.0 & 71.1 & 9.0 \\
+    v1, rebuilt [2] & 26.5M & $3.14\pm0.19$ & 22.5 & $60.4\pm1.9$ & 90.3 & 5.7 \\
+    Box-car, $K=17$, best snapshot & 0 & 5.07 & 12.9 & 38.0 & 71.1 & 9.0 \\
     Floquet filter & 0 & 3.12 & 20.7 & 52.0 & 87.3 & 4.6 \\
-    Linear ring filter, $A$-dependent & 200 & 2.17 & 27.3 & 67.4 & 95.3 & 3.1 \\
-    Linear filters on v1's inputs & 1,100 & 2.02 & & 68.2 & 95.7 & \\
-    \textbf{v2 final [5]} & \textbf{22,786} & $\mathbf{1.49\pm0.03}$ & $\mathbf{27.7\pm0.4}$ & $\mathbf{77.2\pm0.5}$ & $\mathbf{97.3\pm0.1}$ & $\mathbf{1.5\pm0.1}$ \\
+    Linear ring filter & 200 & 2.17 & 27.3 & 67.4 & 95.3 & 3.1 \\
+    \textbf{v2 [5]} & \textbf{22,786} & $\mathbf{1.49\pm0.03}$ & \textbf{27.7} & $\mathbf{77.2\pm0.5}$ & \textbf{97.3} & \textbf{1.5} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Which choices matter.} Retraining the final model with one choice reverted at a time (Table~\ref{tab:loo}) shows that the ring's physics carries the architecture. Seeing the whole ring is worth 1.1 sites, since the growing modes are the five longest waves; circular padding is worth 0.9, since the ring has no ends and the hotspot can form anywhere; and one score per site is worth 0.3, with a tenth of the parameters. The loss sets the share within $\pm1$ more than the mean distance: plain cross-entropy or hard labels cost only 0.04--0.08 sites, but the share within $\pm1$ falls from 77\% to 64--65\%, because soft labels place predictions between the two candidate sites of the jittery first-crossing label (Sec.~\ref{sec:target}). v1's optimizer and inputs cost little ($\le0.07$) once the architecture is right.
+\subsection{What to measure}
+\label{sec:inputs}
 
-\begin{table}[htbp]
+The v1 network was given the site energies at ten times, $\tau=0,0.5,\dots,4.5$, together with the initial angles $\theta_n(0)$, copied into every frame as static context. Energies were the natural input there, since both the box-car analysis and the label of Ref.~\cite{mittal2026jand} are stated in terms of energy. The growth spectrum suggests two alternatives, however: angles instead of energies, and the angles at the time of each frame rather than only at release. The energy of Eq.~(\ref{eq:energy}) is computed from the angles, the velocities and the coupling constants, so it holds no information that these lack; at release, to first order in the offsets, $E_n(0)$ is simply a rescaled copy of $\theta_n(0)$. It is also expensive to measure, since velocities call for a gyroscope on every pendulum or noisy differencing of video frames, whereas a single camera can track every angle. And since the ring starts at rest, $\theta_n(0)$ alone is already the complete state. We therefore expected the initial angles alone to match v1's inputs, and frames of angles to do at least as well.
+
+Both expectations held. In screening runs, ten angle frames gave a mean distance of 1.56, the initial angles alone 1.66, and v1's inputs 1.75. In noise-free data the later frames carry no new information, but they make the same information easier to learn, and on the cleaner labels of Sec.~\ref{sec:target} they are clearly worth having. Angles do have one weakness. If the observation starts at an unknown point in the swing, they need about a full swing of frames to do as well as a single frame of energies, which barely change along the swing. For a camera started at release, the setting of Ref.~\cite{mittal2026jand}, angle frames are the natural choice, and v2 uses them.
+
+\subsection{Why we moved away from the recurrent network}
+\label{sec:arch}
+
+\begin{figure}[t]
   \centering
-  \caption{The final model with one choice reverted (three seeds each; test pool, first-crossing label). $\Delta$ is the change in mean distance against the final model's 1.49 (positive is worse), $\pm$ its standard error.}
-  \label{tab:loo}
-  \small
-  \begin{tabular}{@{}lrrr@{}}
+  \input{fig_schematic}
+  \caption{The two networks. (a)~v1 applies four convolutions to each frame separately, so each feature sees nine neighbouring pendulums of one frame; space and time first meet in the bidirectional LSTM, after every frame has been flattened into 25,600 numbers, each tied to a particular pendulum. (b)~v2 stacks the ten angle frames as channels of a signal on the ring, so every kernel sees all frames at once; seven circular convolutions with growing dilation let every pendulum see the whole ring, and the same small head scores every pendulum.}
+  \label{fig:schematic}
+\end{figure}
+
+We now turn to the network itself. The v1 network [Fig.~\ref{fig:schematic}(a)] follows a design common for video: convolutions extract features from each frame separately, and a recurrent network then models how the features evolve from frame to frame. This is a sensible default when little is known about the dynamics. In light of Sec.~\ref{sec:floquet}, however, it seemed less suited to this problem. First, there is little temporal dynamics to model, since over the ten frames the perturbation grows by less than a factor of two and moves by about two pendulums. Second, each convolutional feature sees only nine neighbouring pendulums, whereas the growing modes span the whole ring, so the global view is left to the LSTM, whose input is each frame flattened into 25,600 numbers. The weights that read this input hold 26.2 of v1's 26.5 million parameters, and each of them is tied to a particular pendulum, so the network must learn the same physics separately at each of the 100 positions, although the ring looks the same from every pendulum. Third, the convolutions pad the ends of the chain with zeros, so that no convolution links the first and the last pendulum, although on the ring they are neighbours. Bidirectionality, finally, was motivated in Ref.~\cite{mittal2026jand} by learning both past and future contexts; but the network makes one prediction from the whole window, so the backward pass sees nothing that the forward pass does not, while it doubles the largest block of parameters.
+
+This suggested the alternative of Fig.~\ref{fig:schematic}(b). If the ten frames are stacked as input channels, every kernel sees all of them at once, and we hypothesized that no recurrent layer would then be needed. We further expected that each pendulum's score should depend on the whole ring, that circular padding should replace zero padding, and that an output head applying the same small network at every pendulum, one score per site, should replace the flatten and dense layers. Each of these was tested separately, with v1's inputs and the same training budget.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{paper_fig4_ring.pdf}
+  \caption{(a)~Mean test distance of a dilated circular CNN against its receptive field; the line is the 200-parameter linear ring filter. (b)~Mean test distance against the number of training runs for the two-branch network described in the text (shallow circular convolutions plus a global branch on the lowest ring modes) with one score per site, the same with zero padding, and with a v1-style flatten and dense head; the diamond is the rebuilt v1, trained on 60,000 runs. Zero padding costs far less here than in the final model (Table~\ref{tab:choices}), presumably because the global branch is periodic whatever the padding.}
+  \label{fig:ring}
+\end{figure}
+
+The receptive field, the stretch of the ring on which a pendulum's score depends, matters most [Fig.~\ref{fig:ring}(a)]. In a circular CNN with kernels of three sites, spreading the three sites further apart from layer to layer (dilation) widens the receptive field from 9 to 129 sites, and the mean distance falls from 4.79 to 1.54. A network that sees nine pendulums, as each of v1's convolutional features does, is worse even than the linear ring filter.
+
+Our first design reached the whole ring differently. Since the linear growth stage multiplies each ring mode by its own factor, we combined a shallow local branch of circular convolutions with a global branch that keeps only the lowest ring modes and multiplies each by a learned complex matrix that mixes the channels, a generalization of the Floquet response and the form of Fourier neural operators \cite{li2021fourier}. The two branches together beat either alone, and the global branch saturates once it includes the unstable band, as expected. The deep whole-ring CNN does better still, however, and gains nothing from the global branch, since deciding which of several growing humps wins is a nonlinear competition across the ring that no linear filter captures. The ring's symmetry, in turn, saves data [Fig.~\ref{fig:ring}(b)]. Since the dynamics are the same at every pendulum, a network that scores every site with the same filters needs to learn each pattern only once \cite{cohen2016group}; trained on 1,000 runs, the two-branch network already beats a v1-style flatten and dense head trained on 60,000.
+
+The recurrent layer turned out to be a closer call than we had expected. On the two-branch network, convolving each frame and then passing each pendulum's ten frames through a small gated recurrent unit (GRU) \cite{cho2014learning} did help, lowering the mean distance from 1.75 with stacked frames to 1.59, and a small per-pendulum network without recurrence recovered part of this gain (1.66). In the whole-ring CNN, however, the advantage disappears. With stacked frames it scores 1.54, and with the same GRU in front 1.57. On the validation pool the whole-ring CNN, the same with the global branch, and the two-branch network with the GRU tie within one standard error, and we chose the simplest of them, the whole-ring CNN without recurrence, which also trains in less than half the time of the recurrent one. Once the convolutions see the whole ring, then, the ten frames need no recurrent model.
+
+Two further observations complete the picture. Feeding the network the field evolved by the Floquet filter as an extra input, which we expected to leave it only the nonlinear correction to learn and so to help most when data are scarce, did not help even with 3,000 training runs; the network learns the linear growth stage from the data alone. Nor does the network need to be large. Models from 2,000 to 115,000 parameters all land within about a third of a site of each other, as one would expect if the answer lives in about ten numbers plus local texture. We also considered, but did not pursue, other families of models: on a ring with nearest-neighbour coupling a graph network reduces to a one-dimensional convolution, a transformer over sites lacks the locality of the coupling and needs much data to learn what five modes encode, and reservoir computing \cite{Chaos_Ott_2017,PhysRevLett_Ott_2018} forecasts trajectories rather than a single outcome.
+
+\subsection{Loss and optimizer}
+\label{sec:loss}
+
+The v1 network was trained with plain cross-entropy over the 100 sites, which counts a prediction one site off as just as wrong as one 50 sites off, together with a binary head that predicts whether the run localizes at all. Since neighbouring sites are nearly equivalent at the level of the label (Sec.~\ref{sec:pools}), we expected soft labels that also credit the neighbours of the true site \cite{szegedy2016rethinking} to help, and they did, lowering the mean distance in screening runs from 1.75 to 1.58 and cutting the spread between seeds fourfold; against our expectation, however, they also lower the share of exact hits (from 41\% to 28\% at the full budget). Adding the expected ring distance to the loss, so that the network optimizes the metric we report, did not help further, and at larger weights it made the model hedge; we kept a small weight. Regressing a position on the ring did worst, as expected, because when two humps compete it averages them into a site between the two. The binary head adds nothing, since every run in our data localizes.
+
+Since the same growing modes set both when and where the energy localizes, we also expected a head that predicts the localization time to help with the site, and it did, slightly. Whether the timing is worth predicting for its own sake is another matter. We suspected that it mostly follows simple trends in the parameters, since a larger swing makes the unstable modes grow faster, and this turned out to be largely true (Sec.~\ref{sec:final}). The optimizer, finally, is a question the physics does not answer, and indeed every adaptive optimizer and learning-rate schedule we tried landed within the spread between seeds. We kept AdamW \cite{loshchilov2019decoupled} with a cosine schedule \cite{loshchilov2017sgdr}; v1's Adam \cite{kingma2015adam} at a constant rate does about as well.
+
+\subsection{The final model}
+\label{sec:final}
+
+The final model combines the best choices [Fig.~\ref{fig:schematic}(b)]. The ten angle frames at $\tau=0,0.5,\dots,4.5$, the observation window of v1, enter as channels of a signal on the ring. Seven circular convolutions with kernels of three sites, dilations 1, 2, 4, 8, 16, 32 and 1 \cite{yu2016multiscale,oord2016wavenet} and 32 channels give every pendulum a receptive field of 129 sites, more than the whole ring. A small head, the same at every pendulum, gives a score $s_n$ per site and the probability $p_n=e^{s_n}/\sum_{n'}e^{s_{n'}}$, and a second head, linear in the ring-averaged features, predicts the logarithm of the localization time $\tau_{\mathrm{loc}}$. With $y$ the true site, the loss is
+\begin{equation}
+\label{eq:loss}
+\mathcal{L} = -\sum_n q_n\ln p_n + \lambda_d\sum_n p_n\, d(n,y) + \lambda_t\left(\hat\ell-\ell\right)^2,
+\qquad q_n\propto\exp\!\left[-\frac{d(n,y)^2}{2\sigma^2}\right],
+\end{equation}
+that is, cross-entropy against soft labels of width $\sigma=1$ site, plus $\lambda_d=0.1$ times the expected ring distance, plus $\lambda_t=0.1$ times the squared error of the predicted log-time $\hat\ell$, where $\ell$ is $\ln\tau_{\mathrm{loc}}$ standardized over the training pool. The model has 22,786 parameters, none of them tied to a particular pendulum, and trains in about six minutes on the same 60,000 runs as v1.
+
+Table~\ref{tab:headline} compares it with v1 and the baselines. Against the rebuilt v1, v2 halves the mean distance, from 3.14 to 1.49, cuts the far misses from 5.7\% to 1.5\%, and raises the share within $\pm1$ from 60\% to 77\%. It does so with about a thousandth of the parameters and a quarter of the training time, and all five v2 seeds trained successfully, whereas one of three v1 seeds stayed at chance level. Yet v2 does not reach the 94.4\% within $\pm1$ reported in Ref.~\cite{mittal2026jand}, a point we return to in Sec.~\ref{sec:repro}.
+
+\begin{table}[t]
+  \centering
+  \caption{From v1 to v2: each design choice, the physical reason for it, and what it costs to revert it in the final model, which need not be its cost in v1 (three seeds each; test pool, first-crossing label). $\Delta$ is the change in mean distance against the final model's 1.49 (positive is worse), $\pm$ its standard error. $^*$The same seven layers without dilation, so that each pendulum sees 15 sites. $^\dagger$From the architecture comparison with v1's inputs: adding a per-pendulum GRU in front of the whole-ring CNN (1.57 against 1.54; within $\pm1$, 73.1\% against 75.6\%).}
+  \label{tab:choices}
+  \footnotesize
+  \setlength{\tabcolsep}{3.5pt}
+  \renewcommand{\arraystretch}{1.15}
+  \begin{tabular}{@{}>{\raggedright}p{2.1cm}>{\raggedright}p{2.75cm}>{\raggedright}p{2.75cm}>{\raggedright}p{4.1cm}rr@{}}
     \toprule
-    Final model, but \dots & Mean distance & $\Delta$ & $\pm1$ (\%) \\
+    Choice & v1 & v2 & Physical reason & $\Delta$ if reverted & $\pm1$ (\%) \tabularnewline
     \midrule
-    no dilation (each site sees 17 pendulums) & 2.59 & $+1.10\pm0.01$ & 59.0 \\
-    zero padding instead of circular & 2.42 & $+0.93\pm0.04$ & 66.7 \\
-    flatten and dense head (as in v1) & 1.80 & $+0.31\pm0.02$ & 72.0 \\
-    plain cross-entropy (v1's loss) & 1.57 & $+0.08\pm0.02$ & 64.3 \\
-    v1's optimizer (Adam, constant $10^{-3}$) & 1.56 & $+0.07\pm0.04$ & 75.8 \\
-    hard labels (other loss terms kept) & 1.53 & $+0.04\pm0.01$ & 65.3 \\
-    no localization-time head & 1.51 & $+0.02\pm0.01$ & 76.8 \\
-    v1's inputs (energy frames and $\theta(0)$) & 1.51 & $+0.02\pm0.02$ & 76.4 \\
+    Receptive field & 9 sites per feature; whole ring only via the LSTM & whole ring (129 sites) & the growing modes are the longest waves & $+1.10\pm0.01^*$ & 59.0 \tabularnewline
+    Boundary & zero padding & circular padding & the ring has no ends & $+0.93\pm0.04$ & 66.7 \tabularnewline
+    Output & flatten and dense layers & one score per site & the dynamics are the same at every pendulum & $+0.31\pm0.02$ & 72.0 \tabularnewline
+    Frames & per-frame convolutions and a BiLSTM & frames stacked as channels & little growth or travel within the window & $+0.03\pm0.03^\dagger$ & 73.1$^\dagger$ \tabularnewline
+    Loss & cross-entropy & soft labels, distance and time terms & neighbouring sites are nearly equivalent & $+0.08\pm0.02$ & 64.3 \tabularnewline
+    Inputs & energies and $\theta_n(0)$ & angle frames & a camera measures angles; $\theta_n(0)$ is the full state & $+0.02\pm0.02$ & 76.4 \tabularnewline
+    Optimizer & Adam, constant rate & AdamW, cosine schedule & none; the physics is silent here & $+0.07\pm0.04$ & 75.8 \tabularnewline
+    \midrule
+    \multicolumn{4}{@{}l}{Final model} & 1.49 & 77.2 \tabularnewline
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Data efficiency, timing and prediction sets.} Trained on only 1,000 runs, v2 (mean distance 2.42) already beats v1 trained on 60,000 (3.14), with 60 times less data; with 3,000, 10,000, 30,000 and 60,000 runs it reaches 2.07, 1.80, 1.56 and 1.49, and 1.44 at 100,000. The time head, added as a training aid, predicts the localization time to a median error of 1.5\%. Most of the timing is, however, a trend in the amplitude, since a larger swing makes the unstable modes grow faster: the amplitude alone gives 5.0\%, and ``Floquet clocks'' that grow the five unstable modes from their actual initial sizes give 4.1--4.2\%. The network is about three times more precise, so the initial state carries timing information beyond the linear stage, presumably from the nonlinear focusing of the hump; in absolute terms the gain is small (2.7 to 0.8 time units). Finally, because the model outputs a probability for every site, it can name the smallest set of sites that holds a chosen share of the probability: sets holding 90\% contain on average 5.6 sites, some 5\% of the ring, and the true site in 98.0\% of runs. The sets are conservative, as expected from soft labels.
+We then retrained the final model with one choice reverted at a time, and Table~\ref{tab:choices} pairs each choice with the reason it was made. The three architectural choices that the ring's physics dictates matter most. Seeing the whole ring is worth 1.1 sites, circular padding 0.9, and one score per site 0.3, the last with a tenth of the parameters of a dense head. Once the architecture is right, v1's inputs and optimizer cost little. The loss matters mainly for the share within $\pm1$: with plain cross-entropy that share falls from 77\% to 64\%, for a reason we shall see in Sec.~\ref{sec:target}.
 
-\subsection{The target: one pendulum or a hump}
+The network is also economical with data: trained on only 1,000 runs, v2 already beats the rebuilt v1 trained on 60,000 (2.42 against 3.14). Nor does it need much explicit regularization. Because no parameter is tied to a particular pendulum, it does nearly as well on the test pool as on its training runs (1.49 against 1.35) with no dropout \cite{srivastava2014dropout} and only a small weight decay, whereas the rebuilt v1 overfits despite dropout and early stopping (3.00 against 1.62 for one seed). Where v2 does overfit, with little data, dropout makes it worse and weight decay up to $10^{-1}$ changes nothing. What helps is the mirror images of the training runs, the one symmetry of the ring that the network does not build in: they are worth about twice the data, and they slow the overfitting enough for a weight decay of 1 to act.
+
+Finally, the time head predicts the localization time to a median error of 1.5\%, but most of the timing is a trend in the amplitude, which alone predicts it to 5.0\%; the remaining gain is only about two time units. As we suspected, and as the amplitude dependence of the localization time in Ref.~\cite{mittal2026jand} already suggested, \emph{when} the energy localizes is largely set by the amplitude, whereas \emph{where} it localizes is the real prediction problem.
+
+\subsection{One pendulum or a hump?}
 \label{sec:target}
 
-\paragraph{The first-crossing label jitters.} Most of v2's remaining error on the first-crossing label turns out to be the label's own jitter. Within one swing, the energy of a forming hotspot moves between a pendulum's motion and the springs on either side, so which pendulum first crosses 10\% depends on the moment in the swing at which the threshold is passed (Fig.~\ref{fig:jitter}). With plain cross-entropy, v2's misses land two sites away more often than one, and half of those two-site misses, and three in four of the ones to the left, sit exactly on the hotspot's swing-averaged position. The swing-averaged label agrees exactly with the first-crossing label in only 33\% of test runs, usually sitting one to three sites to its left.
+Most of v2's remaining error on the first-crossing label turns out to belong to the label. Within one swing, the energy of a forming hotspot moves back and forth between a pendulum's motion and the springs on either side of it, so which pendulum first crosses 10\% depends on the moment in the swing at which the threshold is passed. To remove this exchange, we define a \emph{swing-averaged label}: we split each spring's energy evenly between the two pendulums it joins, which gives a symmetric site energy $E^{\mathrm{s}}_n$, and average it over the last 16 samples, about one swing,
+\begin{equation}
+\label{eq:avg}
+\bar E_n(\tau_k) = \frac{1}{16}\sum_{j=0}^{15} E^{\mathrm{s}}_n(\tau_{k-j}) ;
+\end{equation}
+the label is the top site at the first sample at which $\max_n\bar E_n>0.1\,\Etot$. The two labels agree exactly in only a third of the test runs, the averaged one usually sitting one to three sites to the left [Fig.~\ref{fig:jitter}(a)]. The jitter shows up in the errors, too. Trained with plain cross-entropy, v2 misses by two sites more often than by one, and half of those two-site misses sit exactly on the swing-averaged position [Fig.~\ref{fig:jitter}(b)]. Soft labels hedge between the two candidate sites, which is why they raise the share within $\pm1$ so much.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
   \centering
-  \includegraphics[width=0.95\linewidth]{fig18_label_jitter.pdf}
+  \includegraphics[width=\linewidth]{paper_fig5_jitter.pdf}
   \caption{(a)~Swing-averaged site minus first-crossing site on the test pool. (b)~Prediction errors of v2 trained with plain cross-entropy and of the final model (soft labels), both on the first-crossing label, and of the same recipe trained and scored on the swing-averaged label.}
   \label{fig:jitter}
 \end{figure}
 
-\paragraph{The hotspot is a hump.} When the first-crossing label fires (2,000 test runs), the top pendulum holds 10.3\% of the energy instantaneously (median), just past the threshold by definition, but only 5.5\% averaged over a swing, five times its 1\% share in the uniform swing; the swing-averaged hump is 8 pendulums wide at half height (10th--90th percentile: 6--9). The 10\% on a single pendulum is thus the instantaneous peak of a breathing hump. The hump is well placed when it forms, then drifts: over the next swing it stays within $\pm1$ site in 88\% of runs, but within 30 time units half of the humps have moved more than 5 sites. In 18\% of runs a rival hump at least 5 sites away holds at least half the energy of the main one, and any single-site answer is then a guess between two places.
+This raises a more basic question: is a single pendulum the right target at all? When the first-crossing label fires, the top pendulum holds 10.3\% of the energy at that instant but only 5.5\% averaged over a swing, and the swing-averaged hump is about eight pendulums wide at half height. The 10\% on a single pendulum is thus the instantaneous peak of a breathing hump. The hump stays in place for about a swing after it forms, then drifts. In about one run in six a rival hump at least five sites away holds at least half as much energy, so that any single-site answer is a guess between two places. We therefore also define the event at the scale of the hump. The \emph{hump label} fires at the first sample at which
+\begin{equation}
+\label{eq:hump}
+\max_n H_n > 0.15\,\Etot , \qquad H_n = \bar E_{n-1} + \bar E_n + \bar E_{n+1} ,
+\end{equation}
+and names the centre of that three-pendulum window. With a threshold of 15\% it fires together with the first-crossing label, at a median of 54.5 against 55 time units, whereas the swing-averaged label fires about five time units later.
 
-\paragraph{Cleaner labels.} Table~\ref{tab:labels} trains and scores the same recipe on each label. Splitting each spring evenly without averaging over a swing does not help (1.49), so the jitter comes from energy moving within each swing, not from how the springs are booked. On the swing-averaged label v2 reaches 0.58 (96.4\% within $\pm1$): where the energy settles is predictable to within one pendulum in 96\% of runs from 4.5 time units of watching. That label is read about five time units after the hump forms, however. The hump label of Eq.~(\ref{eq:hump}) is read when the hump forms, fires as early as the first-crossing label, and is the best target: 0.27, with 99.4\% within $\pm1$.
-
-\begin{table}[htbp]
+\begin{table}[t]
   \centering
-  \caption{The same recipe trained and scored on each label (test pool; seeds in brackets). ``Median $\tau$'' is when the label fires, ``Read'' when it is read relative to the forming hump, and ``Site named'' how it names the site. Accuracies in \%.}
+  \caption{The same recipe trained and scored on each label (test pool; seeds in brackets). Accuracies in \%.}
   \label{tab:labels}
   \small
-  \setlength{\tabcolsep}{4.5pt}
-  \begin{tabular}{@{}llllrrrr@{}}
+  \begin{tabular}{@{}llrrrr@{}}
     \toprule
-    Label [seeds] & Median $\tau$ & Read & Site named & Mean dist. & Exact & $\pm1$ & $>10$ off \\
+    Model & Label [seeds] & Mean dist. & Exact & $\pm1$ & $>10$ off \\
     \midrule
-    \multicolumn{8}{@{}l}{\emph{v2 recipe}} \\
-    First crossing [5] & 55 & instantaneous & top pendulum & 1.49 & 27.7 & 77.2 & 1.5 \\
-    Symmetric springs [3] & & instantaneous & top pendulum & 1.49 & 32.4 & 72.5 & 1.6 \\
-    Swing-averaged [3] & 60 & ${\sim}5$ later & top pendulum & 0.58 & 70.5 & 96.4 & 0.69 \\
-    Hump-top [3] & 54.5 & at forming & top pendulum & 0.43 & 76.2 & 98.9 & 0.57 \\
-    \textbf{Hump [3]} & \textbf{54.5} & at forming & centre of 3 & \textbf{0.27} & \textbf{84.7} & \textbf{99.4} & \textbf{0.36} \\
+    v2 & First crossing [5] & 1.49 & 27.7 & 77.2 & 1.5 \\
+    v2 & Swing-averaged [3] & 0.58 & 70.5 & 96.4 & 0.7 \\
+    v2 & \textbf{Hump [3]} & \textbf{0.27} & \textbf{84.7} & \textbf{99.4} & \textbf{0.4} \\
     \midrule
-    \multicolumn{8}{@{}l}{\emph{v1 rebuilt}} \\
-    First crossing [2] & 55 & instantaneous & top pendulum & 3.14 & 22.5 & 60.4 & 5.7 \\
-    Swing-averaged [2] & 60 & ${\sim}5$ later & top pendulum & 2.25 & 42.0 & 83.6 & 4.4 \\
+    v1 rebuilt & First crossing [2] & 3.14 & 22.5 & 60.4 & 5.7 \\
+    v1 rebuilt & Swing-averaged [2] & 2.25 & 42.0 & 83.6 & 4.4 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Why is the hump label easier? The hump-top control separates its two differences from the swing-averaged label. Reading the label when the hump forms gains 0.15 sites and most of the gain within $\pm1$ (2.5 of 3.0 points): in the five time units before the swing-averaged label fires, the top of the hump moves by two or more sites in 8\% of runs, on which the swing-averaged model is within $\pm1$ only 70\% of the time. Locating the hump by the centre of three pendulums gains another 0.16, mostly in exact hits and far misses, because the top pendulum flips between neighbours when the top of the hump is flat; indeed, the model trained on hump-top scores better on the hump label (0.33) than on its own. The first 4.5 time units decide where the hump forms: even the model trained on the first-crossing label is within $\pm1$ of the hump label in 91\% of runs, against 77\% of its own label.
+We trained and scored the same recipe on each label (Table~\ref{tab:labels}). On the swing-averaged label v2 reaches a mean distance of 0.58, with 96.4\% within $\pm1$, and on the hump label 0.27, with 99.4\%. Sharing the springs evenly without averaging over a swing does not help, so the jitter comes from the energy moving within each swing, not from how the spring energy is assigned. The hump label's further gain over the swing-averaged label comes about equally from being read when the hump forms and from naming the centre of a three-pendulum window rather than the top pendulum. The first 4.5 time units thus decide where the hump forms: even the model trained on the first-crossing label is within $\pm1$ of the hump label in 91\% of runs.
 
-\paragraph{A second site.} Since about one run in six has a rival hump, the model may also name a second site, the highest peak of the predicted distribution at least 5 sites from the most likely one. This helps only where a rival hump competes (by 2--9 points within $\pm1$ on those runs, at most 0.2 elsewhere), and a random second site adds at most 0.4 points, so the gain comes from the model's own second peak. Naming it only when the three sites around it hold at least 5\% of the probability keeps 75--97\% of the gain with a second site in 2--5\% of runs. On the hump label this output is within $\pm1$ in 99.8\% of runs, with a second site in 2.3\% of them.
+Since every design choice of Secs.~\ref{sec:inputs}--\ref{sec:loss} was made on the jittery first-crossing label, we repeated the key ones on the cleaner labels. They hold, and seeing the whole ring matters even more: with a four-layer stack that sees only 17 sites the mean distance triples on the swing-averaged label and grows more than fivefold on the hump label, against 1.6-fold on the first-crossing label. Soft labels, by contrast, stop mattering, and on the hump label plain cross-entropy does slightly better; on a label that does not jitter, the hedge only blurs the answer. The target is therefore best framed as the centre of the hump when it forms, with a probability over all pendulums as output.
 
-\paragraph{The same choices win on the cleaner labels.} Every choice in Secs.~\ref{sec:arch}--\ref{sec:loss} was made on the jittery first-crossing label. Repeated on the swing-averaged and hump labels (Table~\ref{tab:choices}), seeing the whole ring matters even more: with 17 sites the error triples on the swing-averaged label and grows 5.4-fold on the hump label, against 1.6-fold on the first-crossing label. The inputs now matter too: on the swing-averaged label angle frames beat v1's inputs by 8\% of the error, and $\theta(0)$ alone by 19\%. Each choice costs about the same number of sites on the two cleaner labels; what is hard, whichever label marks the hump, is reading the initial state. Soft labels, by contrast, stop mattering on the swing-averaged label, and on the hump label hard labels win (0.25 against 0.27; 88.3\% exact against 84.7\%): soft labels hedge between the sites the first-crossing label jitters between, and on a label that does not jitter the hedge only blurs the answer. The jitter adds 0.6--1.0 sites of error to every model, which hides part of each difference. The target is therefore best framed as the centre of the hump when it forms, with a probability over all pendulums as output, scored by ring distance and the coverage of prediction sets rather than by exact-site accuracy.
+\subsection{Toward a real chain}
+\label{sec:realchain}
 
-\begin{table}[htbp]
+A real chain will be observed with noisy sensors, and its parameters will be known only approximately. Since an error of $10^{-3}$~rad in the initial state already moves a quarter of the labels (Sec.~\ref{sec:physics}), let us first look at sensor noise. We trained the network on camera-like data, eight angle frames over four time units with Gaussian noise on every pendulum and frame, starting the observation at $\tau=0$, 10, 20 or 30. Watching from release, the camera does well up to about $10^{-3}$~rad and degrades beyond. Interestingly, noise first causes far misses: the share within $\pm1$ hardly changes at first, while the share of far misses triples. Noise picks the wrong hump before it blurs the right one.
+
+\begin{figure}[t]
   \centering
-  \caption{Key choices on three labels: the final recipe at the full budget with one choice changed (three seeds each; test pool). Mean distance in sites; $\Delta$ against the final recipe on the same label, $\pm$ its standard error. The first-crossing column uses seeds 0--2 of the final model (1.50).}
-  \label{tab:choices}
-  \small
-  \begin{tabular}{@{}lrrrrrr@{}}
-    \toprule
-    & \multicolumn{2}{c}{First crossing} & \multicolumn{2}{c}{Swing-averaged} & \multicolumn{2}{c}{Hump} \\
-    \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(l){6-7}
-    Final recipe, but \dots & Dist. & $\Delta$ & Dist. & $\Delta$ & Dist. & $\Delta$ \\
-    \midrule
-    nothing & 1.50 & & 0.58 & & 0.27 & \\
-    v1's inputs (energies and $\theta(0)$) & 1.51 & $+0.01\pm0.02$ & 0.62 & $+0.04\pm0.01$ & 0.30 & $+0.03\pm0.01$ \\
-    $\theta(0)$ only & 1.52 & $+0.01\pm0.02$ & 0.68 & $+0.11\pm0.02$ & 0.38 & $+0.11\pm0.02$ \\
-    sees 33 sites, not the whole ring & 1.70 & $+0.19\pm0.02$ & 0.70 & $+0.12\pm0.02$ & 0.42 & $+0.15\pm0.01$ \\
-    sees 17 sites & 2.37 & $+0.87\pm0.02$ & 1.77 & $+1.20\pm0.01$ & 1.48 & $+1.21\pm0.01$ \\
-    hard labels (other terms kept) & 1.53 & $+0.03\pm0.02$ & 0.59 & $+0.01\pm0.01$ & 0.25 & $-0.03\pm0.01$ \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+  \includegraphics[width=\linewidth]{paper_fig6_noise.pdf}
+  \caption{Waiting divides the sensor noise by the growth of the unstable modes. (a)~Mean distance of the camera setup (first-crossing label) against the sensor noise $\sigma_s$ divided by the growth of the fastest mode since release, for observations starting at $\tau=0$, 10, 20 and 30; the horizontal line is the noise-free error from release. (b)~Waiting per tenfold noise for the camera in four amplitude bins, on the first-crossing and swing-averaged labels (dots, fits; bars, 95\% intervals), against the predictions from the mean growth rate of the growing modes and from the fastest mode.}
+  \label{fig:noise}
+\end{figure}
 
-\subsection{Regularization}
-\label{sec:reg}
+Waiting helps, because the growing modes rise above the sensor noise while the noise does not grow. If the fastest mode alone set the pace, each tenfold increase in sensor noise would cost $\ln10/\sigma_1$, about 20 time units of waiting, and this was our initial prediction. Figure~\ref{fig:noise} shows that waiting pays off more slowly. The camera's error depends on the noise and the start time essentially through the noise relative to the grown signal [Fig.~\ref{fig:noise}(a)], but each tenfold increase in noise costs about 25 time units, close to what the mean growth rate of the five growing modes gives rather than the fastest one. A likely reason is that white noise enters every ring mode equally, while the site depends on all the growing modes, each of which rises above the noise at its own rate. We found this rate on the first-crossing label and then wrote it down as a prediction for the swing-averaged label before running that grid: 24.8 time units predicted, 25.5 measured. Split by amplitude, the waiting cost falls as the growth rates rise [Fig.~\ref{fig:noise}(b)]. In practice, a camera ten times coarser than $10^{-3}$~rad catches up with a precise one if it starts watching about 25 time units later, which for 20~cm pendulums still leaves about 3.6~s of warning.
 
-v2 uses little explicit regularization (no dropout, a small weight decay, a fixed 30 epochs), yet with 60,000 runs it barely overfits: its mean distance is 1.35 on the training runs against 1.49 on the test pool, and its best checkpoints come late (steps 4,465--7,050 of 7,050). The ring symmetry does the job, since no parameter is tied to a particular pendulum. By contrast, v1 overfits despite dropout and early stopping (1.62 on its training runs against 3.00 on test, seed 0), and so does a v1-style dense head on v2's backbone (1.06 against 1.80); switching that head to one score per site cuts the train--test gap from 0.74 to 0.14. Where overfitting appears, a structural fix beats a penalty.
+Fewer sensors cost less than one might fear. Tracking every second pendulum costs nothing, with or without noise, and every fourth costs little without noise. Every eighth fails, however. Its 13 sensors satisfy the Nyquist criterion for the five growing modes, which we had expected to suffice, but at release the stable modes hold about 90\% of the perturbation, and on 13 sensors they alias onto the wavenumbers of the growing ones. Putting this together, one camera tracking every second pendulum to $10^{-3}$~rad and predicting right after release scores a mean distance of 1.93 on the first-crossing label, well ahead of the rebuilt v1 with perfect data (3.14), and locates the forming hump within $\pm1$ in 96.8\% of runs. For 20~cm pendulums, $10^{-3}$~rad is 0.2~mm at the bob; we estimate, but have not tested, that one camera at 30--60 frames per second tracking markers on the bobs can reach it.
 
-With little data v2 does overfit: at 1,000 and 3,000 runs the best checkpoint is the first one evaluated (step 235), after which the validation error rises by about 50\%. Table~\ref{tab:reg} summarizes the remedies tried in Phase~8. Penalties do little. At 1,000 runs the model overfits within about 150 steps, before the warmup ends, so weight decay up to $10^{-1}$ changes nothing at any size; a decay of 1 helps only at 10,000 runs, where the best checkpoint comes late enough (steps 2,900--4,800) for it to act. Dropout \cite{srivastava2014dropout} makes every size worse ($+0.1$ to $+0.4$), presumably because the site depends on small differences in the initial state, which random masks blur. What works is, again, structural. v2 builds in the rotations of the ring but not its reflection, so the mirror image of a run ($n\to N-1-n$, labelled with the mirror image of the stored left-spring label) is new information. Mirror images are worth about twice the data (2.0--2.4 times, read off the data-efficiency curve), and they slow the overfitting enough for weight decay to act: together they reach 1.75 at 3,000 runs, worth 4.3 times the data. At 1,000 runs a short cosine schedule, annealed before the model would overfit, works better; with mirror images it reaches 2.04, worth 3.6 times the data, and since its last checkpoint is within 1--2\% of its best, it needs no validation set to stop. At 60,000 runs mirror images change nothing (1.50 against 1.50).
-
-\begin{table}[htbp]
+\begin{table}[t]
   \centering
-  \caption{Regularization with little data (final recipe, 7,050 steps unless a schedule is named; test pool, mean distance; three seeds, two for the first row). Every row below the first checkpoints every 47 steps instead of every 235. Bold: best on the validation pool at each size.}
-  \label{tab:reg}
-  \small
-  \begin{tabular}{@{}lccc@{}}
-    \toprule
-    Training runs & 1,000 & 3,000 & 10,000 \\
-    \midrule
-    Final recipe & 2.42 & 2.07 & 1.80 \\
-    Checkpoint every 47 steps & 2.30 & 2.06 & 1.79 \\
-    \quad + weight decay $10^{-2}$ / $10^{-1}$ & 2.30 / 2.31 & 2.10 / 2.10 & 1.79 / 1.77 \\
-    \quad + weight decay 1 & 2.32 & 2.04 & 1.64 \\
-    \quad + dropout 0.1 / 0.2 & 2.66 / 2.68 & 2.14 / 2.18 & 1.93 / 1.89 \\
-    \quad + mirror images & 2.18 & 1.88 & 1.65 \\
-    \quad shorter schedule (235 steps; 705 at 10,000 runs) & 2.26 & 1.92 & 1.70 \\
-    \quad mirror images + weight decay 1 & 2.16 & \textbf{1.75} & \textbf{1.63} \\
-    \quad mirror images + shorter schedule & \textbf{2.04} & 1.89 & 1.65 \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\subsection{Robustness}
-\label{sec:robust}
-
-\paragraph{Shifted chains.} Table~\ref{tab:robust} applies both models, trained on the nominal chain, to shifted ones without retraining. The damage follows the Floquet spectrum. A 10\% error in the neighbour coupling, or twice the initial spread, leaves the spectrum essentially unchanged and costs v2 about half a site; it stays far ahead of v1. A 10\% error in the global coupling moves the fastest growth rate by $+21\%$ or $-33\%$ and changes how many modes grow, and both models lose 3--4 sites; in a real chain $\htl$ must therefore be known to a few percent, or the model trained over a range of it. Because v2 scores every site with the same filters, it also runs on rings of other sizes, which v1's dense head cannot. At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 against 1.49 of 100); at 150 it degrades (6.32), as eight modes compete instead of five and the ring outgrows the 129-site receptive field. Against test-time sensor noise, v2 degrades about three times more slowly than v1: even untrained for noise, v2 at $10^{-3}$~rad (2.26) beats the noise-free v1 (3.14), and trained with the same noise the v2 recipe reaches $1.72\pm0.02$.
-
-\begin{table}[htbp]
-  \centering
-  \caption{Models trained on the nominal chain, tested on shifted ones without retraining (mean distance; pools of 5,000 runs simulated with their own true chain). The last column describes the growth spectrum at $A=1.75$. Sensor noise is added at test time to every pendulum and frame of the nominal test pool.}
+  \caption{Models trained on the nominal chain, tested without retraining on shifted chains (pools of 5,000 runs simulated with their own true parameters; mean distance, first-crossing label), and with sensor noise added to the nominal test pool. The last column describes the growth spectrum at $A=1.75$.}
   \label{tab:robust}
   \small
   \begin{tabular}{@{}lrrl@{}}
     \toprule
-    Test condition & v1 rebuilt & v2 final & Growth spectrum at $A=1.75$ \\
+    Test condition & v1 rebuilt & v2 & Growth spectrum at $A=1.75$ \\
     \midrule
     Nominal chain & 3.14 & 1.49 & 5 growing modes, $\sigma_1=0.1185$ \\
-    Neighbour coupling $\gt$ $-10\%$ / $+10\%$ & 3.26 / 3.39 & 1.97 / 1.97 & $\sigma_1$ within 0.3\%; same 5 modes \\
+    Neighbour coupling $\gt$ $\pm10\%$ & 3.26 / 3.39 & 1.97 / 1.97 & essentially unchanged \\
     Twice the initial spread & 3.62 & 1.96 & unchanged \\
-    Global coupling $\htl$ $-10\%$ & 4.36 & 4.25 & $\sigma_1$ $+21\%$; 6 modes; $A_c=1.50$ \\
-    Global coupling $\htl$ $+10\%$ & 5.91 & 5.53 & $\sigma_1$ $-33\%$; 3 modes; $A_c=1.68$ \\
-    $N=80$ pendulums & n/a & 1.31 & 4 modes grow \\
-    $N=150$ pendulums & n/a & 6.32 & 8 modes grow \\
-    One pendulum 1\% weaker & 18.9 & 22.9 & weak pendulum pins the site \\
-    \midrule
-    Sensor noise $10^{-4}$ / $3\times10^{-4}$ rad & 3.20 / 3.58 & 1.51 / 1.62 & \\
-    Sensor noise $10^{-3}$ / $3\times10^{-3}$ rad & 6.24 / 13.86 & 2.26 / 4.63 & \\
+    Global coupling $\htl$ $-10\%$ & 4.36 & 4.25 & $\sigma_1$ $+21\%$; 6 modes grow \\
+    Global coupling $\htl$ $+10\%$ & 5.91 & 5.53 & $\sigma_1$ $-33\%$; 3 modes grow \\
+    $N=80$ / $150$ pendulums & n/a & 1.31 / 6.32 & 4 / 8 modes grow \\
+    One pendulum 2~mm longer & 18.9 & 22.9 & the impurity attracts the site \\
+    Sensor noise $10^{-3}$~rad & 6.24 & 2.26 & \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-\paragraph{Impurities.} As found in Ref.~\cite{mittal2026jand}, an impurity strongly attracts the localization. A single pendulum whose restoring force is 1\% weaker (about 2~mm longer) pins the site within $\pm3$ of it in 92\% of runs, and it defeats both models trained on uniform chains, which have never seen this cue. On an impurity test pool of 10,000 runs, with one random pendulum 0--2\% weaker, such models score 14.85 (v1) and 18.90 (v2). Retrained on 60,000 runs with impurities, the v2 recipe finds the weak pendulum from the motion alone, since a weaker pendulum swings slightly slower and falls behind its neighbours: it reaches $1.06\pm0.10$ (86.2\% within $\pm1$), more accurate than on uniform chains because the impurity makes the outcome less random, and a measured map of every pendulum's gravity term adds nothing beyond seed noise ($1.05\pm0.02$).
+The parameters of a real chain will also be off. We applied both networks, trained on the nominal chain, to shifted ones (Table~\ref{tab:robust}), and the damage again follows the Floquet spectrum. Errors that leave the spectrum essentially unchanged, in the neighbour coupling or the initial spread, cost v2 about half a site. A 10\% error in the global coupling, by contrast, changes how fast and how many modes grow, and both networks fall to 4--6 sites, which erases most of v2's lead; $\htl$ must therefore be known to a few percent, or the model trained over a range of it. Because v2 scores every site with the same filters, it also runs on rings of other sizes, which v1 cannot, although at 150 pendulums the ring outgrows its receptive field. As found in Ref.~\cite{mittal2026jand}, an impurity strongly attracts the localization. A single pendulum about 2~mm longer, whose restoring term in Eq.~(\ref{eq:eom}) is therefore 1\% weaker, pins the site within $\pm3$ of it in 92\% of runs and defeats both networks, which have never seen such a cue. Retrained on chains with one random pendulum up to 2\% weaker, v2 finds it from the motion alone, since a longer pendulum swings slightly slower, and reaches a mean distance of 1.06.
 
-\paragraph{Damping.} Real pendulums lose energy, and with linear damping the damping decides whether the energy localizes at all (Table~\ref{tab:damping}, Fig.~\ref{fig:damping}). The uniform swing decays toward $A_c$, and a run localizes only if its perturbation has grown enough before then: at $Q\ge1{,}000$ almost every run localizes, a few time units late; at $Q\approx330$ only swings released above $A\approx1.71$ do (71\%); and at $Q=100$ none do, since the swing falls below $A_c$ within 18 time units (2.5~s). The Floquet spectrum predicts the delay. Undamped runs follow $T_0=5.1/\sigma(A_0)+11$, about five $e$-folds of linear growth and 11 time units of nonlinear focusing, and integrating the growth rate along the decaying swing predicts the median delay ($+3.8$ against $+3.0$ measured at $Q=1{,}000$, $+9.3$ against $+9.0$ at $Q\approx330$). It predicts too few survivors at $Q\approx330$ (41\% against 71\%), however: 42\% of the survivors finish localizing after the swing has dropped below $A_c$, so a perturbation that is already large keeps focusing without the linear instability.
-
-\begin{table}[htbp]
-  \centering
-  \caption{Linearly damped chains. Six pools of 5,000 runs share their initial conditions and differ only in $\gamma$; sites are scored over the runs that localize by $\tau=150$ (mean distance, first-crossing label). The decay time is that of the swing of a 20~cm pendulum. ``Trained damped'' uses 60,000 runs with $\gamma$ log-uniform in $[10^{-4},10^{-2}]$.}
-  \label{tab:damping}
-  \small
-  \begin{tabular}{@{}llrrrrr@{}}
-    \toprule
-    & & & & \multicolumn{2}{c}{Trained undamped} & Trained damped \\
-    \cmidrule(lr){5-6}\cmidrule(l){7-7}
-    $Q$ ($\gamma$) & $1/e$ decay & Localize & Delay & v1 rebuilt & v2 final & v2 recipe \\
-    \midrule
-    $\infty$ (0) & never & 100\% & -- & 3.22 & 1.56 & 1.55 \\
-    10,000 ($10^{-4}$) & 48 min & 100\% & 0 & -- & 1.49 & 1.53 \\
-    3,300 ($3\times10^{-4}$) & 16 min & 100\% & $+1$ & -- & 1.49 & 1.44 \\
-    1,000 ($10^{-3}$) & 4.8 min & 99.9\% & $+3$ & 5.43 & 2.48 & 1.19 \\
-    330 ($3\times10^{-3}$) & 95 s & 71\% & $+9$ & 12.4 & 4.92 & 0.84 \\
-    100 ($10^{-2}$) & 29 s & 0\% & -- & -- & -- & -- \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.95\linewidth]{fig20_damping.pdf}
-  \caption{Linear damping. (a)~Share of runs that localize by $\tau=150$ against the initial amplitude (solid, simulated; dashed, two-stage Floquet prediction). (b)~Mean distance on the runs that localize, for v2 and v1 trained undamped, v2 fed the undamped frames of the same runs (outcome change only), and the v2 recipe trained on damped chains.}
-  \label{fig:damping}
-\end{figure}
-
-Trained undamped, v2 tolerates $Q\ge3{,}000$ at no cost; at $Q=1{,}000$ it degrades to 2.48 (v1: 5.43), mostly because a slowly decaying swing looks unlike any training run (fed the same runs' undamped frames, it scores 1.68). Retrained on damped chains ($Q$ from 100 to 10,000), it loses nothing on undamped chains (1.55 against 1.56) and improves with damping, to 0.84 at $Q\approx330$ (92\% within $\pm1$), as fewer and longer ring modes grow near the threshold. A ``does it localize'' head tells from the first 4.5 time units whether a run will localize at all, correctly in 99.5\% of the damped test pool (false alarms on 1.4\% of the runs that do not localize), at no cost on the site.
-
-\subsection{Guidance for a real chain}
-\label{sec:realchain}
-
-Table~\ref{tab:setups} retrains the final recipe on realistic sensing setups at the full budget. One camera tracking every second pendulum to $10^{-3}$~rad, at 30--60 frames per second and predicting right after release, scores a mean distance of 1.93, well ahead of v1 with perfect data (3.14); retrained on damped chains, it scores 1.82 on the damped test pool. On the hump label it is within $\pm1$ of where the hump forms in 96.8\% of runs, and in 98.3\% when it may name a second site (5.6\% of runs). A coarser camera should start watching later, by about $11\ln(\sigma_s/10^{-3})$ time units, once the long-wave modes have grown above its noise. A camera ten times coarser gets nearly the same accuracy (2.05) by starting at $\tau=20$, which still leaves about 4~s of warning, and it catches up with a $10^{-3}$~rad camera on every pendulum (1.72) when it starts at $\tau\approx25$--26, on either label, leaving about 3.6~s. Energies at $\tau=30$ give the best accuracy on the first-crossing label (1.24), but they need gyroscopes and leave less warning, and their edge nearly vanishes on the swing-averaged (0.55 against 0.58) and hump labels (0.26 against 0.27).
-
-\begin{table}[htbp]
-  \centering
-  \caption{The final recipe retrained on realistic sensing setups (three seeds; test pool). Mean distance and accuracies (\%) on the first-crossing label; the last column is the share within $\pm1$ on the hump label, for one site and with a second site at $\ge5\%$ probability (share of runs with two sites in brackets). The warning is the median localization time, $\tau=55$, minus the end of the observation (seconds for a 20~cm pendulum).}
-  \label{tab:setups}
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{@{}lrrrrl@{}}
-    \toprule
-    Setup & Dist. & $\pm1$ & $\pm3$ & Warning & Hump label, $\pm1$ \\
-    \midrule
-    Every pendulum, noise-free, $\tau=0$--4.5 & 1.49 & 77.2 & 97.3 & 50.5 (7.2 s) & 99.4 / 99.8 (2.3\%) \\
-    Camera, every pendulum, $10^{-3}$ rad, from release & 1.72 & 73.3 & 96.8 & 50.5 (7.2 s) & \\
-    Camera, every 2nd pendulum, $10^{-3}$ rad, from release & 1.93 & 72.6 & 95.9 & 50.5 (7.2 s) & 96.8 / 98.3 (5.6\%) \\
-    Coarse camera ($10^{-2}$ rad), from $\tau=20$ & 2.05 & 72.6 & 95.2 & 30.5 (4.4 s) & 94.9 / 96.2 (4.6\%) \\
-    Coarse camera ($10^{-2}$ rad), from $\tau=24$ & 1.77 & 76.2 & 95.2 & 26.5 (3.8 s) & \\
-    Coarse camera ($10^{-2}$ rad), from $\tau=28$ & 1.67 & 76.2 & 96.2 & 22.5 (3.2 s) & \\
-    Energies at $\tau=30$, noise-free (gyroscopes) & 1.24 & 82.4 & 95.6 & 25 (3.6 s) & 99.4 / 99.7 (1.8\%) \\
-    \midrule
-    v1 rebuilt, every pendulum, noise-free & 3.14 & 60.4 & 90.3 & 50.5 (7.2 s) & \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+Real pendulums also lose energy, and the missing damping was the main gap we saw between our simulations and a real chain. With linear damping the uniform swing decays toward the threshold $A_c$, so a run localizes only if its perturbation has grown enough before then: at a quality factor $Q\ge1{,}000$ almost every run still localizes, at $Q\approx330$ only 71\% do, and at $Q=100$ none do, and integrating the Floquet growth rate along the decaying swing predicts the delay. Retrained on damped chains, v2 even improves with damping, to 0.84 at $Q\approx330$ on the runs that localize, because near threshold fewer and longer modes grow and the site depends less on local detail; these are not simply the easy runs, since without damping v2 does worse on them than on the rest. Here v1's binary ``localizes'' head, which has nothing to predict on undamped chains, earns its place: from the first 4.5 time units it tells whether a run will localize at all, correctly in 99.5\% of damped runs.
 
 % ===========================================================================
-\section{Reproduction of the earlier model}
+\section{Reproduction of the earlier network}
 \label{sec:repro}
 
 % TODO-AUTHOR-REVIEW: This section is still being discussed with the corresponding author of
@@ -486,40 +360,47 @@ Table~\ref{tab:setups} retrains the final recipe on realistic sensing setups at 
 % Keep it neutral and within what REPORT.md (Sec. 2) supports. Do not post before agreed.
 \authorreview{This section is under discussion with the corresponding author of Ref.~\cite{mittal2026jand}, including how to word the discrepancy and whether the original training code can be recovered. It states only what the rebuild shows; do not post before the wording is agreed.}
 
-\paragraph{The rebuild.} The training notebook and dataset of Ref.~\cite{mittal2026jand} are not available to us, so we rebuilt the CNN-BiLSTM from the description in Sec.~2.3 and the Appendix of that paper (Sec.~\ref{sec:predictors}). The rebuild keeps the defaults of the original Keras implementation: the same layers, initializers, dropout masks, loss weights and optimizer, early stopping on the validation loss, and the same 60/20/20 split of the data. Its data come from the simulator of Sec.~\ref{sec:pools}, which gives the same localization site and time as the original simulation code on 1,000 of 1,000 test runs. The only deliberate change is that the input scaler is fitted on the training pool alone.
+The training notebook and dataset of Ref.~\cite{mittal2026jand} are not available to us, so we rebuilt the CNN-BiLSTM from the description in Sec.~2.3 and the Appendix of that paper, keeping the defaults of the TensorFlow (Keras) layers it names. Its data come from a simulator that gives the same localization site and time as the original simulation code on 1,000 of 1,000 test runs, and the only deliberate change is that the input scaler is fitted on the training pool alone. We have not been able to reproduce the accuracy reported in Ref.~\cite{mittal2026jand} from this description. Two seeds of the rebuild reach 61.7\% and 59.1\% within $\pm1$, against the published 94.4\%, and mean distances of 3.00 and 3.27, against 1.44; a third seed never trained. Nor would a later observation obviously close the gap: a single snapshot of the energy taken near the typical localization time places only about 60\% of runs within $\pm1$, and later snapshots do worse, because the hotspot keeps moving after it forms.
 
-\paragraph{The result.} The accuracy reported in Ref.~\cite{mittal2026jand} could not be reproduced from the published description. Two seeds of the rebuild reach 61.7\% and 59.1\% within $\pm1$, against the published 94.4\%, and mean distances of 3.00 and 3.27, against 1.44 (Table~\ref{tab:headline}). A third seed stayed at chance level and never trained. A difference in the observation window would not explain the gap: a single snapshot of the energy, even right at the moment of localization, places only about 60\% of runs within $\pm1$, because the hotspot keeps moving after it forms.
-
-\paragraph{Possible explanations.} Three explanations remain, and they cannot be distinguished without the original code: (i)~the original pipeline differs from its description, for example in the definition of the label or of the features; (ii)~training and test runs overlapped, for example through repeated random seeds in the threaded data generation, which would let a network of 26.5 million parameters score highly by memorization; or (iii)~a detail of this rebuild that the description does not specify.
-
-\paragraph{A consistency check on the label.} The first explanation can be partly tested. Section~\ref{sec:target} shows that the first-crossing label jitters by one to three sites within a swing, while the swing-averaged position does not. Trained and scored on the swing-averaged label instead, the rebuild reaches 83.6\% within $\pm1$ and a mean distance of 2.25 (two seeds; Table~\ref{tab:labels}), about two-thirds of the way from 60.4\% to the published 94.4\%. A smoother label in the original pipeline would therefore be consistent with much of the gap, but not with all of it; the remainder could come from a different smoothing or from explanations (ii) and (iii). Because the original labelling code is not available, this is a consistency check, not an identification.
-
-\paragraph{Notes on the published description.} In rebuilding the pipeline we noted four points; where the text and the simulation code of Ref.~\cite{mittal2026jand} differ, we followed the code. (a)~All code uses $\htl=0.5$, whereas Sec.~2.1 prints 0.05; the Floquet analysis confirms 0.5, since with 0.05 the instability has no threshold near 1.59 and is not of type III. (b)~The time axes of Figs.~2--5 and 7 of Ref.~\cite{mittal2026jand} are sample indices ($\Delta\tau=0.5$), so localization happens at $\tau\approx57$ rather than 100, and the box-car comparison point ``$t=5$'' corresponds to $\tau=2.5$, earlier than the end of the network's input window. (c)~The code books the whole spring between pendulums $n$ and $n+1$ to pendulum $n$ [Eq.~(\ref{eq:energy})], whereas Eq.~(5) of Ref.~\cite{mittal2026jand} as printed books the spring to its left-hand neighbour; the exact labelled site depends on this bookkeeping in 21\% of runs. (d)~As described, the input scaler is fitted before the data are split into training and test sets, a minor leakage that the rebuild avoids.
+Three explanations remain, and they cannot be distinguished without the original code: (i)~a detail of our rebuild that the description does not specify; (ii)~the original pipeline differs from its description, for example in the definition of the label or of the features; or (iii)~the original dataset contained duplicate runs, so that some test runs also appeared in training, although most test runs would need a copy there to account for the whole gap. The second explanation can be partly tested. Section~\ref{sec:target} showed that the first-crossing label jitters by one to three sites within a swing, while the swing-averaged position does not. Trained and scored on the swing-averaged label, the rebuild reaches 83.6\% within $\pm1$ (Table~\ref{tab:labels}), about two-thirds of the way from 60.4\% to 94.4\%. A smoother label in the original pipeline would therefore be consistent with much of the gap, but not with all of it. Because the code that generated the training data of the published network is not available, this is a consistency check, not an identification; if that code resurfaces, the comparison should be rerun against it. Appendix~\ref{app:notes} collects the points where the published description and the simulation code of Ref.~\cite{mittal2026jand} differ; since the rebuild follows the code, we do not expect any of them to account for the gap.
 
 % ===========================================================================
 \section{Conclusions}
 \label{sec:conclusions}
 
-In this study we revisited the prediction of where a noise-seeded type-III instability localizes energy in a sine-Gordon pendulum ring, starting this time from the physics of the instability. The Floquet growth spectrum of the uniform swing explains much of what was found empirically before: only a handful of the longest ring modes grow, five at the central amplitude, and this sets the optimal width of the box-car smoothing of Ref.~\cite{mittal2026jand}. The outcome is deterministic, so the limit to prediction is the precision with which the initial state is measured rather than chaos, and the coarse answer lives in the amplitudes and phases of the growing modes.
+In this study we revisited the prediction of where a noise-seeded type-III instability localizes energy in a sine-Gordon pendulum ring, starting this time from the physics of the instability rather than from the data. The Floquet growth spectrum of the uniform swing explains much of what was found empirically before. Only a handful of the longest ring modes grow, and this sets the optimal width of the box-car smoothing of Ref.~\cite{mittal2026jand}. The outcome is deterministic, so prediction is limited by how precisely the initial state is measured rather than by chaos, and the coarse answer lives in the amplitudes and phases of the few growing modes.
 
-Each design choice of a neural predictor can be read off from this spectrum and tested. A training-free Floquet filter already matches our rebuild of the CNN-BiLSTM in mean distance, and a 200-parameter linear ring filter beats it. A whole-ring dilated circular CNN with 22,786 parameters halves the error of the rebuild, beats it with 60 times less data, and barely overfits. The choices that matter are the ones the physics suggests (seeing the whole ring, circular padding and one score per site), whereas the optimizer barely matters and v1's recurrent layer is not needed. To answer the question left open in Ref.~\cite{mittal2026jand}, the features that decide the localization site are largely the projections of the early state onto the few growing long waves, with local detail deciding the last site or two.
+The same spectrum guided the design of the neural predictor. Since little grows or travels during the observation window while the growing modes span the whole ring, the network needs a deep view of the whole ring, and with it the recurrent layer of v1 is not needed here. Since the dynamics are the same at every pendulum, the network should apply the same filters everywhere and score every pendulum the same way. A circular CNN built on these principles, with a thousandth of the parameters, halves the error of our rebuild of the CNN-BiLSTM, beats it with 60 times less training data, and barely overfits. To answer the question left open in Ref.~\cite{mittal2026jand}, the features that decide the localization site are largely the projections of the early state onto the few growing long waves, with local detail deciding the last site or two.
 
-The target deserves as much care as the model. The first pendulum to hold 10\% of the energy is the instantaneous peak of a breathing hump about eight pendulums wide, and most of v2's remaining error on that label is its jitter. Defined at the scale of the hump, the event fires just as early and is located within $\pm1$ in 99.4\% of runs (99.8\% with a second site in 2.3\% of runs). For a real chain, sensor noise can be traded against warning time at a rate set by the mean growth rate of the unstable modes, about 25 time units per tenfold noise, and the response to shifted parameters, impurities and damping follows the same spectrum; in simulation, one camera tracking every second pendulum to $10^{-3}$~rad suffices.
+The target deserves as much care as the model. The first pendulum to hold 10\% of the energy is the instantaneous peak of a breathing hump about eight pendulums wide, and most of the remaining error on that label is its own jitter; defined at the scale of the hump, the event fires just as early and is located within $\pm1$ in 99.4\% of runs. For a real chain, sensor noise can be traded against warning time at a cost set by the mean growth rate of the unstable modes, and in simulation one camera tracking every second pendulum already beats the rebuilt v1 with perfect data.
 
-These conclusions have limits. The comparison with v1 is against a rebuild; if the published pipeline differs in a way that matters, the true gap could be smaller than reported here, although the physics baselines do not depend on the rebuild and v2 beats them too. Damping was simulated as linear and equal at every pendulum, whereas real pendulums also lose energy to a constant (Coulomb) friction torque and to air drag, at slightly different rates. Sensor noise was white and independent, whereas real cameras add correlated errors such as a fixed calibration offset, which acts like a wrong initial state that the dynamics amplify. The impurity tests detune a single pendulum, whereas a real chain has small differences at every pendulum. Finally, Phases~3--5 used 15-epoch screening runs and the noise-and-timing grid one seed per cell, so differences below about 0.1 sites there are within noise, and the sparse-sensor grid and the optimizer comparison were not repeated on the cleaner labels.
-
-Future work should measure a real chain's quality factor and damping law, test the recommended setup on a bench-top chain, calibrate the conservative prediction sets, for example with a temperature fitted on the validation pool \cite{guo2017calibration}, train with small differences at every pendulum and over a range of the global coupling, and predict the waiting rate from each mode's share in the outcome. If the original v1 training code resurfaces, the comparison should be rerun against it.
+These conclusions have limits. The comparison with v1 is against a rebuild; if the published pipeline differs from its description in a way that matters, the true gap could be smaller than reported here, although the physics baselines do not depend on the rebuild and v2 beats them too. Damping was simulated as linear, sensor noise as white, and impurities as a single lengthened pendulum, whereas a real chain will have small differences at every pendulum and correlated measurement errors. Testing the recommended setup on a bench-top chain is the natural next step.
 
 % ===========================================================================
 \section*{Data and code availability}
 
 % TODO-AUTHORS: add a version tag or DOI (e.g. a Zenodo archive) when posting.
-The simulator, data-generation scripts, training code, run logs and figure scripts used in this study are available at \url{https://github.com/adrian0729/sineGordonLocalization}.
+The simulator, data-generation scripts, training code, run logs and figure scripts used in this study are available at \url{https://github.com/adrian0729/sineGordonLocalization}, together with a report that gives the full set of ablations, including those summarized only briefly here.
 
 \section*{Acknowledgements}
 
 % TODO-AUTHORS: acknowledgements (e.g., discussions with the v1 coauthors) to be written.
 [TODO]
+
+% ===========================================================================
+\appendix
+
+\section{Training details}
+\label{app:training}
+
+\textit{v1, rebuilt.} Four time-distributed one-dimensional convolutions (32, 64, 128 and 256 filters, kernel 3, zero padding, ReLU), a per-frame flatten, a bidirectional LSTM with 128 units, 20\% dropout and 20\% recurrent dropout, a dense layer of 64 units, and two heads, a sigmoid ``localizes'' output and a softmax over the 100 sites. The input is the site energy at $\tau=0,0.5,\dots,4.5$ with $\theta_n(0)$ repeated in every frame. The loss is $0.5\times$ binary cross-entropy plus masked categorical cross-entropy; training uses Adam at a learning rate of $10^{-3}$ and batch size 64, with early stopping on the validation loss (patience 10, best weights restored), and takes about 23 minutes.
+
+\textit{v2.} Hidden activations are GELUs \cite{hendrycks2016gelu}, and the per-site head is a circular convolution of kernel 3, a GELU and a $1\times1$ convolution. Training uses AdamW (learning rate $3\times10^{-3}$, weight decay $10^{-4}$) with a cosine decay and 3\% warmup, batch size 256, for 7,050 steps (30 epochs of 60,000 runs), keeping the checkpoint with the lowest validation mean distance, evaluated every 235 steps on 5,000 validation runs. The architecture comparison used the same budget. Inputs, losses and optimizers were screened with 15 epochs and three training seeds, so differences below about 0.1 sites there are within noise. The mirror image of a run maps pendulum $n$ to $N-1-n$, and its first-crossing label is the mirror image of the label computed with left-hand springs. Damping adds a term $-\gamma\dot\theta_n$ to Eq.~(\ref{eq:eom}), so that a free pendulum has quality factor $Q=1/\gamma$; every threshold is then a fraction of the energy the chain still holds.
+
+\section{Notes on the published description of v1}
+\label{app:notes}
+
+In rebuilding the pipeline of Ref.~\cite{mittal2026jand} we noted four points; where the text and the simulation code differ, we followed the code. (a)~All code, and Sec.~2.3 there, use $\htl=0.5$, whereas Sec.~2.1 of the journal version prints 0.05, a typographical error; with 0.05 the instability would have no threshold near $A=1.59$ and would not be of type III. (b)~The time axes of Figs.~2--5 and 7 there are sample indices ($\Delta\tau=0.5$), so localization happens at $\tau\approx57$ rather than 100, and the box-car comparison point ``$t=5$'' corresponds to $\tau=2.5$, before the end of the network's input window. (c)~The code assigns to each pendulum the spring to its right-hand neighbour, as in Eq.~(\ref{eq:energy}), whereas Eq.~(5) there assigns it the spring to its left-hand neighbour; the two conventions are mirror images and give the same statistics, but the labelled site differs in 21\% of runs. (d)~As described, the input scaler is fitted before the data are split into training and test sets, a minor leakage that the rebuild avoids.
 
 \bibliographystyle{unsrtnat}
 \bibliography{refs}

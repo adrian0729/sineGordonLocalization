@@ -1,4 +1,4 @@
-\begin{thebibliography}{39}
+\begin{thebibliography}{36}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -116,6 +116,68 @@ S.~Hochreiter and J.~Schmidhuber.
 \newblock Long short-term memory.
 \newblock \emph{Neural Computation}, 9\penalty0 (8):\penalty0 1735--1780, 1997.
 
+\bibitem[Karniadakis et~al.(2021)Karniadakis, Kevrekidis, Lu, Perdikaris, Wang,
+  and Yang]{karniadakis2021physics}
+George~Em Karniadakis, Ioannis~G. Kevrekidis, Lu~Lu, Paris Perdikaris, Sifan
+  Wang, and Liu Yang.
+\newblock Physics-informed machine learning.
+\newblock \emph{Nature Reviews Physics}, 3:\penalty0 422--440, 2021.
+
+\bibitem[Magnus and Winkler(1966)]{magnus1966hill}
+Wilhelm Magnus and Stanley Winkler.
+\newblock \emph{Hill's Equation}.
+\newblock Interscience, New York, 1966.
+
+\bibitem[Virtanen et~al.(2020)]{virtanen2020scipy}
+Pauli Virtanen et~al.
+\newblock {SciPy} 1.0: Fundamental algorithms for scientific computing in
+  {Python}.
+\newblock \emph{Nature Methods}, 17:\penalty0 261--272, 2020.
+
+\bibitem[Press et~al.(1992)Press, Teukolsky, Vetterling, and
+  Flannery]{press1992numerical}
+William~H. Press, Saul~A. Teukolsky, William~T. Vetterling, and Brian~P.
+  Flannery.
+\newblock \emph{Numerical Recipes in {C}}.
+\newblock Cambridge University Press, Cambridge, 2nd edition, 1992.
+
+\bibitem[Liu and Nocedal(1989)]{liu1989limited}
+Dong~C. Liu and Jorge Nocedal.
+\newblock On the limited memory {BFGS} method for large scale optimization.
+\newblock \emph{Mathematical Programming}, 45:\penalty0 503--528, 1989.
+
+\bibitem[Paszke et~al.(2019)]{paszke2019pytorch}
+Adam Paszke et~al.
+\newblock {PyTorch}: An imperative style, high-performance deep learning
+  library.
+\newblock In \emph{Advances in Neural Information Processing Systems},
+  volume~32, pages 8024--8035, 2019.
+
+\bibitem[Li et~al.(2021)Li, Kovachki, Azizzadenesheli, Liu, Bhattacharya,
+  Stuart, and Anandkumar]{li2021fourier}
+Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik
+  Bhattacharya, Andrew Stuart, and Anima Anandkumar.
+\newblock Fourier neural operator for parametric partial differential
+  equations.
+\newblock In \emph{International Conference on Learning Representations}, 2021.
+\newblock arXiv:2010.08895.
+
+\bibitem[Cohen and Welling(2016)]{cohen2016group}
+Taco Cohen and Max Welling.
+\newblock Group equivariant convolutional networks.
+\newblock In \emph{Proceedings of the 33rd International Conference on Machine
+  Learning}, volume~48 of \emph{Proceedings of Machine Learning Research},
+  pages 2990--2999, 2016.
+
+\bibitem[Cho et~al.(2014)Cho, van Merri{\"e}nboer, Gulcehre, Bahdanau,
+  Bougares, Schwenk, and Bengio]{cho2014learning}
+Kyunghyun Cho, Bart van Merri{\"e}nboer, Caglar Gulcehre, Dzmitry Bahdanau,
+  Fethi Bougares, Holger Schwenk, and Yoshua Bengio.
+\newblock Learning phrase representations using {RNN} encoder--decoder for
+  statistical machine translation.
+\newblock In \emph{Proceedings of the 2014 Conference on Empirical Methods in
+  Natural Language Processing}, pages 1724--1734, 2014.
+
 \bibitem[Pathak et~al.(2017)Pathak, Lu, Hunt, Girvan, and Ott]{Chaos_Ott_2017}
 Jaideep Pathak, Zhixin Lu, Brian~R. Hunt, Michelle Girvan, and Edward Ott.
 \newblock Using machine learning to replicate chaotic attractors and calculate
@@ -131,92 +193,6 @@ Jaideep Pathak, Brian Hunt, Michelle Girvan, Zhixin Lu, and Edward Ott.
 \newblock \emph{Physical Review Letters}, 120\penalty0 (2):\penalty0 024102,
   2018.
 \newblock \doi{10.1103/PhysRevLett.120.024102}.
-
-\bibitem[Karniadakis et~al.(2021)Karniadakis, Kevrekidis, Lu, Perdikaris, Wang,
-  and Yang]{karniadakis2021physics}
-George~Em Karniadakis, Ioannis~G. Kevrekidis, Lu~Lu, Paris Perdikaris, Sifan
-  Wang, and Liu Yang.
-\newblock Physics-informed machine learning.
-\newblock \emph{Nature Reviews Physics}, 3:\penalty0 422--440, 2021.
-
-\bibitem[Cohen and Welling(2016)]{cohen2016group}
-Taco Cohen and Max Welling.
-\newblock Group equivariant convolutional networks.
-\newblock In \emph{Proceedings of the 33rd International Conference on Machine
-  Learning}, volume~48 of \emph{Proceedings of Machine Learning Research},
-  pages 2990--2999, 2016.
-
-\bibitem[Magnus and Winkler(1966)]{magnus1966hill}
-Wilhelm Magnus and Stanley Winkler.
-\newblock \emph{Hill's Equation}.
-\newblock Interscience, New York, 1966.
-
-\bibitem[Press et~al.(1992)Press, Teukolsky, Vetterling, and
-  Flannery]{press1992numerical}
-William~H. Press, Saul~A. Teukolsky, William~T. Vetterling, and Brian~P.
-  Flannery.
-\newblock \emph{Numerical Recipes in {C}}.
-\newblock Cambridge University Press, Cambridge, 2nd edition, 1992.
-
-\bibitem[Virtanen et~al.(2020)]{virtanen2020scipy}
-Pauli Virtanen et~al.
-\newblock {SciPy} 1.0: Fundamental algorithms for scientific computing in
-  {Python}.
-\newblock \emph{Nature Methods}, 17:\penalty0 261--272, 2020.
-
-\bibitem[Liu and Nocedal(1989)]{liu1989limited}
-Dong~C. Liu and Jorge Nocedal.
-\newblock On the limited memory {BFGS} method for large scale optimization.
-\newblock \emph{Mathematical Programming}, 45:\penalty0 503--528, 1989.
-
-\bibitem[Paszke et~al.(2019)]{paszke2019pytorch}
-Adam Paszke et~al.
-\newblock {PyTorch}: An imperative style, high-performance deep learning
-  library.
-\newblock In \emph{Advances in Neural Information Processing Systems},
-  volume~32, pages 8024--8035, 2019.
-
-\bibitem[Kingma and Ba(2015)]{kingma2015adam}
-Diederik~P. Kingma and Jimmy Ba.
-\newblock Adam: A method for stochastic optimization.
-\newblock In \emph{International Conference on Learning Representations}, 2015.
-\newblock arXiv:1412.6980.
-
-\bibitem[Li et~al.(2021)Li, Kovachki, Azizzadenesheli, Liu, Bhattacharya,
-  Stuart, and Anandkumar]{li2021fourier}
-Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik
-  Bhattacharya, Andrew Stuart, and Anima Anandkumar.
-\newblock Fourier neural operator for parametric partial differential
-  equations.
-\newblock In \emph{International Conference on Learning Representations}, 2021.
-\newblock arXiv:2010.08895.
-
-\bibitem[Cho et~al.(2014)Cho, van Merri{\"e}nboer, Gulcehre, Bahdanau,
-  Bougares, Schwenk, and Bengio]{cho2014learning}
-Kyunghyun Cho, Bart van Merri{\"e}nboer, Caglar Gulcehre, Dzmitry Bahdanau,
-  Fethi Bougares, Holger Schwenk, and Yoshua Bengio.
-\newblock Learning phrase representations using {RNN} encoder--decoder for
-  statistical machine translation.
-\newblock In \emph{Proceedings of the 2014 Conference on Empirical Methods in
-  Natural Language Processing}, pages 1724--1734, 2014.
-
-\bibitem[Hendrycks and Gimpel(2016)]{hendrycks2016gelu}
-Dan Hendrycks and Kevin Gimpel.
-\newblock Gaussian error linear units ({GELUs}), 2016.
-\newblock arXiv:1606.08415.
-
-\bibitem[Yu and Koltun(2016)]{yu2016multiscale}
-Fisher Yu and Vladlen Koltun.
-\newblock Multi-scale context aggregation by dilated convolutions.
-\newblock In \emph{International Conference on Learning Representations}, 2016.
-\newblock arXiv:1511.07122.
-
-\bibitem[van~den Oord et~al.(2016)van~den Oord, Dieleman, Zen, Simonyan,
-  Vinyals, Graves, Kalchbrenner, Senior, and Kavukcuoglu]{oord2016wavenet}
-A{\"a}ron van~den Oord, Sander Dieleman, Heiga Zen, Karen Simonyan, Oriol
-  Vinyals, Alex Graves, Nal Kalchbrenner, Andrew Senior, and Koray Kavukcuoglu.
-\newblock {WaveNet}: A generative model for raw audio, 2016.
-\newblock arXiv:1609.03499.
 
 \bibitem[Szegedy et~al.(2016)Szegedy, Vanhoucke, Ioffe, Shlens, and
   Wojna]{szegedy2016rethinking}
@@ -238,20 +214,24 @@ Ilya Loshchilov and Frank Hutter.
 \newblock In \emph{International Conference on Learning Representations}, 2017.
 \newblock arXiv:1608.03983.
 
-\bibitem[Smith and Topin(2019)]{smith2019super}
-Leslie~N. Smith and Nicholay Topin.
-\newblock Super-convergence: Very fast training of neural networks using large
-  learning rates.
-\newblock In \emph{Artificial Intelligence and Machine Learning for
-  Multi-Domain Operations Applications}, volume 11006 of \emph{Proceedings of
-  SPIE}, page 1100612, 2019.
+\bibitem[Kingma and Ba(2015)]{kingma2015adam}
+Diederik~P. Kingma and Jimmy Ba.
+\newblock Adam: A method for stochastic optimization.
+\newblock In \emph{International Conference on Learning Representations}, 2015.
+\newblock arXiv:1412.6980.
 
-\bibitem[Chen et~al.(2023)]{chen2023symbolic}
-Xiangning Chen et~al.
-\newblock Symbolic discovery of optimization algorithms.
-\newblock In \emph{Advances in Neural Information Processing Systems},
-  volume~36, 2023.
-\newblock arXiv:2302.06675.
+\bibitem[Yu and Koltun(2016)]{yu2016multiscale}
+Fisher Yu and Vladlen Koltun.
+\newblock Multi-scale context aggregation by dilated convolutions.
+\newblock In \emph{International Conference on Learning Representations}, 2016.
+\newblock arXiv:1511.07122.
+
+\bibitem[van~den Oord et~al.(2016)van~den Oord, Dieleman, Zen, Simonyan,
+  Vinyals, Graves, Kalchbrenner, Senior, and Kavukcuoglu]{oord2016wavenet}
+A{\"a}ron van~den Oord, Sander Dieleman, Heiga Zen, Karen Simonyan, Oriol
+  Vinyals, Alex Graves, Nal Kalchbrenner, Andrew Senior, and Koray Kavukcuoglu.
+\newblock {WaveNet}: A generative model for raw audio, 2016.
+\newblock arXiv:1609.03499.
 
 \bibitem[Srivastava et~al.(2014)Srivastava, Hinton, Krizhevsky, Sutskever, and
   Salakhutdinov]{srivastava2014dropout}
@@ -261,11 +241,9 @@ Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan
 \newblock \emph{Journal of Machine Learning Research}, 15:\penalty0 1929--1958,
   2014.
 
-\bibitem[Guo et~al.(2017)Guo, Pleiss, Sun, and Weinberger]{guo2017calibration}
-Chuan Guo, Geoff Pleiss, Yu~Sun, and Kilian~Q. Weinberger.
-\newblock On calibration of modern neural networks.
-\newblock In \emph{Proceedings of the 34th International Conference on Machine
-  Learning}, volume~70 of \emph{Proceedings of Machine Learning Research},
-  pages 1321--1330, 2017.
+\bibitem[Hendrycks and Gimpel(2016)]{hendrycks2016gelu}
+Dan Hendrycks and Kevin Gimpel.
+\newblock Gaussian error linear units ({GELUs}), 2016.
+\newblock arXiv:1606.08415.
 
 \end{thebibliography}

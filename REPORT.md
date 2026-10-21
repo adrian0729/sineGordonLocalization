@@ -111,7 +111,7 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 
 - **Damage follows the Floquet spectrum.**
   - A 10% error in the neighbour coupling, or twice the initial spread, leaves the spectrum alone and costs v2 about half a site.
-  - A 10% error in the global coupling changes the growth rates (+21% / −33%) and costs both models 3–4 sites.
+  - A 10% error in the global coupling changes the growth rates (+21% / −33%), and both models fall to 4–6 sites, which erases most of v2's lead (v2 loses 2.8–4.0 sites, v1 1.2–2.8).
 - **Other chain lengths:** v2 handles 80 pendulums (1.31) without retraining, but degrades at 150 (6.3). v1 cannot take other lengths at all.
 - **Sensor noise:** even untrained for it, v2 at 10⁻³ rad (2.26) beats the noise-free v1 (3.14); trained with the noise, it reaches 1.72.
 - **Impurities:** one pendulum 1% weaker pins the hotspot and defeats both models trained on uniform chains (mean distance 19–23). Trained with impurities, v2 finds the weak pendulum from the motion alone (1.06), and a measured map of the chain adds nothing.
@@ -855,7 +855,7 @@ The model outputs a probability for every site, so it can name the smallest set 
 
 The pattern follows the Floquet spectrum:
 - **Shifts that leave the spectrum alone cost v2 about half a site** (g ±10%, a doubled initial spread). It stays far ahead of v1.
-- **Shifts that change the spectrum hurt both models alike.** A 10% change in the global coupling h moves the fastest growth rate by +21% or −33% and changes how many modes grow, and both models lose 3–4 sites. In a real chain, h must be known to a few percent, or the model trained over a range of h.
+- **Shifts that change the spectrum hurt both models alike.** A 10% change in the global coupling h moves the fastest growth rate by +21% or −33% and changes how many modes grow, and both models fall to 4–6 sites, which erases most of v2's lead (v2 loses 2.8–4.0 sites, v1 1.2–2.8). In a real chain, h must be known to a few percent, or the model trained over a range of h.
 - **v2 works on rings of other sizes; v1's dense head cannot.** At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 vs 1.49 of 100). At 150 it degrades (6.3): eight modes compete instead of five, and the ring outgrows the 129-site receptive field.
 - **A single slightly weaker pendulum defeats both models.** A 1% weaker restoring force pins the localization site, which neither model saw in training (see Chains with an impurity, below).
 

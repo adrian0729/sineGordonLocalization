@@ -1,0 +1,162 @@
+% Schematic of the v1 and v2 networks (TikZ, plain pdflatex).
+% Used as \begin{figure}[t]\centering\input{fig_schematic}\caption{...}\end{figure}.
+% Needs in the preamble: \usepackage{tikz}
+%                        \usetikzlibrary{arrows.meta,calc}
+% Parameter counts from sgloc/models.py (V1CnnBiLstm; RingNet with the final ARCH and a time head):
+%   v1 26,499,205 = convs 129,696 + BiLSTM 26,346,496 (input weights 26,214,400) + dense 16,448 + heads 6,565
+%   v2     22,786 = 7 convs 19,616 + per-site head 3,137 + time head 33
+% Under the BiLSTM the figure gives its input weights, 26.2M (98.9%), the number quoted in the text.
+\begin{tikzpicture}[x=1cm, y=1cm, font=\footnotesize, line join=round,
+  arr/.style={-{Stealth[length=3.4pt, width=3pt]}, line width=0.6pt, draw=sgInk},
+  softarr/.style={-{Stealth[length=2.6pt, width=2.4pt]}, line width=0.5pt},
+  box1/.style={draw=sgOneLine, fill=sgOneFill, line width=0.6pt, rounded corners=1.2pt},
+  box2/.style={draw=sgTwoLine, fill=sgTwoFill, line width=0.6pt, rounded corners=1.2pt},
+  slab1/.style={box1, minimum width=0.56cm, minimum height=1.2cm, anchor=south west, inner sep=0pt, font=\scriptsize},
+  slab2/.style={box2, minimum width=0.42cm, minimum height=1.2cm, anchor=south west, inner sep=0pt, font=\scriptsize},
+  note/.style={font=\scriptsize, text=sgInkTwo, align=center, inner sep=0.5pt},
+  param/.style={font=\scriptsize, text=sgMuted, inner sep=0.5pt, anchor=base},
+  rowlabel/.style={font=\footnotesize\bfseries, text=sgInk, anchor=base west, inner sep=0pt},
+  tag/.style={font=\scriptsize, text=white, fill=sgInkTwo, rounded corners=1.2pt, inner sep=1.6pt},
+]
+\definecolor{sgOneLine}{HTML}{B4602E}
+\definecolor{sgOneFill}{HTML}{FBE9DC}
+\definecolor{sgOneMid}{HTML}{F1C3A3}
+\definecolor{sgTwoLine}{HTML}{2F67A6}
+\definecolor{sgTwoFill}{HTML}{E0EBF7}
+\definecolor{sgTwoMid}{HTML}{B3CDEB}
+\definecolor{sgInk}{HTML}{2B2B2A}
+\definecolor{sgInkTwo}{HTML}{52514E}
+\definecolor{sgMuted}{HTML}{7A7973}
+\definecolor{sgDot}{HTML}{C9C8C1}
+
+% =====================================================================
+% (a) v1: CNN-BiLSTM
+% =====================================================================
+\begin{scope}
+\node[rowlabel] at (0,1.25) {(a) v1: CNN-BiLSTM};
+
+% input: 10 frames of 100 sites, two channels each
+\foreach \j in {9,...,1}
+  \draw[box1, line width=0.4pt] ($(0,-0.46)+(0.05*\j,0.05*\j)$) rectangle +(1.45,0.46);
+\draw[box1] (0,-0.46) rectangle (1.45,0);
+\begin{scope}
+  \clip[rounded corners=1.2pt] (0,-0.46) rectangle (1.45,0);
+  \fill[sgOneMid] (0,-0.23) rectangle (1.45,0);
+\end{scope}
+\draw[box1, fill=none] (0,-0.46) rectangle (1.45,0);
+\draw[sgOneLine, line width=0.4pt] (0,-0.23) -- (1.45,-0.23);
+\node[note, anchor=north] at (0.95,-0.62) {$E_n(\tau)$, $\theta_n(0)$\\10 frames};
+
+% per-frame part: four convolutions, then flatten
+\draw[sgMuted, line width=0.5pt, dash pattern=on 2pt off 1.5pt, rounded corners=3pt] (2.3,-0.74) rectangle (5.84,0.78);
+\node[font=\scriptsize, text=sgInkTwo, fill=white, inner sep=1.5pt, anchor=west] at (2.5,0.78) {each frame separately};
+\draw[arr] (1.97,0) -- (2.42,0);
+\foreach \f [count=\k from 0] in {32,64,128,256}
+  \node[slab1] at (2.48+0.62*\k,-0.6) {\f};
+\draw[arr] (4.94,0) -- (5.3,0);
+\fill[sgOneFill] (5.36,-0.6) rectangle (5.52,0.6);
+\foreach \k in {1,...,11} \draw[sgOneMid, line width=0.3pt] (5.36,-0.6+0.1*\k) -- (5.52,-0.6+0.1*\k);
+\draw[sgOneLine, line width=0.6pt] (5.36,-0.6) rectangle (5.52,0.6);
+\node[note, anchor=north] at (3.69,-0.84) {filters, kernel 3\\zero padding};
+\node[note, anchor=north] at (5.44,-0.84) {flatten\\25,600};
+
+% bidirectional LSTM over the 10 frames
+\draw[arr] (5.84,0) -- (6.26,0);
+\node[box1, minimum width=1.85cm, minimum height=1.2cm, anchor=west] (lstm) at (6.32,0) {};
+\node[font=\footnotesize, anchor=base] at (7.245,0.25) {BiLSTM};
+\node[note, anchor=base] at (7.245,0.0) {128 + 128};
+\foreach \k in {0,...,9} \fill[sgOneLine] (6.62+0.139*\k,-0.29) circle (0.028);
+\draw[softarr, sgOneLine] (6.57,-0.17) -- (7.92,-0.17);
+\draw[softarr, sgOneLine] (7.92,-0.42) -- (6.57,-0.42);
+\node[tag, anchor=south] (tagA) at (7.245,0.84) {space and time meet};
+\draw[arr, draw=sgInkTwo] (tagA.south) -- (7.245,0.63);
+
+% dense layer and the two heads
+\draw[arr] (8.17,0) -- (8.5,0);
+\node[box1, minimum width=0.95cm, minimum height=0.84cm, anchor=west, align=center, inner sep=0.5pt, font=\scriptsize]
+  (dense) at (8.55,0) {dense\\64};
+\draw[arr] (9.5,0) -- (9.68,0) |- (9.86,0.4);
+\draw[arr] (9.68,0) |- (9.86,-0.4);
+\foreach \i in {0,...,19} {
+  \pgfmathtruncatemacro{\p}{round(90*exp(-(\i-12)^2/3.5))}
+  \fill[sgOneLine!\p!sgOneFill] (9.92+0.14*\i,0.23) rectangle +(0.14,0.34);
+}
+\draw[sgOneLine, line width=0.6pt] (9.92,0.23) rectangle (12.72,0.57);
+\node[note, anchor=south] at (11.32,0.62) {softmax over 100 sites};
+\node[box1, minimum width=2.8cm, minimum height=0.34cm, anchor=west, inner sep=0.5pt, font=\scriptsize]
+  at (9.92,-0.4) {localizes? (sigmoid)};
+
+% what a convolutional feature sees
+\begin{scope}[shift={(14.55,0.05)}]
+  \draw[sgOneMid, line width=4pt] (73.8:0.58) arc[start angle=73.8, end angle=106.2, radius=0.58];
+  \foreach \i in {0,...,99} \fill[sgDot] (3.6*\i:0.58) circle (0.012);
+  \foreach \i in {-4,...,4} \fill[sgOneLine] (90+3.6*\i:0.58) circle (0.017);
+  \fill[sgOneLine] (90:0.58) circle (0.04);
+\end{scope}
+\node[note, anchor=north] at (14.55,-0.7) {each conv feature\\sees 9 sites};
+
+% where the parameters sit
+\node[param, anchor=base west, font=\scriptsize\itshape] at (0,-1.85) {parameters};
+\node[param] at (3.69,-1.85) {0.13M};
+\node[param, text=sgOneLine] at (7.245,-1.85) {\textbf{26.2M} (99\%)};
+\node[param, text=sgOneLine] at (7.245,-2.17) {input weights};
+\node[param] at (9.025,-1.85) {16k};
+\node[param] at (11.32,-1.85) {6.6k};
+\node[param, text=sgInk] at (14.55,-1.85) {total 26,499,205};
+\end{scope}
+
+% =====================================================================
+% (b) v2: ring network
+% =====================================================================
+\begin{scope}[yshift=-3.95cm]
+\node[rowlabel] at (0,1.25) {(b) v2: ring network};
+
+% input: the 10 angle frames stacked as channels of one signal on the ring
+\foreach \k in {0,...,9} {
+  \ifodd\k \def\sgStripe{sgTwoMid}\else\def\sgStripe{sgTwoFill}\fi
+  \fill[\sgStripe] (0,-0.5+0.1*\k) rectangle (1.9,-0.4+0.1*\k);
+}
+\draw[sgTwoLine, line width=0.6pt] (0,-0.5) rectangle (1.9,0.5);
+\node[note, anchor=north] at (0.95,-0.62) {$\theta_n(\tau)$, 10 frames\\as channels};
+
+% seven circular convolutions; the numbers are the dilations
+\draw[arr] (1.97,0) -- (2.42,0);
+\foreach \d [count=\k from 0] in {1,2,4,8,16,32,1}
+  \node[slab2] at (2.48+0.5*\k,-0.6) {\d};
+\node[tag, anchor=west] (tagB) at (3.3,0.9) {space and time meet};
+\draw[arr, draw=sgInkTwo] (tagB.west) -| (2.69,0.63);
+\node[note, anchor=north] at (4.2,-0.72) {dilation, kernel 3\\32 channels, circular};
+
+% per-site head and time head
+\draw[arr] (5.9,0) -- (6.1,0) |- (6.3,0.4);
+\draw[arr] (6.1,0) |- (6.3,-0.4);
+\node[box2, minimum width=3.0cm, minimum height=0.6cm, anchor=west, align=center, inner sep=0.5pt, font=\scriptsize]
+  at (6.35,0.4) {per-site head\\conv 3 + 1$\times$1};
+\node[box2, minimum width=3.0cm, minimum height=0.6cm, anchor=west, align=center, inner sep=0.5pt, font=\scriptsize]
+  at (6.35,-0.4) {ring average\\linear};
+\draw[arr] (9.35,0.4) -- (9.86,0.4);
+\draw[arr] (9.35,-0.4) -- (9.86,-0.4);
+\foreach \i in {0,...,19} {
+  \pgfmathtruncatemacro{\p}{round(90*exp(-(\i-12)^2/3.5))}
+  \fill[sgTwoLine!\p!sgTwoFill] (9.92+0.14*\i,0.23) rectangle +(0.14,0.34);
+}
+\draw[sgTwoLine, line width=0.6pt] (9.92,0.23) rectangle (12.72,0.57);
+\node[note, anchor=south] at (11.32,0.62) {$p_n$, softmax over the ring};
+\node[box2, minimum width=2.8cm, minimum height=0.34cm, anchor=west, inner sep=0.5pt, font=\scriptsize]
+  at (9.92,-0.4) {$\ln\tau_{\mathrm{loc}}$};
+
+% what one site sees
+\begin{scope}[shift={(14.55,0.05)}]
+  \draw[sgTwoMid, line width=4pt] (0,0) circle (0.58);
+  \foreach \i in {0,...,99} \fill[sgTwoLine] (3.6*\i:0.58) circle (0.017);
+  \fill[sgTwoLine] (90:0.58) circle (0.04);
+\end{scope}
+\node[note, anchor=north] at (14.55,-0.7) {each site sees\\129 sites $>$ 100};
+
+% where the parameters sit
+\node[param, anchor=base west, font=\scriptsize\itshape] at (0,-1.85) {parameters};
+\node[param] at (4.2,-1.85) {19.6k};
+\node[param] at (7.85,-1.85) {3.1k + 33};
+\node[param, text=sgInk] at (14.55,-1.85) {total 22,786};
+\end{scope}
+\end{tikzpicture}
