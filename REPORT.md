@@ -162,7 +162,7 @@ v2 asks five questions, each answered with a hypothesis from the physics followe
 
 ### Reproducing v1
 
-The original training notebook and dataset are not available, so v1 was rebuilt from the paper's description in PyTorch, keeping the Keras defaults:
+The original training code and dataset were not available for this study, so v1 was rebuilt from the paper's description in PyTorch, keeping the Keras defaults:
 - the same layers, initializers, dropout masks, loss weights and optimizer
 - early stopping on validation loss
 - the same 60/20/20 data sizes
@@ -182,7 +182,7 @@ Later input frames would not explain the gap. A single snapshot of the energy ev
 
 Three explanations remain, and cannot be distinguished without the original code:
 1. The original pipeline differs from its description, for example in label or feature definitions.
-2. Training and test runs overlapped (for example, repeated random seeds in the threaded data generation), letting the 26.5M-parameter network score high by memorizing.
+2. Training and test runs overlapped, although most test runs would need a copy in training to account for the whole gap.
 3. Something in this rebuild that the paper does not specify.
 
 **Testing the first explanation: the label.** Sec. 10 shows that v1's label jitters. Which pendulum first passes 10% of the energy moves by 1–3 sites within a swing, while the swing-averaged hotspot does not. Trained on the swing-averaged label instead, the rebuilt v1 reaches 83.6% within ±1 and a mean distance of 2.25 (2 seeds).
@@ -297,7 +297,7 @@ The 20,000-run test pool resolves accuracy to a standard error of about 0.3%.
 
 ### v1 (rebuilt)
 
-The paper's training notebook is not available, so v1 was rebuilt from Sec. 2.3 and the Appendix in PyTorch, keeping the Keras defaults.
+The paper's training code was not available for this study, so v1 was rebuilt from Sec. 2.3 and the Appendix in PyTorch, keeping the Keras defaults.
 
 **Architecture** (26,499,205 parameters):
 1. Time-distributed Conv1D ×4 (32/64/128/256 filters, kernel 3, zero "same" padding, ReLU).
@@ -946,7 +946,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Limitations
 
-- **The v1 comparison is against a rebuild.** The original notebook and data are not available. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the published pipeline differs in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
+- **The v1 comparison is against a rebuild.** The original training code and data were not available for this study. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the rebuild differs from the original pipeline in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
 - **Damping is simulated as linear and the same at every pendulum.** Real pendulums lose energy to bearing friction, which is partly a constant (Coulomb) torque, and to air drag, which grows with the square of the speed. No two pendulums lose energy at quite the same rate.
   - With linear damping, nearly every release (A = 1.65–1.85) localizes only if the chain's quality factor is about 1,000 or more. For 20 cm pendulums, that means the swing takes at least 5 min to decay by 1/e (Sec. 11).
   - At Q ≈ 300, 29% of releases never localize, and at Q = 100 none do.
@@ -965,4 +965,4 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
 6. The noise-and-timing grid on the swing-averaged label is done (Sec. 7): waiting costs about 25 time units per 10× noise on either label, at about the mean growth rate of the growing modes. Still open: predict the rate from each mode's share of the localization instead of a plain mean over the growing modes, and repeat the grid with more than one seed per cell.
 7. The key choices and sensing setups on the hump label are done (Sec. 10). Each choice costs about the same number of sites as on the swing-averaged label, and hard labels beat soft ones there. A second site lifts the cheap camera from 96.8% to 98.3% within ±1, named in 5.6% of runs. Still open: the noise-and-timing and sparse-sensor grids on the hump label.
-8. If the original v1 notebook resurfaces, rerun the comparison against it, check its labels, and check its data for train/test overlap.
+8. If the original v1 training code becomes available, rerun the comparison against it and check its labels and its train/test split.

@@ -5,7 +5,7 @@ Each paper is a self-contained LaTeX folder: `main.tex`, its bibliography, a pre
 | Folder | Paper | Status |
 |---|---|---|
 | [jand2026_arxiv/](jand2026_arxiv/) | Mittal, Grishanov, Pham, Lape and English, "Machine-learning prediction of type-III instabilities and spontaneous energy localization", *J. Appl. Nonlinear Dyn.* **15**(2), 277–290 (2026) | Published, open access under CC BY 4.0. This is the arXiv version: the published text with its typographical errors corrected. Not yet posted to arXiv. |
-| [v2_preprint/](v2_preprint/) | Mittal, Grishanov, Pham, Lape and English, "Physics-guided machine-learning prediction of spontaneous energy localization in a sine-Gordon pendulum ring" | Draft. Open items are listed in [NOTES.md](v2_preprint/NOTES.md). Sec. 4, on reproducing the published model, is still being discussed with the published paper's coauthors. |
+| [v2_preprint/](v2_preprint/) | Mittal, Grishanov, Pham, Lape and English, "Physics-guided machine-learning prediction of spontaneous energy localization in a sine-Gordon pendulum ring" | Draft. Open items are listed in [NOTES.md](v2_preprint/NOTES.md). Sec. 4, on reproducing the published model, is still to be agreed with the coauthors. |
 
 ## Building
 

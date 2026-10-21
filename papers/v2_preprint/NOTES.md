@@ -36,12 +36,9 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
 
 ### Before posting (blocking)
 
-1. **TODO-AUTHOR-REVIEW: Sec. 4, "Reproduction of the earlier network".** Under discussion with
-   L.Q. English (wording; whether the original training notebook or dataset can be recovered). A reply
-   that stresses the discrepancy is drafted in `overleaf/arxiv_submission/email_to_lars_2.md` (local, not in
-   git). It raises further points about the published numbers that are deliberately not in the paper; keep
-   them out until Lars has replied. Keep every mention of the published 94.4% consistent with the agreed
-   wording:
+1. **TODO-AUTHOR-REVIEW: Sec. 4, "Reproduction of the earlier network".** Wording to be agreed with
+   the coauthors before posting; also ask whether the original training code or dataset is available.
+   Keep every mention of the published 94.4% consistent with the agreed wording:
    - abstract ("falls short of the accuracy originally reported")
    - Introduction, paragraphs 2 and 5
    - Table 1 and its caption (wrap-around of the 1.44)
@@ -49,8 +46,7 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
    - Sec. 4
    - Conclusions, limitations paragraph
 2. **Authors.** Mittal (Department of Physics, Carnegie Mellon University), Grishanov, Pham, Lape and English,
-   in v1's order with v1's affiliations for the coauthors. Each coauthor still has to agree (asked in the
-   reply to Lars). Add a contact e-mail.
+   in v1's order with v1's affiliations for the coauthors. Each coauthor still has to agree. Add a contact e-mail.
 3. **Acknowledgements** are a placeholder `[TODO]`.
 4. **Before uploading to arXiv** (which publishes the TeX source): delete the `\authorreview` box and its
    macro, set or remove `\draftnotes`, and strip every `%` comment from `main.tex` (e.g. with
