@@ -46,7 +46,7 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
    - Sec. 4
    - Conclusions, limitations paragraph
 2. **Authors.** Mittal (Department of Physics, Carnegie Mellon University), Grishanov, Pham, Lape and English,
-   in v1's order with v1's affiliations for the coauthors. Each coauthor still has to agree. Add a contact e-mail.
+   in v1's order with v1's affiliations for the coauthors. Each coauthor still has to agree. Contact e-mail: almittal@andrew.cmu.edu.
 3. **Acknowledgements** are a placeholder `[TODO]`.
 4. **Before uploading to arXiv** (which publishes the TeX source): delete the `\authorreview` box and its
    macro, set or remove `\draftnotes`, and strip every `%` comment from `main.tex` (e.g. with
