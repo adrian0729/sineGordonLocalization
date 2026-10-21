@@ -45,6 +45,8 @@ def threshold_amplitude(g=0.75, h=0.5, n_sites=100, lo=1.5, hi=1.7, tol=1e-5):
     def unstable(A):
         return growth_rates(A, np.arange(1, 6), g, h, n_sites).max() > 1e-7
 
+    if unstable(lo) or not unstable(hi):
+        raise ValueError(f"the threshold is not inside [{lo}, {hi}]; widen the bracket")
     while hi - lo > tol:
         mid = 0.5 * (lo + hi)
         lo, hi = (lo, mid) if unstable(mid) else (mid, hi)

@@ -809,7 +809,8 @@ def fig_label_jitter(axes=None):
         for c in ablations.phase6():
             path = ROOT / "runs" / f"{c['name']}_s{c['seed']}_{experiment.config_id(c)}" / "pred_test.npy"
             if c["name"] == name and path.exists():
-                e = signed(np.load(path).astype(int), truth)
+                valid = truth >= 0  # the swing-averaged label never fires in 51 of the 20,000 test runs
+                e = signed(np.load(path).astype(int)[valid], truth[valid])
                 hs.append([100 * np.mean(e == k) for k in errors])
         return np.mean(hs, axis=0) if hs else None
 
@@ -827,7 +828,7 @@ def fig_label_jitter(axes=None):
     if len(series) < 2:
         raise FileNotFoundError("label runs not finished yet")
     fig, (a, b) = subplots(axes, 1, 2, figsize=(10.5, 3.4), layout="constrained")
-    offset = signed(avg, right)
+    offset = signed(avg[avg >= 0], right[avg >= 0])
     a.bar(errors, [100 * np.mean(offset == k) for k in errors], width=0.6, color=SLOT[0], linewidth=0)
     a.set_xticks(errors)
     a.set_xlabel("Swing-averaged minus first-crossing site" if paper else "Swing-averaged site minus v1's site (pendulums)")

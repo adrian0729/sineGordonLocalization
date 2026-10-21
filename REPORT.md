@@ -38,9 +38,9 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 - **The paper's code and text disagree in places.**
   - The global coupling is h̃ = 0.5 in all code, not 0.05 as printed; the Floquet analysis confirms 0.5.
   - The figures' time axes are sample indices, so localization happens at τ ≈ 57, not 100.
-  - Each spring's energy is booked to one neighbour, which moves the labelled site in 21% of runs.
+  - Each spring's energy is booked to one neighbour; splitting it evenly instead moves the labelled site in 19% of test runs.
   - The input scaler was fit before the train/test split (minor leakage).
-- **A vectorized simulator** gives the paper pipeline's exact labels on 1,000 of 1,000 runs, about 100 times faster.
+- **A vectorized simulator** gives the paper pipeline's exact labels on 1,000 of 1,000 runs, more than ten times faster.
 
 ### Physics of the instability
 
@@ -65,7 +65,7 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 - **An unknown start point in the swing** needs about one full swing of angle frames, or one frame of energies.
 - **Noise first causes far misses**, a wrong hump rather than a one-site slip. A camera is fine up to about 10⁻³ rad when watching from release.
 - **Waiting divides sensor noise by the growth of the unstable modes.**
-  - Each 10× worse sensor costs about 25 time units of waiting, on either label, as the mean growth rate of the five growing modes predicts (24.8). The fastest mode alone would predict 19.5.
+  - Each 10× worse sensor costs about 25 time units of waiting, on either label, as the mean growth rate of the growing modes predicts (24.8). The fastest mode alone would predict 19.5.
   - Single-frame setups gain less from waiting (30–34 time units per 10×).
 - **Sparse sensors:** every 2nd pendulum costs nothing and every 4th a little. Every 8th fails even though it satisfies Nyquist, because the stable modes alias onto the growing ones.
 - **Without noise, waiting helps only on v1's jittery label**; where the energy settles can already be read at release.
@@ -130,7 +130,7 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 
 ### The problem
 
-A ring of N = 100 torsionally coupled pendulums with a weak global (mean-field) coupling is released from rest. The pendulums start in a nearly uniform swing, A ≈ 1.65–1.85 rad, with small random offsets (±0.025 rad).
+A ring of N = 100 torsionally coupled pendulums with a global (mean-field) coupling is released from rest. The pendulums start in a nearly uniform swing, A ≈ 1.65–1.85 rad, with small random offsets (±0.025 rad).
 
 The uniform swing is unstable (a type-III instability). After about 57 time units, one pendulum suddenly holds more than 10% of the chain's energy. The question is whether the early behaviour of the chain predicts which pendulum it will be.
 
@@ -156,9 +156,9 @@ v2 asks five questions, each answered with a hypothesis from the physics followe
 |---|---|
 | All code uses h̃ = 0.5; the paper's Sec. 2.1 says 0.05 | Typo. The Floquet analysis confirms 0.5: with 0.05 the instability has no threshold near 1.59 and is not type III |
 | The time axes of Figs. 2–5 and 7 are sample indices (Δτ = 0.5) | Localization happens at τ ≈ 57, not 100. The box-car comparison point "t = 5" is τ = 2.5, earlier than the end of v1's input window |
-| Each site's energy includes the whole spring to its right neighbour | The label's exact site depends on this bookkeeping in 21% of runs |
+| Each site's energy includes the whole spring to its right neighbour | Splitting each spring evenly instead moves the label's site in 19% of test runs |
 | The input scaler was fit before the train/test split | Minor leakage; v2 fits it on the training pool only |
-| `odeint` was run one simulation at a time | Replaced by a vectorized RK4 that is about 100× faster and gives identical labels |
+| `odeint` was run one simulation at a time | Replaced by a vectorized RK4 that is more than 10× faster and gives identical labels |
 
 ### Reproducing v1
 
@@ -293,7 +293,7 @@ All distances are measured around the ring. We report:
 - the share of runs more than 10 sites off
 - the negative log-likelihood of the true site
 
-The 20,000-run test pool resolves accuracy to about ±0.3% (95%).
+The 20,000-run test pool resolves accuracy to a standard error of about 0.3%.
 
 ### v1 (rebuilt)
 
@@ -847,7 +847,7 @@ The model outputs a probability for every site, so it can name the smallest set 
 | Nominal chain | 3.14 | 1.49 | 5 growing modes, σ₁ = 0.1185 |
 | Neighbour coupling g −10% / +10% | 3.26 / 3.39 | 1.97 / 1.97 | σ₁ within 0.3%; the same 5 modes grow |
 | Twice the initial spread | 3.62 | 1.96 | Nothing; perturbations start twice as large |
-| Global coupling h −10% | 4.36 | 4.25 | σ₁ +21%; 6 modes grow; A_c falls to 1.50 |
+| Global coupling h −10% | 4.36 | 4.25 | σ₁ +21%; 6 modes grow; A_c falls to 1.48 |
 | Global coupling h +10% | 5.91 | 5.53 | σ₁ −33%; 3 modes grow; A_c rises to 1.68 |
 | 80 pendulums | n/a | 1.31 | 4 modes grow |
 | 150 pendulums | n/a | 6.32 | 8 modes grow |
