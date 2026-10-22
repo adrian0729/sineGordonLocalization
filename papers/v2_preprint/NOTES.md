@@ -37,7 +37,7 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
 ### Before posting (blocking)
 
 1. **TODO-AUTHOR-REVIEW: Sec. 4, "Reproduction of the earlier network".** Wording to be agreed with
-   the coauthors before posting; also ask whether the original training code or dataset is available.
+   L.Q. English before posting; also ask whether the original training code or dataset is available.
    Keep every mention of the published 94.4% consistent with the agreed wording:
    - abstract ("falls short of the accuracy originally reported")
    - Introduction, paragraphs 2 and 5
@@ -45,9 +45,10 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
    - Sec. 3.4, second paragraph
    - Sec. 4
    - Conclusions, limitations paragraph
-2. **Authors.** Mittal (Department of Physics, Carnegie Mellon University), Grishanov, Pham, Lape and English,
-   in v1's order with v1's affiliations for the coauthors. Each coauthor still has to agree. Contact e-mail: almittal@andrew.cmu.edu.
-3. **Acknowledgements** are a placeholder `[TODO]`.
+2. **Authors.** Mittal (Department of Physics, Carnegie Mellon University) and English (Dickinson College);
+   v2 is new work that cites Ref. [v1] for the earlier results. English still has to agree. Contact e-mail:
+   almittal@andrew.cmu.edu.
+3. **Acknowledgements** are left out for now; consider adding a line before posting.
 4. **Before uploading to arXiv** (which publishes the TeX source): delete the `\authorreview` box and its
    macro, set or remove `\draftnotes`, and strip every `%` comment from `main.tex` (e.g. with
    `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
