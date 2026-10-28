@@ -21,6 +21,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | 9 | The hump-scale label and a second site | `add_labels.py hump`, `sweep.py phase9`, `top2.py` | `results/phase9_tables.md`, `results/top2.json` |
 | 10 | The key choices and sensing setups on the hump label | `add_labels.py hump_top`, `sweep.py phase10`, `hump_label.py` | `results/phase10_tables.md`, `results/hump_label.json` |
 | Camera start time | When a coarse camera should start watching, at full budget | `sweep.py deploy_start` | `results/deploy_start_tables.md` |
+| Threshold | Which localization threshold, and what it means physically | `threshold_labels.py`, `sweep.py threshold`, `train_v1_threshold.py`, `threshold_analysis.py` | `results/threshold_tables.md`, `results/threshold.json` |
 
 ## Data and checks
 
@@ -28,6 +29,7 @@ Each phase answers one question of the study and is written up in the [report](.
 |---|---|---|
 | `make_pools.py` | Simulates the training, validation and test pools (100,000 / 20,000 / 20,000 runs of initial angles and labels) | `data/pool_*.npz` |
 | `add_labels.py` | Adds labels that are not computed by default (`hump`, `hump_top`) to existing pools, re-simulated from their stored initial angles | `data/pool_*.npz` |
+| `threshold_labels.py` | First-crossing labels at 3–15% of the total energy, at multiples of the separatrix energy and at the first pendulum past the top, for the threshold study, in separate pool files | `data/thrpool_*.npz` |
 | `make_robustness_pools.py` | Test pools for Phase 6: shifted couplings, more initial noise, other ring lengths, impurities and damping | `data/robust_*.npz` |
 | `validate_sim.py` | Checks the simulator against the paper's own `odeint` pipeline, step-size convergence, the paper's box-car number and the Floquet threshold | `results/validation.json` |
 
@@ -39,6 +41,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | `run_config.py` | Runs one config in its own process, so memory is returned when it finishes (called by `sweep.py`) | as above |
 | `run_one.py` | Runs a single config of a table, by phase, name and seed | as above |
 | `train_v1.py` | Trains the rebuilt v1, the paper's CNN-BiLSTM | `runs/<run>/`, `results/runs.jsonl` |
+| `train_v1_threshold.py` | The rebuilt v1 on a threshold-study label; stops and marks seeds that never leave the ln 100 plateau | `runs/threshold_v1_*/`, `results/runs.jsonl` |
 | `summarize.py` | Mean ± standard deviation over seeds for one table | `results/<table>_tables.md` |
 
 ## Analyses
@@ -56,6 +59,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | `regularization.py` | How each regularizer changes overfitting with little data | `results/phase8_regularization.md`, `results/phase8_curves.json`, `results/phase8_train.json` |
 | `top2.py` | A second site, for runs where a rival hump competes | `results/top2.json`, `results/top2_deploy.json` |
 | `hump_label.py` | Why the hump label is easier to predict than the swing-averaged label | `results/hump_label.json` |
+| `threshold_analysis.py` | Label diagnostics, physics baselines and trained models for every threshold-study label, and the two threshold choices | `results/threshold.json` |
 
 ## Tables and figures
 

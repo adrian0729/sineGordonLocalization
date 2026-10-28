@@ -26,3 +26,4 @@ The report's figures, each saved as PNG (used by [REPORT.md](../REPORT.md)) and 
 | [fig19_avg_label_ablations](fig19_avg_label_ablations.png) | The same choices win on the swing-averaged label | 10. Final model |
 | [fig20_damping](fig20_damping.png) | Damping decides whether the energy localizes, and how well v2 still predicts the site | 11. Robustness |
 | [fig21_regularization](fig21_regularization.png) | Mirror images delay overfitting with little data | 10. Final model |
+| [fig22_threshold](fig22_threshold.png) | Accuracy against the localization threshold, and how pinned each label is | 10. Final model |

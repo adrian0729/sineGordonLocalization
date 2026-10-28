@@ -32,9 +32,10 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 
 ### v1, and what this work corrects
 
-- **v1's published accuracy could not be reproduced.** Rebuilt from the paper, v1 reaches 60.4% within ±1 pendulum, not 94.4%, and one of three seeds never trained.
-  - The label explains part of the gap. Which pendulum first passes 10% of the energy jitters by 1–3 sites within a swing; on a swing-averaged label the rebuilt v1 reaches 83.6%, about two-thirds of the way to 94.4%.
-  - Without the original code this is a consistency check, not proof. Train/test overlap, or a detail the paper does not specify, could explain the rest.
+- **v1's published accuracy is approached only at other settings than the paper states.** Rebuilt from the paper (10% threshold, offsets ±0.025), v1 reaches 60.4% within ±1 pendulum, not 94.4%, and one of three seeds never trained.
+  - Most of the gap is explained by the label threshold. Retrained at a 4% threshold, the same rebuild reaches 88.5%, and 92.5% with offsets of ±0.0125, which is how the original data-generation code's noise level of 0.025 reads in the simulation code's convention (Sec. 2).
+  - So the published accuracies were most likely obtained with an effective threshold of about 4% and offsets of ±0.0125. This is a reconstruction, not proof: the original training code is not available.
+  - All v1 vs v2 comparisons stay at the stated settings (10%, ±0.025).
 - **The paper's code and text disagree in places.**
   - The global coupling is h̃ = 0.5 in all code, not 0.05 as printed; the Floquet analysis confirms 0.5.
   - The figures' time axes are sample indices, so localization happens at τ ≈ 57, not 100.
@@ -180,15 +181,24 @@ A third seed stayed at chance level and never trained.
 
 Later input frames would not explain the gap. A single snapshot of the energy even right at localization only gets about 60% within ±1, because the hotspot keeps moving after it forms.
 
-Three explanations remain, and cannot be distinguished without the original code:
-1. The original pipeline differs from its description, for example in label or feature definitions.
-2. Training and test runs overlapped, although most test runs would need a copy in training to account for the whole gap.
-3. Something in this rebuild that the paper does not specify.
+**What the gap is: the threshold, and probably the noise.** The original model and data-generation code match the rebuild in the simulation parameters, the inputs and the network (the original Keras model has the rebuild's 26,499,205 parameters and, with copied weights, gives the same outputs). They differ in two ways that do not explain the gap: the original data end at τ = 100 rather than 150 (handled below by leaving out runs that localize later), and the original scaler was fitted before the split. What is not visible is the threshold value passed to the labelling function and how the noise level enters the initial angles. Retraining the unchanged rebuild at lower thresholds recovers most of the published accuracy (Sec. 10, *Which threshold?*; test pool):
 
-**Testing the first explanation: the label.** Sec. 10 shows that v1's label jitters. Which pendulum first passes 10% of the energy moves by 1–3 sites within a swing, while the swing-averaged hotspot does not. Trained on the swing-averaged label instead, the rebuilt v1 reaches 83.6% within ±1 and a mean distance of 2.25 (2 seeds).
-- That is about two-thirds of the way from 60.4% to the published 94.4%.
-- So a smoother label in the original training pipeline would explain much of the gap, but not all of it. The rest could come from a different smoothing, or from explanations 2 and 3.
-- This is a consistency check, not an identification: the original labelling code is not available.
+| Threshold | Offsets | v1 rebuilt: ±1 (mean distance) | v2: ±1 (mean distance), 3 seeds |
+|---|---|---|---|
+| 10% (stated) | ±0.025 (stated) | 60.1% (3.07), 2 seeds | 77.1% (1.49) |
+| 5% | ±0.025 | 88.9% (2.12), 2 seeds | 99.1% (0.38) |
+| 4% | ±0.025 | 88.5% (2.16), 2 seeds | 99.4% (0.34) |
+| 4% | ±0.0125 | 92.5% (1.69), 1 of 9 seeds trained | 99.4% (0.32) |
+| Published | | 94.4% (1.44) | |
+
+The 10% row comes from the threshold study; the main runs (Sec. 10) give 60.4% (3.14) for v1 and 77.2% (1.49) for v2.
+
+- **Offsets.** The original data-generation code sets a noise level of 0.025. The simulation code applies a noise level s as offsets s (U − ½) ([v1_original/sinegordon_otherresults.py](v1_original/sinegordon_otherresults.py); [v1_original/graph_designer.py](v1_original/graph_designer.py) calls 0.05 (U − ½) "Noise Level = 0.05"). Read the same way, the original training data had offsets of ±0.0125, half the stated ±0.025. At ±0.0125, runs that have not localized by τ = 100 (the original data's time window) are left out, as in the original data: 18 of 20,000 test runs at 4%.
+- **Conclusion.** As far as it can be reconstructed, the published accuracies were obtained with an effective threshold of about 4% of the total energy and offsets of ±0.0125, not the stated 10% and ±0.025. One simple cause would be a factor of 2 between the per-site energy and the total (the simulation code's energy is twice Eq. 5), which turns a nominal 10% into 5%. Only the original training code can settle it.
+- **Seeds that never train.** At ±0.0125 most seeds never leave the ln 100 plateau of a uniform guess: 11 of 14 tries (4%: 1 of 9 trained; 5%: 2 of 5, at 87.6% and 91.3%). At ±0.025 it happened in 1 of 9 tries in the threshold study.
+- **Where the evidence is.** The threshold-study records are in [results/runs.jsonl](results/runs.jsonl) (phase "threshold") and [results/threshold.json](results/threshold.json). The ±0.0125 retrains and the label scans that found the threshold are kept locally in `runs/v1_disparity_20261025/` (git-ignored).
+
+**The earlier test of a smoother label.** Trained on the swing-averaged label, the rebuilt v1 reaches 83.6% within ±1 and a mean distance of 2.25 (2 seeds), about two-thirds of the way to 94.4%. A lower threshold goes further because it pins the label to one physical event, the first pendulum going over the top (Sec. 10).
 
 **All v1 vs v2 comparisons below use the rebuilt v1 on the same test pool and v1's label as the code defines it.**
 
@@ -261,6 +271,7 @@ A run is labeled at the first sample (Δτ = 0.5) where one site holds more than
   - left spring
   - symmetric split
   - symmetric energy averaged over one swing
+- **Threshold study:** [scripts/threshold_labels.py](scripts/threshold_labels.py) recomputes the first crossing at 3–15% of the total energy (right and even spring split), at 1.5–6 times the separatrix energy, and the first pendulum past the top, for every pool. They go into separate files, `data/thrpool_full_*.npz` (and `data/thrpool_half_*.npz` with the offsets halved), which configs use through the `pools` key; the shared pools are unchanged. Its 10% label equals the stored label on all 140,000 runs.
 
 ### Data pools
 
@@ -822,6 +833,40 @@ Phase 10 repeats Phase 7 on the hump label: the final recipe at the full budget,
   - Those are the misses a second site catches. On rival-hump runs the two cameras go from 86–87% to 96.5–97.4% within ±1 with two sites.
 - **Without noise, waiting does not pay on this label either** (energies at τ = 30: 0.26 against 0.27).
 
+### Which threshold?
+
+v1 set its 10% threshold "somewhat arbitrarily". This study recomputes the first-crossing label at other thresholds and asks which one is learnable and what it means physically ([results/threshold.json](results/threshold.json), Fig. 22; v2 final recipe, ablations phase `threshold`, 3 seeds per label; rebuilt v1 at 4%, 5%, 10% and "first past the top" with 2 trained seeds each, on one Brev 4×L40 instance; baselines tuned on the validation pool).
+
+**Scales.** The separatrix energy E_sep = 2 is the on-site energy of a pendulum held at the top (Eq. 5). The total energy is 108–128 (median 118), so E_sep is 1.7% of it: 3% ≈ 1.8 E_sep, 4% ≈ 2.4, 5% ≈ 2.9, 10% ≈ 5.9, 15% ≈ 8.8.
+
+**An event with no threshold.** The first pendulum to swing past the top (|θ| > π, where its libration turns into rotation) does so at a median τ = 50. The 3% crossing comes a median 1.5 time units before it, the 4% crossing 1.5 after.
+
+| Label | Lag after the first pendulum past the top (median) | Within ±1 of the hump centre | Site moves if springs split evenly | Floquet filter ±1 | v1 rebuilt ±1 | v2 ±1 | v2 mean distance |
+|---|---|---|---|---|---|---|---|
+| 3% | −1.5 | 99.4% | 7.8% | 72.0% | | 99.2% | 0.40 |
+| 4% | +1.5 | 99.4% | 14.0% | 72.6% | 88.5% | **99.4%** | **0.34** |
+| 5% | +2.0 | 98.9% | 17.4% | 71.9% | 88.9% | 99.1% | 0.38 |
+| 6% | +2.5 | 96.0% | 20.5% | 69.9% | | 97.8% | 0.52 |
+| 7% | +3.0 | 87.3% | 23.2% | 63.8% | | 92.9% | 0.79 |
+| 8% | +3.5 | 74.8% | 23.4% | 56.0% | | 85.8% | 1.04 |
+| 9% | +4.0 | 66.9% | 22.6% | 51.7% | | 82.1% | 1.24 |
+| 10% (v1) | +5.5 | 62.9% | 19.4% | 52.0% | 60.1% | 77.1% | 1.49 |
+| 12% | +7.5 | 74.8% | 17.2% | 66.0% | | 83.7% | 1.29 |
+| 15% | +11.5 | 85.3% | 8.8% | 69.6% | | 91.1% | 0.95 |
+| 2 E_sep | +1.0 | 99.5% | | 72.4% | | 99.3% | 0.36 |
+| 3 E_sep | +2.0 | 98.9% | | 72.0% | | 99.0% | 0.41 |
+| First past the top | 0 | 99.1% | | 71.4% | 88.1% | 98.9% | 0.43 |
+| Hump (above) | +5.0 | 100% | | 73.0% | | 99.4% | 0.27 |
+
+- **The most learnable threshold is 4%**, about 2.4 E_sep: v2 reaches 99.39 ± 0.04% within ±1 and a mean distance of 0.34, as on the hump label. Every label from 3% to 5% and at 2–3 E_sep is within 0.4 points of it.
+- **Those labels mark one physical event.** They fire a median of at most two time units from the first pendulum past the top and name it within ±1 in 98.7–99.2% of test runs. The learnable threshold is the one that catches a pendulum going over the top.
+- **Past 5% the label fires while energy passes to the neighbours.** Hump agreement, the Floquet filter and v2 fall to a minimum near 9–10% (Floquet 51.7% at 9%, v2 77.1% at 10%), and v1, trained only at 4%, 5% and 10%, drops to 60.1% at 10%. The 10% of v1 is close to the worst choice.
+- **Partial recovery at 12–15%,** as one pendulum comes to dominate the hump (the share of sites that move under an even spring split falls back to 9%). At 15%, 1.1% of runs have not localized by τ = 150.
+- **Accuracy follows the physics across the ten shares** (Spearman): v2 ±1 against hump agreement 0.99, against the Floquet filter 0.93, against the box-car 0.87, against the lag after the first pendulum past the top −0.83. The box-car stays weak everywhere (36–43%).
+- **A physical choice, fixed before any model was trained:** the smallest share that fires no earlier than the first pendulum past the top in at least 95% of validation runs and lies within ±1 of the hump centre in at least 98%. No share passes, narrowly: 5% fires after it in 94.5% of runs (hump 98.6%), and 6% nearly always does (99.99%) but reaches only 95.9% hump agreement. Among all candidates, 3 E_sep and the first pendulum past the top pass. The event itself needs no threshold, and labelling it directly gives v2 98.9%, 0.5 points below the best share.
+- **What changes.** The 10% label stays for every comparison with v1, and the hump label stays the recommended target. A first crossing at about 4%, or the first pendulum past the top, is the simplest single-pendulum definition with a physical meaning, and is predicted as well as the hump.
+- **Rerun:** `python scripts/threshold_labels.py` (labels, ~10 min on CPU), `python scripts/sweep.py threshold` (v2, ~1.8 h on MPS at 2 workers), `python scripts/train_v1_threshold.py --label thr04 --seed 0` (one v1 run), `python scripts/threshold_analysis.py` and `python scripts/make_figures.py`.
+
 ### A set of sites instead of one
 
 The model outputs a probability for every site, so it can name the smallest set of sites that holds a chosen share of the probability ([results/prediction_sets.json](results/prediction_sets.json); 5 seeds, test pool):
@@ -946,7 +991,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 
 ### Limitations
 
-- **The v1 comparison is against a rebuild.** The original training code and data were not available for this study. The rebuild reaches 60.4% within ±1 (83.6% on a swing-averaged label), not the published 94.4%. If the rebuild differs from the original pipeline in a way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
+- **The v1 comparison is against a rebuild.** The original training code and data were not available for this study. At the stated settings the rebuild reaches 60.4% within ±1, not the published 94.4%; it reaches 92.5% only at reconstructed settings (a 4% threshold and offsets of ±0.0125; Sec. 2). If the rebuild differs from the original pipeline in another way that matters, the real gap between v1 and v2 could be smaller than reported here. The physics baselines (Floquet filter 3.12, learned linear filter 2.17) do not depend on the rebuild, and v2 beats them too.
 - **Damping is simulated as linear and the same at every pendulum.** Real pendulums lose energy to bearing friction, which is partly a constant (Coulomb) torque, and to air drag, which grows with the square of the speed. No two pendulums lose energy at quite the same rate.
   - With linear damping, nearly every release (A = 1.65–1.85) localizes only if the chain's quality factor is about 1,000 or more. For 20 cm pendulums, that means the swing takes at least 5 min to decay by 1/e (Sec. 11).
   - At Q ≈ 300, 29% of releases never localize, and at Q = 100 none do.
@@ -954,7 +999,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged and hump labels (Sec. 10), and the noise-and-timing grid on the swing-averaged label (Sec. 7). The sparse sensors and the optimizer were not.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). A first crossing at about 4%, which marks the first pendulum going over the top, is as learnable as the hump label (Sec. 10, *Which threshold?*). The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged and hump labels (Sec. 10), and the noise-and-timing grid on the swing-averaged label (Sec. 7). The sparse sensors and the optimizer were not.
 
 ### Next steps
 
@@ -965,4 +1010,4 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
 6. The noise-and-timing grid on the swing-averaged label is done (Sec. 7): waiting costs about 25 time units per 10× noise on either label, at about the mean growth rate of the growing modes. Still open: predict the rate from each mode's share of the localization instead of a plain mean over the growing modes, and repeat the grid with more than one seed per cell.
 7. The key choices and sensing setups on the hump label are done (Sec. 10). Each choice costs about the same number of sites as on the swing-averaged label, and hard labels beat soft ones there. A second site lifts the cheap camera from 96.8% to 98.3% within ±1, named in 5.6% of runs. Still open: the noise-and-timing and sparse-sensor grids on the hump label.
-8. If the original v1 training code becomes available, rerun the comparison against it and check its labels and its train/test split.
+8. If the original v1 training code becomes available, check its threshold, energy formula and noise against the reconstruction in Sec. 2, and its train/test split.

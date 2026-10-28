@@ -571,7 +571,33 @@ def phase10():
     return timing.configs + t.configs
 
 
+THRESHOLD_POOLS = {s: f"thrpool_full_{s}" for s in ("train", "val", "test")}
+
+
+def threshold():
+    """Which localization threshold? v1 set 10% of the total energy "somewhat arbitrarily", and its label jitters
+    because by then energy is already passing to the neighbours. The final recipe on first-crossing labels at 3-15%
+    of the total, at absolute multiples of the separatrix energy (E_sep = 2, the on-site energy of a pendulum at the
+    top; sep2 and sep3 bracket the 4-5% suggested by the label checks) and at the first pendulum past the top, all
+    from scripts/threshold_labels.py (data/thrpool_*; the shared pools are untouched). Runs that never cross carry
+    no site loss. The v1_settings group repeats v1's apparent published settings (4%, offsets +-0.0125, labels cut
+    at t_f = 100) for the v2 cell beside the rebuilt v1's 92.5%."""
+    t = Table(merge(final_recipe(), {"pools": THRESHOLD_POOLS, "ignore_unlocalized": True}), "threshold")
+    three = (0, 1, 2)
+    for s in (3, 4, 5, 6, 7, 8, 9, 10, 12, 15):
+        t.add("share", f"thr{s:02d}", f"threshold study: first site past {s}% of the total energy (spring to the right)",
+              three, label=f"thr{s:02d}")
+    t.add("physical", "ott", "threshold study: the first pendulum past the top (|theta| > pi); no threshold", three, label="ott")
+    for k in (2, 3):
+        t.add("physical", f"sep{k}", f"threshold study: first site energy above {k} E_sep (absolute, not a share)",
+              three, label=f"sep{k}")
+    half = {s: f"thrpool_half_{s}" for s in ("train", "val", "test")}
+    t.add("v1_settings", "thr04_half_tf100", "v1's apparent published settings (4%, offsets +-0.0125, labels cut at "
+          "t_f = 100): v2 beside the rebuilt v1's 92.5%", three, label="thr04_tf100", pools=half)
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
           "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "deploy_start": deploy_start,
-          "phase10": phase10}
+          "phase10": phase10, "threshold": threshold}

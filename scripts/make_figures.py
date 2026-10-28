@@ -950,6 +950,55 @@ def fig_robustness():
     save(fig, "fig16_robustness")
 
 
+def fig_threshold(axes=None):
+    """Threshold study (results/threshold.json): accuracy within +-1 against the localization threshold for v2,
+    the rebuilt v1, the Floquet filter and the hump-centre ceiling, and how pinned each label is."""
+    d = json.loads((ROOT / "results" / "threshold.json").read_text())
+    shares = [l for l in d["labels"] if l.startswith("thr")]
+    x = np.array([int(l[3:]) for l in shares])
+    top = 17  # the first pendulum past the top, drawn after the shares
+    fig, (ax, bx) = subplots(axes, 1, 2, figsize=(11, 4), gridspec_kw={"width_ratios": [1.3, 1]})
+    ceiling = [d["baselines"][l]["hump_oracle"]["acc_1"] for l in shares]
+    ax.plot(x, ceiling, color=MUTED, linewidth=0.9, linestyle="--", label="hump centre, as a predictor")
+    ax.plot(x, [d["baselines"][l]["floquet"]["acc_1"] for l in shares], color=SLOT[2], marker="o", markersize=3,
+            label="Floquet filter (no training)")
+    v2 = [l for l in shares if l in d["v2"]]
+    if v2:
+        xs = [int(l[3:]) for l in v2]
+        ax.errorbar(xs, [d["v2"][l]["acc_1"] for l in v2], yerr=[d["v2"][l]["acc_1_sd"] or 0 for l in v2],
+                    color=SLOT[0], marker="o", capsize=0, label="v2")
+        if "ott" in d["v2"]:
+            ax.plot([top], [d["v2"]["ott"]["acc_1"]], color=SLOT[0], marker="*", markersize=8, linestyle="none")
+    v1 = {k.split("|")[0]: v for k, v in d["v1"].items() if k.endswith("|full") and "acc_1" in v}
+    v1s = [l for l in shares if l in v1]
+    if v1s:
+        ax.plot([int(l[3:]) for l in v1s], [v1[l]["acc_1"] for l in v1s], color=SLOT[1], marker="s",
+                linestyle="none", label="v1 rebuilt")
+    if "ott" in v1:
+        ax.plot([top], [v1["ott"]["acc_1"]], color=SLOT[1], marker="s", linestyle="none")
+    ax.plot([top], [d["baselines"]["ott"]["floquet"]["acc_1"]], color=SLOT[2], marker="o", markersize=3, linestyle="none")
+    ax.axvline(10, color=AXIS, linewidth=0.8, zorder=0)
+    ax.set_xticks(list(x) + [top], [str(v) for v in x] + ["top"])
+    ax.set_xlabel("Threshold (% of the total energy); \"top\": first pendulum past the top")
+    ax.set_ylabel("Within ±1 of the label (test)")
+    ax.set_ylim(0.25, 1.01)
+    ax.legend(loc="lower left", ncol=2, fontsize=7.5, columnspacing=1.2)
+    dt = d["diagnostics"]["test"]
+    bx.plot(x, [dt[l]["hump_pm1"] for l in shares], color=SLOT[0], marker="o", markersize=3, label="label within ±1 of the hump centre")
+    bx.plot(x, [dt[l]["flip_even_split"] for l in shares], color=SLOT[1], marker="o", markersize=3,
+            label="site moves if springs are split evenly")
+    bx.axvline(10, color=AXIS, linewidth=0.8, zorder=0)
+    bx.set_xticks(x, [str(v) for v in x])
+    bx.set_xlabel("Threshold (% of the total energy)")
+    bx.set_ylabel("Share of test runs")
+    bx.set_ylim(0, 1.02)
+    bx.legend(loc="center right", fontsize=7.5)
+    if axes is None:
+        ax.set_title("Accuracy against the localization threshold", loc="left")
+        bx.set_title("How pinned the label is", loc="left")
+        save(fig, "fig22_threshold")
+
+
 def paper_figure(name, height, widths, draw):
     """One full-width preprint figure: a row of panels drawn by draw(axes), each marked only by its letter."""
     fig, axes = plt.subplots(1, len(widths), figsize=(PAPER_WIDTH, height), gridspec_kw={"width_ratios": widths},
@@ -974,6 +1023,7 @@ def paper_figures():
     paper_figure("paper_fig4_ring", 2.4, [1, 1], lambda ax: (fig_receptive_field(ax[0]), fig_data_efficiency(ax[1])))
     paper_figure("paper_fig5_jitter", 2.4, [1, 1.4], fig_label_jitter)
     paper_figure("paper_fig6_noise", 2.6, [1, 1], lambda ax: (fig_noise_collapse(ax[:1]), fig_noise_avg_label(ax[1])))
+    paper_figure("paper_fig7_threshold", 2.5, [1.3, 1], fig_threshold)
 
 
 if __name__ == "__main__":
@@ -983,7 +1033,7 @@ if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_noise_avg_label, fig_inputs, fig_losses,
                fig_optimizers, fig_sparse, fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff,
-               fig_label_jitter, fig_avg_label_ablations, fig_regularization):
+               fig_label_jitter, fig_avg_label_ablations, fig_regularization, fig_threshold):
         try:
             fn()
         except FileNotFoundError as err:
