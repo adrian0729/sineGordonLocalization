@@ -204,9 +204,10 @@ def run(cfg, workers=1, threads=None, device="cpu", log=print):
     for s in ("val", "test"):
         pred = train.predict_sites(model, loss_fn, splits[s]["x"])
         label = cfg.get("label", "right")
-        results[s] = metrics.site_metrics(pred, pools[s][f"site_{label}"])
+        results[s] = metrics.site_metrics(pred, pools[s][f"site_{label}"], n_sites=pools[s]["theta0"].shape[1])
         if label != "right":  # also score against v1's label, for comparison
-            results[s]["right_label"] = metrics.site_metrics(pred, pools[s]["site_right"])
+            results[s]["right_label"] = metrics.site_metrics(pred, pools[s]["site_right"],
+                                                              n_sites=pools[s]["theta0"].shape[1])
         if loss_spec.get("kind", "ce") == "ce":
             model.eval()
             with torch.no_grad():

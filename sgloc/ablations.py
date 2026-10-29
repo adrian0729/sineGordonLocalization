@@ -597,7 +597,129 @@ def threshold():
     return t.configs
 
 
+def setpools(tag):
+    return {s: f"setpool_{tag}_{s}" for s in ("train", "val", "test")}
+
+
+def settings_hump():
+    """Where the settings come from, part 1: the hump label's own knobs. The hump label (Phase 9) sums the
+    swing-averaged energy of 3 neighbouring pendulums and fires when they hold 15% of the total; the 15% was chosen so
+    that it fires at v1's median time, so the recommended target inherited v1's arbitrary 10%. The threshold study
+    showed that the labels which are learnable all fire when the first pendulum swings over the top, a physical event
+    with no threshold. This phase asks whether the hump label's knobs matter, and whether the event can time the label
+    instead of a share. All labels from scripts/setting_labels.py on the main pools' runs (data/setpool_main_*).
+      hump_k{K}_s{S}: the Phase 9 definition with K = 3, 5, 7 pendulums and S = 10, 15, 20% (hump_k3_s15 is Phase 9's)
+      eh_k{K}: timed by the first pendulum over the top; the site is the centre of the K pendulums with the most energy,
+               averaged over the swing centred on that moment (8 time units, one swing); K = 1 is the top pendulum
+    Final recipe, full budget, 3 seeds per label."""
+    t = Table(merge(final_recipe(), {"pools": setpools("main"), "ignore_unlocalized": True}), "settings_hump")
+    three = (0, 1, 2)
+    # Predictions and the decision rule, written before the runs started:
+    # - The grid should be flat: K and S move when the label fires (S) and how wide a window locates the hump (K), but
+    #   every variant reads the same hump. Expect within +-1 to stay within 0.5 points of 99.4% across the grid.
+    #   Larger S fires later, when rival humps have had longer to compete, so if anything accuracy falls with S.
+    # - eh_k3 should match hump_k3_s15 (99.4%): it reads the same hump about when it forms (the hump label's window
+    #   ends a median 5 time units after the event, so its centre lies about 1 time unit after it).
+    # - eh_k1 (the top pendulum of the averaged energy) should be worse in exact hits, as hump_top was in Phase 10.
+    # - Decision (on the validation pool, seed means): if eh_k3 is within 0.3 points within +-1 and 0.03 in mean
+    #   distance of hump_k3_s15, the event-timed label becomes the recommended target, because its only remaining knob
+    #   is the window K, which the grid covers; otherwise the Phase 9 label stays, justified or qualified by the grid.
+    for k in (3, 5, 7):
+        for s in (10, 15, 20):
+            t.add("threshold_timed", f"hump_k{k}_s{s}", f"settings: hump label with {k} pendulums at {s}% of the total "
+                  "energy (Phase 9 uses 3 and 15%)", three, label=f"hump_k{k}_s{s}")
+    for k in (1, 3, 5, 7):
+        t.add("event_timed", f"eh_k{k}", f"settings: hump label timed by the first pendulum over the top; site = centre of "
+              f"the {k} pendulums with the most swing-averaged energy around that moment", three, label=f"eh_k{k}")
+    return t.configs
+
+
+# The target of the settings studies below, fixed by the decision rule of settings_hump before they ran. Result
+# (validation, 3 seeds): eh_k3 99.4% within +-1 and 0.28 against hump_k3_s15 99.4% and 0.28 (+0.03 points, +0.001),
+# so the event-timed label is the target. The threshold-timed grid was flat (99.4-99.6%) except 3 pendulums at 20%
+# (98.0%), which fires 7 time units after the event; wider windows (5, 7) score better on their own labels but locate
+# the 3-pendulum centre and the first pendulum over the top worse (cross-scoring), so they are easier, not better.
+SETTINGS_LABEL = "eh_k3"
+# Every pendulum must see the whole ring (Phase 2). For rings up to 400 pendulums the dilations go up to 128
+# (receptive field 513 pendulums), at every N, including 100, so that only the ring changes.
+WIDE_ARCH = merge(ARCH, {"dilations": [1, 2, 4, 8, 16, 32, 64, 128, 1]})
+AMPLITUDES = (1.60, 1.65, 1.70, 1.75, 1.80, 1.85, 1.90, 1.95)
+OFFSET_SCALES = (0.125, 0.25, 0.5, 2, 4)
+
+
+def _settings_base(tag):
+    assert SETTINGS_LABEL, "set SETTINGS_LABEL from the settings_hump result first"
+    return merge(final_recipe(), {"pools": setpools(tag), "ignore_unlocalized": True, "label": SETTINGS_LABEL})
+
+
+def tag_of(x):
+    return f"{x:g}".replace(".", "p")
+
+
+def settings_amplitude():
+    """Where the settings come from, part 2: the amplitude. v1 drew A from 1.65-1.85 rad, which its authors call
+    arbitrary; they suggest a narrower range could improve the results. Physically the amplitude matters through the
+    Floquet spectrum: across 1.60-1.95 the fastest growth rate rises from 0.042 to 0.17 and the number of growing ring
+    modes from 2 to 7. Pools at fixed amplitudes (zero width, the narrowest possible range) and one wide pool
+    (1.60-1.95), each 60,000 / 5,000 / 10,000 runs at offsets +-0.025, labels searched to tau = 300."""
+    t = Table(None, "settings_amplitude")
+    three = (0, 1, 2)
+    # Predictions, written before the runs started:
+    # - The median localization time times the fastest growth rate stays near 5.7 (5.6-5.9 measured on 1.65-1.85).
+    # - Accuracy stays near the main model's at every amplitude where at most about 6 modes grow; with 7 modes (1.95)
+    #   rival humps compete more often and it may fall. Near threshold (1.60, 2 modes) it should be at least as high.
+    # - A model trained at one amplitude gains little over the wide model at that amplitude (under 0.5 points within
+    #   +-1), because v2 is already flat across 1.65-1.85; so narrowing the range is not what makes the problem easy.
+    for a in AMPLITUDES:
+        t.base = _settings_base(f"amp{tag_of(a)}")
+        t.add("fixed", f"amp{tag_of(a)}", f"settings: trained and tested at the fixed amplitude A = {a}", three)
+    t.base = _settings_base("ampwide")
+    t.add("wide", "ampwide", "settings: trained on A ~ U(1.60, 1.95) (scored per amplitude on the fixed pools later)", three)
+    return t.configs
+
+
+def settings_ring():
+    """Where the settings come from, part 3: the number of pendulums. N = 100 comes from v1. The growing modes have
+    wavelengths of at least about 20 pendulums at A = 1.75 and the hump is about 8 wide, so a longer ring holds more
+    competing modes (about N/20) at the same growth rate, whereas changing the amplitude changes both. Pools of
+    50, 200 and 400 pendulums with v1's amplitudes and offsets (60,000 / 5,000 / 10,000 runs), and the main pools for
+    100. The same whole-ring architecture (receptive field 513) at every N."""
+    t = Table(None, "settings_ring")
+    three = (0, 1, 2)
+    # Predictions, written before the runs started:
+    # - If more competing modes make the site harder to call, within +-1 falls with N (rival humps more frequent);
+    #   if the outcome is set locally once the hump forms, it stays flat. Amplitude slices (3-6 modes) were flat, so
+    #   expect a mild fall at most up to 200 and a clearer one at 400 (about 20 growing modes).
+    # - The model trained at N = 100 transfers to other N when it sees the whole ring (the earlier drop to 6.3 at
+    #   N = 150 used a receptive field of 129, smaller than the ring).
+    for n in (50, 100, 200, 400):
+        t.base = merge(_settings_base("main" if n == 100 else f"n{n}"), {"model": WIDE_ARCH})
+        t.add("ring", f"ring_n{n}", f"settings: ring of {n} pendulums, whole-ring architecture (receptive field 513)", three)
+    return t.configs
+
+
+def settings_offsets():
+    """Where the settings come from, part 4: the size of the initial offsets. They are the release scatter: the
+    uniform swing is an exact solution, so without them nothing localizes, and their pattern decides where. v1 states
+    +-0.025 rad; its data were probably made at +-0.0125. The same runs as the main pools with the offsets about A
+    scaled by 1/8, 1/4, 1/2, 2 and 4 (+-0.003 to +-0.1 rad), so only the size changes; labels searched to tau = 300."""
+    t = Table(None, "settings_offsets")
+    three = (0, 1, 2)
+    # Predictions, written before the runs started:
+    # - Each halving delays localization by about ln2 / sigma_1 (linear growth from a smaller start).
+    # - Smaller offsets leave the non-growing modes relatively smaller when the hump forms, so the site changes at the
+    #   one-pendulum level between sizes (37% of runs moved, 95% within +-1, at 1/2 on the first pendulum over the top).
+    # - Accuracy stays flat for small offsets (v2 99.4% at 1/2 on the 4% label). At 2-4x the offsets are no longer
+    #   small (0.1 rad) and the growth leaves the linear regime sooner, so accuracy may fall there.
+    for s in OFFSET_SCALES:
+        t.base = _settings_base(f"off{tag_of(s)}")
+        t.add("offsets", f"off{tag_of(s)}", f"settings: offsets scaled by {s} (+-{0.025 * s:g} rad)", three)
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
           "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "deploy_start": deploy_start,
-          "phase10": phase10, "threshold": threshold}
+          "phase10": phase10, "threshold": threshold,
+          "settings_hump": settings_hump, "settings_amplitude": settings_amplitude, "settings_ring": settings_ring,
+          "settings_offsets": settings_offsets}
