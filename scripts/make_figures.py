@@ -999,14 +999,193 @@ def fig_threshold(axes=None):
         save(fig, "fig22_threshold")
 
 
-def paper_figure(name, height, widths, draw):
-    """One full-width preprint figure: a row of panels drawn by draw(axes), each marked only by its letter."""
-    fig, axes = plt.subplots(1, len(widths), figsize=(PAPER_WIDTH, height), gridspec_kw={"width_ratios": widths},
+def fig_settings(axes=None, which="abcdef"):
+    """Settings study (results/settings.json): the label's knobs, localization time against the growth rate, the delay
+    from smaller or larger offsets, the Floquet filter against the offsets' size relative to the distance above
+    threshold, amplitude models and ring size. `which` picks the panels drawn on `axes` (the preprint splits them)."""
+    d = json.loads((ROOT / "results" / "settings.json").read_text())
+    paper = axes is not None
+    spare = None
+    if paper and len(which) < 6:  # draw the other panels on a figure that is thrown away
+        spare = plt.figure()
+        given = iter(axes)
+        axes = [next(given) if letter in which else spare.add_subplot(2, 3, i + 1) for i, letter in enumerate("abcdef")]
+    fig, axs = subplots(axes, 2, 3, figsize=(12, 7.2), layout="constrained")
+    ax_a, ax_b, ax_c, ax_d, ax_e, ax_f = np.ravel(axs)
+    titles = ["Label variants", "Localization time and growth rate", "Delay from smaller or larger offsets",
+              "Linear theory against offset size", "Amplitude", "Ring size"]
+    pct_ = lambda v: None if v is None else 100 * v  # noqa: E731
+
+    # (a) the 13 labels: scored on their own label (filled), and the same models against eh_k3 (open)
+    A = d.get("A", {})
+    labels = [f"hump_k{k}_s{s}" for k in (3, 5, 7) for s in (10, 15, 20)] + [f"eh_k{k}" for k in (1, 3, 5, 7)]
+    ticks = [f"{l[6]}/{l[9:]}%" for l in labels[:9]] + [f"eh {l[4]}" for l in labels[9:]]
+    xs = np.arange(len(labels))
+    own = [(x, A["v2"][l]["test"]["acc_1"], A["v2"][l]["test"]["acc_1_sd"] or 0) for x, l in zip(xs, labels) if A.get("v2", {}).get(l)]
+    cross = [(x, A["cross"][l]["eh_k3_1"]) for x, l in zip(xs, labels) if l in A.get("cross", {})]
+    if own:
+        ax_a.errorbar([o[0] for o in own], [100 * o[1] for o in own], yerr=[100 * o[2] for o in own], color=SLOT[0], marker="o",
+                      linestyle="none", capsize=0, label="on its own label")
+    if cross:
+        ax_a.plot([c[0] for c in cross], [100 * c[1] for c in cross], color=SLOT[1], marker="o", markerfacecolor="none",
+                  linestyle="none", label="same models, scored on eh 3")
+    ax_a.axvline(8.5, color=AXIS, linewidth=0.8, zorder=0)
+    ax_a.set_xticks(xs, ticks, rotation=60, ha="right", fontsize=7)
+    ax_a.set_ylim(97.5, 100.1)
+    ax_a.set_xlabel("Label: window/threshold (threshold-timed), then event-timed")
+    ax_a.set_ylabel("Within ±1 on test (%)")
+    ax_a.text(4, 97.65, "threshold-timed", ha="center", fontsize=7.5, color=INK2)
+    ax_a.text(10.5, 97.65, "event-timed", ha="center", fontsize=7.5, color=INK2)
+    ax_a.legend(loc="lower right", bbox_to_anchor=(1.0, 0.1), fontsize=7.5)
+
+    # (b) median label time against the e-folding time 1/sigma1 on each fixed-amplitude test pool
+    B = d.get("B", {})
+    pa = [e for e in B.get("per_amplitude", {}).values() if e.get("pool")]
+    if pa:
+        x = np.array([e["efold_time"] for e in pa])
+        y = np.array([e["pool"]["median_time_L"] for e in pa])
+        c = B["ampwide"]["overall_L"]["median"] if B.get("ampwide") else float(np.median(y * 1 / x))
+        grid = np.linspace(0, x.max() * 1.05, 20)
+        ax_b.plot(grid, c * grid, color=MUTED, linewidth=0.9, linestyle="--", label=f"{c:.2f}/σ₁")
+        ax_b.plot(x, y, color=SLOT[0], marker="o", linestyle="none", label="median time of the label")
+        for i, (e, xi, yi) in enumerate(zip(pa, x, y)):
+            below = i % 2 == 1 and e["A"] >= 1.85   # the crowded high-amplitude end: alternate above-left and below-right
+            ax_b.annotate(f"{e['A']:g}", (xi, yi), xytext=(4, -9) if below else (-4, 4), textcoords="offset points",
+                          ha="left" if below else "right", fontsize=7, color=INK2)
+        ax_b.set_xlim(0, x.max() * 1.08)
+        ax_b.set_ylim(0, y.max() * 1.1)
+        ax_b.legend(loc="upper left")
+    ax_b.set_xlabel("e-folding time 1/σ₁ (points: amplitude A)" if not paper else "e-folding time 1/σ₁")
+    ax_b.set_ylabel("Median time of the label")
+
+    # (c) measured against predicted delay, one point per (scale, amplitude bin)
+    D = d.get("D", {})
+    cols = {0.125: SLOT[0], 0.25: SLOT[2], 0.5: SLOT[3], 2: SLOT[1], 4: "#8a3ffc"}
+    allv = []
+    for e in D.get("per_scale", {}).values():
+        dl = e.get("delay")
+        if not dl:
+            continue
+        pts = [(b_["predicted"], b_["median_delay_L"]) for b_ in dl["bins"] if b_.get("predicted") is not None and b_.get("median_delay_L") is not None]
+        if pts:
+            allv += [v for p_ in pts for v in p_]
+            ax_c.plot(*zip(*pts), linestyle="none", marker="o", color=cols.get(e["scale"], INK2), markeredgecolor=SURFACE if not paper else "white",
+                      markeredgewidth=0.6, label=f"scale {e['scale']:g}")
+    if allv:
+        lim = (min(allv) - 1, max(allv) + 1)
+        ax_c.plot(lim, lim, color=MUTED, linewidth=0.9, linestyle="--", zorder=0)
+        ax_c.set_xlim(lim)
+        ax_c.set_ylim(lim)
+        ax_c.legend(loc="upper left", ncol=1 if paper else 2, fontsize=7.5 if not paper else 6.5, columnspacing=1.0, handletextpad=0.3)
+    ax_c.set_xlabel("Predicted delay ln(1/s)/σ₁")
+    ax_c.set_ylabel("Measured median delay")
+
+    # (d) Floquet filter and v2 against r = eta_max / (A - A_c)
+    fr = d.get("floquet_vs_ratio", {}).get("points", [])
+    names = (("fixed", "o", "fixed A"), ("offset", "s", "offset bins")) if paper else (("fixed", "o", "fixed amplitude"), ("offset", "s", "offset-pool bin"))
+    for kind, marker, name in names:
+        q = [p_ for p_ in fr if p_["kind"] == kind]
+        if q:
+            ax_d.plot([p_["r"] for p_ in q], [100 * p_["floquet_acc_1"] for p_ in q], linestyle="none", marker=marker, color=SLOT[2],
+                      markersize=4.5, label=f"Floquet filter, {name}")
+    for kind, marker, name in names:
+        q = [p_ for p_ in fr if p_["kind"] == kind and p_.get("v2_acc_1") is not None]
+        if q:
+            ax_d.plot([p_["r"] for p_ in q], [100 * p_["v2_acc_1"] for p_ in q], linestyle="none", marker=marker, markerfacecolor="none",
+                      color=SLOT[0], markersize=4.5, label=f"v2, {name}")
+    ax_d.set_xscale("log")
+    ax_d.set_ylim(0, 103)
+    ax_d.set_xlabel(r"Offset size over distance above threshold, $\eta_{\max}/(A - A_c)$" if not paper else r"$\eta_{\max}\,/\,(A - A_c)$")
+    ax_d.set_ylabel("Within ±1 on test (%)")
+    if fr:
+        ax_d.legend(loc="lower left", fontsize=7 if not paper else 6.5)
+
+    # (e) amplitude: specialists, the wide model, and the model trained on 1.65-1.85
+    ax_e.axvspan(1.65, 1.85, color=GRID, alpha=0.6, linewidth=0, zorder=0)
+    pe = list(B.get("per_amplitude", {}).values())
+    lo = 80
+    series = [("specialist per amplitude", SLOT[0], "o", lambda e: g_(e, "specialist", "test", "acc_1"), lambda e: g_(e, "specialist", "test", "acc_1_sd")),
+              ("wide model", SLOT[2], "s", lambda e: g_(e, "wide_rescored", "acc_1"), lambda e: None),
+              ("trained on 1.65–1.85", SLOT[1], "^", lambda e: g_(e, "standard_rescored", "acc_1"), lambda e: None)]
+    for name, color, marker, val, sd in series:
+        pts = [(e["A"], pct_(val(e)), pct_(sd(e)) or 0) for e in pe if val(e) is not None]
+        if not pts:
+            continue
+        ax_e.errorbar([p_[0] for p_ in pts if p_[1] >= lo], [p_[1] for p_ in pts if p_[1] >= lo], yerr=[p_[2] for p_ in pts if p_[1] >= lo],
+                      color=color, marker=marker, markersize=4.5, capsize=0, label=name)
+        for a_, v_, _ in pts:
+            if v_ < lo:   # off the axis: an arrow at the bottom with the value
+                ax_e.annotate(f"{v_:.0f}%", (a_, lo), xytext=(0, 14), textcoords="offset points", ha="center", fontsize=7, color=color,
+                              arrowprops={"arrowstyle": "->", "color": color, "linewidth": 0.8, "shrinkA": 0, "shrinkB": 0},
+                              annotation_clip=False)
+    ax_e.set_ylim(lo, 100.5)
+    ax_e.set_xlabel("Swing amplitude A (rad); band: 1.65–1.85")
+    ax_e.set_ylabel("Within ±1 on test (%)")
+    ax_e.legend(loc="lower center", fontsize=7.5)
+
+    # (f) ring size
+    C = d.get("C", {})
+    per = C.get("per_n", {})
+    Ns = [50, 100, 200, 400]
+    own = [(N, per[f"n{N}"]["model"]["test"]) for N in Ns if g_(per, f"n{N}", "model", "test")]
+    if own:
+        ax_f.errorbar([o[0] for o in own], [100 * o[1]["acc_1"] for o in own], yerr=[100 * (o[1]["acc_1_sd"] or 0) for o in own],
+                      color=SLOT[0], marker="o", markersize=4.5, capsize=0, label="trained on its own ring")
+        x100 = [(t, C["cross"].get(f"ring_n100_on_n{t}")) for t in (50, 200, 400)]
+        x100 = [(t, v) for t, v in x100 if v]
+        if x100:
+            ax_f.plot([t for t, _ in x100], [100 * v["acc_1"] for _, v in x100], linestyle="none", marker="o", markerfacecolor="none",
+                      color=SLOT[1], markersize=4.5, label="N = 100 model on other rings")
+        down = [(f, C["cross"].get(f"ring_n{f}_on_n100")) for f in (200, 400)]
+        down = [(f, v) for f, v in down if v]
+        for f, v in down:  # models trained on larger rings, scored at N = 100
+            ax_f.annotate(f"{f}", (100, 100 * v["acc_1"]), xytext=(4, -3), textcoords="offset points", fontsize=6.5, color=SLOT[2])
+        if down:
+            ax_f.plot([100] * len(down), [100 * v["acc_1"] for _, v in down], linestyle="none", marker="v", color=SLOT[2],
+                      markersize=4.5, label="N = 200, 400 models at N = 100")
+    else:
+        ax_f.text(0.5, 0.62, "models pending", transform=ax_f.transAxes, ha="center", va="center", color=MUTED, fontsize=11)
+        ax_f.set_yticks([])
+    rv = {N: per[f"n{N}"]["pool"]["rival_share"] for N in Ns if g_(per, f"n{N}", "pool", "rival_share") is not None}
+    for N, o in own:  # the share of runs with a rival hump, written under each ring's own point
+        if N in rv:
+            ax_f.annotate(f"rival {100 * rv[N]:.0f}%", (N, 100 * o["acc_1"]), xytext=(0, -17), textcoords="offset points",
+                          ha="center", fontsize=6.5, color=MUTED)
+    if own:
+        ax_f.legend(loc="center left", bbox_to_anchor=(0.0, 0.5), fontsize=7 if not paper else 6.5)
+    ax_f.set_ylim(0, 106)
+    ax_f.set_xscale("log", base=2)
+    ax_f.set_xticks(Ns, [str(N) for N in Ns])
+    ax_f.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    ax_f.set_xlabel("Ring size N")
+    ax_f.set_ylabel("Within ±1 on test (%)")
+
+    if not paper:
+        for ax, t, letter in zip((ax_a, ax_b, ax_c, ax_d, ax_e, ax_f), titles, "abcdef"):
+            ax.set_title(f"({letter}) {t}", loc="left", fontsize=9)
+        save(fig, "fig23_settings")
+    if spare is not None:
+        plt.close(spare)
+
+
+def g_(d, *keys):
+    """Nested dict lookup that returns None when a key is missing."""
+    for k in keys:
+        if not isinstance(d, dict):
+            return None
+        d = d.get(k)
+    return d
+
+
+def paper_figure(name, height, widths, draw, rows=1):
+    """One full-width preprint figure: rows of panels drawn by draw(axes), each marked only by its letter."""
+    fig, axes = plt.subplots(rows, len(widths), figsize=(PAPER_WIDTH, height), gridspec_kw={"width_ratios": widths},
                              layout="constrained")
     draw(axes)
-    letters = [ax.set_title(f"({s})", loc="left", fontsize=9, fontweight="bold") for ax, s in zip(axes, "abc")]
+    flat = np.ravel(axes)
+    letters = [ax.set_title(f"({s})", loc="left", fontsize=9, fontweight="bold") for ax, s in zip(flat, "abcdef")]
     fig.canvas.draw()  # then line each letter up with the left edge of its panel's axis label
-    for ax, letter in zip(axes, letters):
+    for ax, letter in zip(flat, letters):
         letter.set_x(ax.transAxes.inverted().transform(ax.yaxis.get_tightbbox().p0)[0])
     PAPER.mkdir(exist_ok=True)
     # no date: a rerun leaves the file unchanged; dpi only for the colorbar, which matplotlib rasterizes
@@ -1024,6 +1203,10 @@ def paper_figures():
     paper_figure("paper_fig5_jitter", 2.4, [1, 1.4], fig_label_jitter)
     paper_figure("paper_fig6_noise", 2.6, [1, 1], lambda ax: (fig_noise_collapse(ax[:1]), fig_noise_avg_label(ax[1])))
     paper_figure("paper_fig7_threshold", 2.5, [1.3, 1], fig_threshold)
+    # the settings study, split between the physics section (the clock and the reach of linear theory) and the
+    # real-chain section (what a model must be trained on)
+    paper_figure("paper_fig_clock", 2.5, [1, 1, 1.15], lambda ax: fig_settings(list(ax), which="bcd"))
+    paper_figure("paper_fig_training", 2.5, [1, 1], lambda ax: fig_settings(list(ax), which="ef"))
 
 
 if __name__ == "__main__":
@@ -1033,7 +1216,7 @@ if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_noise_avg_label, fig_inputs, fig_losses,
                fig_optimizers, fig_sparse, fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff,
-               fig_label_jitter, fig_avg_label_ablations, fig_regularization, fig_threshold):
+               fig_label_jitter, fig_avg_label_ablations, fig_regularization, fig_threshold, fig_settings):
         try:
             fn()
         except FileNotFoundError as err:

@@ -70,7 +70,7 @@ python3 -m venv .venv
 - Each phase of the study is one ablation table in [sgloc/ablations.py](sgloc/ablations.py). Run it with `scripts/sweep.py <phase>` and summarize it with `scripts/summarize.py <phase>`. [scripts/README.md](scripts/README.md) lists every script and the phase it belongs to.
 - `results/runs.jsonl` already records every run of this study, and `sweep.py` skips configs it finds there. To retrain a phase from scratch, move that file aside first.
 - `sweep.py` uses the Apple GPU by default. On an NVIDIA GPU, pass `--gpu-device cuda`; on CPU only, pass `--gpu-workers 0`.
-- The whole study (about 600 training runs) took 44 GPU-hours on an M3 Pro laptop.
+- The whole study (about 750 training runs) took 47 hours on an M3 Pro laptop, plus short sessions on cloud NVIDIA L40 GPUs for the settings study and the rebuilt v1 at other thresholds.
 
 ## Conventions
 

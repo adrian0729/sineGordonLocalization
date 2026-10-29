@@ -1,4 +1,4 @@
-\begin{thebibliography}{36}
+\begin{thebibliography}{39}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -129,6 +129,11 @@ Wilhelm Magnus and Stanley Winkler.
 \newblock \emph{Hill's Equation}.
 \newblock Interscience, New York, 1966.
 
+\bibitem[Landau and Lifshitz(1976)]{landau1976mechanics}
+L.~D. Landau and E.~M. Lifshitz.
+\newblock \emph{Mechanics}, volume~1 of \emph{Course of Theoretical Physics}.
+\newblock Pergamon, Oxford, 3rd edition, 1976.
+
 \bibitem[Virtanen et~al.(2020)]{virtanen2020scipy}
 Pauli Virtanen et~al.
 \newblock {SciPy} 1.0: Fundamental algorithms for scientific computing in
@@ -153,6 +158,14 @@ Adam Paszke et~al.
   library.
 \newblock In \emph{Advances in Neural Information Processing Systems},
   volume~32, pages 8024--8035, 2019.
+
+\bibitem[Daumont et~al.(1997)Daumont, Dauxois, and
+  Peyrard]{daumont1997modulational}
+I.~Daumont, T.~Dauxois, and M.~Peyrard.
+\newblock Modulational instability: first step towards energy localization in
+  nonlinear lattices.
+\newblock \emph{Nonlinearity}, 10\penalty0 (3):\penalty0 617--630, 1997.
+\newblock \doi{10.1088/0951-7715/10/3/003}.
 
 \bibitem[Li et~al.(2021)Li, Kovachki, Azizzadenesheli, Liu, Bhattacharya,
   Stuart, and Anandkumar]{li2021fourier}
@@ -241,6 +254,12 @@ Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan
 \newblock Dropout: A simple way to prevent neural networks from overfitting.
 \newblock \emph{Journal of Machine Learning Research}, 15:\penalty0 1929--1958,
   2014.
+
+\bibitem[Kivshar and Peyrard(1992)]{kivshar1992modulational}
+Yuri~S. Kivshar and Michel Peyrard.
+\newblock Modulational instabilities in discrete lattices.
+\newblock \emph{Physical Review A}, 46\penalty0 (6):\penalty0 3198--3205, 1992.
+\newblock \doi{10.1103/PhysRevA.46.3198}.
 
 \bibitem[Hendrycks and Gimpel(2016)]{hendrycks2016gelu}
 Dan Hendrycks and Kevin Gimpel.

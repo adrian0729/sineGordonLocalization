@@ -80,7 +80,8 @@ def rival(H):
 
 
 def chunk(args):
-    theta0, tmax = args
+    theta0, tmax, *rest = args
+    stop_at_event = bool(rest and rest[0])
     p = sim.Params()
     theta = np.array(theta0, dtype=float)
     omega = np.zeros_like(theta)
@@ -130,9 +131,9 @@ def chunk(args):
                 when[f"eh_k{K}"][idx] = (k - LAG) * p.sample
                 if K == 3:
                     riv["rival_eh3"][idx] = rival(H)
-        if all((site[n] >= 0).all() for n in names if not n.startswith("eh_")):
-            if ((ott_k >= 0) & ((ott_k + LAG <= k) | (ott_k + LAG >= n_samples))).all():
-                break
+        events_done = ((ott_k >= 0) & ((ott_k + LAG <= k) | (ott_k + LAG >= n_samples))).all()
+        if events_done and (stop_at_event or all((site[n] >= 0).all() for n in names if not n.startswith("eh_"))):
+            break
         if k < n_samples - 1:
             for _ in range(stride):
                 theta, omega = sim.rk4_step(theta, omega, p.dt, p.g, p.h)
@@ -141,8 +142,8 @@ def chunk(args):
     return site, when, riv
 
 
-def run_split(theta0, tmax, workers, size):
-    parts = [(theta0[i:i + size], tmax) for i in range(0, len(theta0), size)]
+def run_split(theta0, tmax, workers, size, stop_at_event=False):
+    parts = [(theta0[i:i + size], tmax, stop_at_event) for i in range(0, len(theta0), size)]
     with ProcessPoolExecutor(workers) as ex:
         res = list(ex.map(chunk, parts))
     out = {}
@@ -176,6 +177,10 @@ def main():
     parser.add_argument("--splits", nargs="+", default=["train", "val", "test"])
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--chunk", type=int, default=1000)
+    parser.add_argument("--stop-at-event", action="store_true",
+                        help="stop each chunk once every run's ott and eh labels are done; share-of-total labels "
+                             "that have not fired by then stay unfired (for long rings, where 10%% of the total "
+                             "energy is many times one pendulum's share and is rarely reached)")
     args = parser.parse_args()
     if args.amplitude is not None and args.a_range is not None:
         parser.error("give --amplitude or --a-range, not both")
@@ -214,7 +219,8 @@ def main():
                 meta["amplitude"] = args.amplitude
         meta.update(n_runs=len(theta0), n_sites=theta0.shape[1])
 
-        out = run_split(theta0, args.tmax, args.workers, args.chunk)
+        out = run_split(theta0, args.tmax, args.workers, args.chunk, args.stop_at_event)
+        meta["stop_at_event"] = args.stop_at_event
         meta.update(seconds=round(time.time() - start), created=time.strftime("%Y-%m-%d %H:%M"))
         path = ROOT / "data" / f"setpool_{args.tag}_{split}.npz"
         np.savez(path, A=A, theta0=theta0, meta=json.dumps(meta), **out)

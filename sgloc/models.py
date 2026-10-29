@@ -105,6 +105,9 @@ class RingConv1d(nn.Module):
     def forward(self, x):  # (batch, channels, N)
         n_sites = x.shape[-1]
         pad = self.dilation * (self.kernel // 2)
+        if self.padding == "circular" and pad > n_sites:  # a shift by d on a ring is a shift by d mod N
+            cols = torch.stack([x.roll((self.kernel // 2 - j) * self.dilation, dims=-1) for j in range(self.kernel)], dim=2)
+            return self.weight @ cols.reshape(x.shape[0], -1, n_sites) + self.bias[:, None]
         if pad:
             x = torch.cat([x[..., -pad:], x, x[..., :pad]], dim=-1) if self.padding == "circular" else F.pad(x, (pad, pad))
         cols = torch.stack([x[..., j * self.dilation: j * self.dilation + n_sites] for j in range(self.kernel)], dim=2)

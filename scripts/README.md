@@ -22,6 +22,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | 10 | The key choices and sensing setups on the hump label | `add_labels.py hump_top`, `sweep.py phase10`, `hump_label.py` | `results/phase10_tables.md`, `results/hump_label.json` |
 | Camera start time | When a coarse camera should start watching, at full budget | `sweep.py deploy_start` | `results/deploy_start_tables.md` |
 | Threshold | Which localization threshold, and what it means physically | `threshold_labels.py`, `sweep.py threshold`, `train_v1_threshold.py`, `threshold_analysis.py` | `results/threshold_tables.md`, `results/threshold.json` |
+| Settings | Where the hump label's knobs, the amplitude, the offsets and the ring size come from | `setting_labels.py`, `sweep.py settings_hump` (then `settings_amplitude`, `settings_ring`, `settings_offsets`), `settings_analysis.py` | `results/settings_tables.md`, `results/settings.json` |
 
 ## Data and checks
 
@@ -30,6 +31,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | `make_pools.py` | Simulates the training, validation and test pools (100,000 / 20,000 / 20,000 runs of initial angles and labels) | `data/pool_*.npz` |
 | `add_labels.py` | Adds labels that are not computed by default (`hump`, `hump_top`) to existing pools, re-simulated from their stored initial angles | `data/pool_*.npz` |
 | `threshold_labels.py` | First-crossing labels at 3–15% of the total energy, at multiples of the separatrix energy and at the first pendulum past the top, for the threshold study, in separate pool files | `data/thrpool_*.npz` |
+| `setting_labels.py` | Pools for the settings study: the main pools' runs (optionally with rescaled offsets), fixed or wide amplitudes, and other ring sizes, with v1's label, 4%, the first pendulum past the top, the threshold-timed hump grid, the event-timed hump labels and a rival-hump diagnostic | `data/setpool_*.npz` |
 | `make_robustness_pools.py` | Test pools for Phase 6: shifted couplings, more initial noise, other ring lengths, impurities and damping | `data/robust_*.npz` |
 | `validate_sim.py` | Checks the simulator against the paper's own `odeint` pipeline, step-size convergence, the paper's box-car number and the Floquet threshold | `results/validation.json` |
 
@@ -60,6 +62,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | `top2.py` | A second site, for runs where a rival hump competes | `results/top2.json`, `results/top2_deploy.json` |
 | `hump_label.py` | Why the hump label is easier to predict than the swing-averaged label | `results/hump_label.json` |
 | `threshold_analysis.py` | Label diagnostics, physics baselines and trained models for every threshold-study label, and the two threshold choices | `results/threshold.json` |
+| `settings_analysis.py` | Label diagnostics, physics, Floquet filter, trained models and cross-scoring for the four settings studies; the decision rule of the hump study | `results/settings.json`, `results/settings_tables.md` |
 
 ## Tables and figures
 

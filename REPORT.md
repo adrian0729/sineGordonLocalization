@@ -21,14 +21,14 @@ This report is the full write-up of the follow-up (v2) to Mittal et al., *J. App
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 600 training runs, 44 GPU-hours on a laptop. Negative results are listed alongside the positive ones.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 750 training runs, 47 hours on a laptop and a few short sessions on cloud NVIDIA L40 GPUs. Negative results are listed alongside the positive ones.
 
 ### How v2 locates the hotspot
 
 1. **Watch** the angle of every pendulum (every 2nd is enough) in 10 frames over the first 4.5 time units after release: one camera at 30–60 frames per second.
 2. **Read** the frames with a whole-ring dilated circular CNN: 7 convolutions with kernel 3, dilations 1-2-4-8-16-32-1 and width 32, so every pendulum's features see the whole ring. The same filters apply at every pendulum, and a small head gives one score per pendulum (22,786 parameters).
 3. **Answer** with the most likely pendulum from the resulting probability over the ring. Optionally add a second site when the model gives a rival hump 5% or more, or name the smallest set of sites holding 90% of the probability. A second head predicts when localization happens.
-4. **Target.** For the comparison with v1, the label is v1's: the first pendulum whose instantaneous energy passes 10% of the total. The recommended target is the hump label: at the first moment the swing-averaged energy of 3 neighbouring pendulums passes 15% of the total, the centre of those 3. It fires as early as v1's label and is predicted far better.
+4. **Target.** For the comparison with v1, the label is v1's: the first pendulum whose instantaneous energy passes 10% of the total. The recommended target is the event-timed hump label: at the moment the first pendulum swings over the top, the centre of the 3 neighbouring pendulums with the most energy, averaged over that swing. It needs no energy threshold and is predicted far better than v1's label (99.4% within ±1). Most results below use the threshold-timed hump label of Phase 9 (3 pendulums at 15% of the total), which agrees with it within ±1 in 99.6% of runs and scores the same.
 
 ### v1, and what this work corrects
 
@@ -93,9 +93,10 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
 - **Most of v2's error on v1's label is the label's own jitter.**
   - On the swing-averaged label, v2 reaches 0.58 (96.4% within ±1).
   - Splitting each spring evenly without averaging over a swing does not help.
-- **The hump label is the best target:** 0.27, with 99.4% within ±1. It fires as early as v1's label.
+- **The hump label is the best target:** 0.27, with 99.4% within ±1. It fires as early as v1's label. Timed by the first pendulum over the top instead of a threshold, it scores the same (next bullet).
   - Reading it when the hump forms and locating it by a 3-pendulum centre each gain about half of its edge over the swing-averaged label.
   - Adding a second site in the 2.3% of runs where the model sees a rival raises within ±1 to 99.8%.
+- **Timed by the first pendulum over the top, the hump label needs no threshold** and scores the same (99.4%, 0.28). Its remaining knobs barely matter: 3–7 pendulums and 10–20% change v2's accuracy by at most 0.2 points, except a late-firing 20% label (Sec. 10, *Where the settings come from*).
 - **The same design choices win on the cleaner labels**, often by more. Seeing the whole ring and using angle frames matter more there: v1's label adds 0.6–1.0 sites of jitter error to every model, which hides part of each difference.
 
 ### Regularization
@@ -107,6 +108,20 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
   - Shorter schedules help, and weight decay 1 helps once mirror images slow the overfitting.
   - Combined, the remedies are worth 2–4 times the data: 1k runs 2.42 → 2.04, 3k 2.07 → 1.75, 10k 1.80 → 1.63.
   - At 60,000 runs mirror images add nothing.
+
+### Where the settings come from
+
+- **Every setting either names a physical event or enters through the growth spectrum** (Sec. 10).
+- **Amplitude is a growth rate.** Localization takes 5–6 e-foldings of the fastest mode (median 5.75) at every amplitude from 1.60 to 1.95, while the time itself falls from 120 to 33. v1's range is growth rates of 0.075–0.153.
+- **More growing modes mean more rival humps** (0.1% at 2 modes to 59% at 7), yet v2 trained at each amplitude stays at 99.5–99.7% from 1.65 to 1.95. A narrower range helps only at the threshold (1.60: 98.7% against 85.8% for a model trained on 1.60–1.95). Models do not extrapolate in amplitude.
+- **The offsets set the clock and the reach of linear theory.**
+  - Each halving delays localization by about ln 2/σ₁ (measured slope 1.10).
+  - Their size also moves the site: from ×1 to ×1/8 it stays put in only 37% of runs (78.5% within ±1).
+  - The Floquet filter rises from 52% to 87% within ±1 as the offsets shrink from ×4 to ×1/8, and falls to 17% at A = 1.60, where the offsets match the distance above threshold.
+  - v2 trained at each size stays at 99.1–99.7%, but a model trained at one size fails at others (65% at ×4).
+- **Ring size sets the number of competing modes** (about N/20). From 50 to 400 pendulums v2 falls only from 99.9% to 98.8%.
+  - Models carry over from longer rings to shorter ones, not the reverse, even when they see the whole ring.
+  - A threshold on the share of the total energy loses its meaning on other ring sizes.
 
 ### Robustness
 
@@ -272,6 +287,7 @@ A run is labeled at the first sample (Δτ = 0.5) where one site holds more than
   - symmetric split
   - symmetric energy averaged over one swing
 - **Threshold study:** [scripts/threshold_labels.py](scripts/threshold_labels.py) recomputes the first crossing at 3–15% of the total energy (right and even spring split), at 1.5–6 times the separatrix energy, and the first pendulum past the top, for every pool. They go into separate files, `data/thrpool_full_*.npz` (and `data/thrpool_half_*.npz` with the offsets halved), which configs use through the `pools` key; the shared pools are unchanged. Its 10% label equals the stored label on all 140,000 runs.
+- **Settings study:** [scripts/setting_labels.py](scripts/setting_labels.py) makes the pools for Sec. 10, *Where the settings come from*: the main pools' runs with the offsets about A rescaled, fixed amplitudes (60,000 / 5,000 / 10,000 runs each), a wide range of amplitudes, and rings of 50, 200 and 400 pendulums. Labels are searched to τ = 300. Besides v1's label it stores the first pendulum past the top, the threshold-timed hump label at 3/5/7 pendulums and 10/15/20%, and the **event-timed hump label**: at the sample where the first pendulum passes the top, the symmetric site energy averaged over the 16 samples centred on it, and the centre of the K neighbouring pendulums with the most energy (K = 1, 3, 5, 7). For the main pools' runs, its v1 and hump labels equal the stored ones on all 100,000 runs.
 
 ### Data pools
 
@@ -864,8 +880,178 @@ v1 set its 10% threshold "somewhat arbitrarily". This study recomputes the first
 - **Partial recovery at 12–15%,** as one pendulum comes to dominate the hump (the share of sites that move under an even spring split falls back to 9%). At 15%, 1.1% of runs have not localized by τ = 150.
 - **Accuracy follows the physics across the ten shares** (Spearman): v2 ±1 against hump agreement 0.99, against the Floquet filter 0.93, against the box-car 0.87, against the lag after the first pendulum past the top −0.83. The box-car stays weak everywhere (36–43%).
 - **A physical choice, fixed before any model was trained:** the smallest share that fires no earlier than the first pendulum past the top in at least 95% of validation runs and lies within ±1 of the hump centre in at least 98%. No share passes, narrowly: 5% fires after it in 94.5% of runs (hump 98.6%), and 6% nearly always does (99.99%) but reaches only 95.9% hump agreement. Among all candidates, 3 E_sep and the first pendulum past the top pass. The event itself needs no threshold, and labelling it directly gives v2 98.9%, 0.5 points below the best share.
-- **What changes.** The 10% label stays for every comparison with v1, and the hump label stays the recommended target. A first crossing at about 4%, or the first pendulum past the top, is the simplest single-pendulum definition with a physical meaning, and is predicted as well as the hump.
+- **What changes.** The 10% label stays for every comparison with v1, and the hump label stays the recommended target, now timed by the first pendulum over the top instead of a threshold (*Where the settings come from*, below). A first crossing at about 4%, or the first pendulum past the top, is the simplest single-pendulum definition with a physical meaning, and is predicted as well as the hump.
 - **Rerun:** `python scripts/threshold_labels.py` (labels, ~10 min on CPU), `python scripts/sweep.py threshold` (v2, ~1.8 h on MPS at 2 workers), `python scripts/train_v1_threshold.py --label thr04 --seed 0` (one v1 run), `python scripts/threshold_analysis.py` and `python scripts/make_figures.py`.
+
+### Where the settings come from
+
+The threshold was not the only setting fixed by hand. The hump label has two knobs of its own, and v1 chose the amplitude range, the size of the initial offsets and the number of pendulums. This study asks, for each, what it means physically and whether the results depend on it ([results/settings.json](results/settings.json), [results/settings_tables.md](results/settings_tables.md), Fig. 23).
+
+**How.**
+- Every pool comes from [scripts/setting_labels.py](scripts/setting_labels.py). Its labels for the main pools' runs equal the stored ones on all 100,000 runs.
+- The final recipe was trained on each condition with 3 seeds: about 93 runs on one Brev L40, with the labels computed on the laptop.
+- The motivation, the prediction and, for the hump label, the decision rule of each study were written in `sgloc/ablations.py` (phases `settings_hump`, `settings_amplitude`, `settings_ring`, `settings_offsets`) before its runs started.
+- Baselines are tuned on validation; everything is reported on test.
+
+#### The hump label, timed by an event
+
+**Why.** The hump label (Phase 9) sums the swing-averaged energy of 3 neighbouring pendulums and fires when they hold 15% of the total. The 15% was chosen so that the label fires together with v1's, so the recommended target inherited v1's arbitrary 10%. The threshold study showed that every learnable label fires when the first pendulum swings over the top, an event that needs no threshold.
+
+**What.** Two families of labels:
+- **The Phase 9 definition** with 3, 5 or 7 pendulums and 10, 15 or 20% of the total.
+- **An event-timed version.** At the moment the first pendulum passes the top, average the symmetric site energy over the swing centred on that moment (16 samples), and name the centre of the 3 (or 1, 5, 7) neighbouring pendulums that hold the most energy.
+
+| Label | Fires after the first pendulum over the top (median) | ±1 of Phase 9's site | v2 ±1 | v2 exact | v2 mean distance | Same models, ±1 / exact against the event-timed 3-pendulum site |
+|---|---|---|---|---|---|---|
+| 3 pendulums, 10% | +3.0 | 99.6% | 99.4% | 86.8% | 0.27 | 99.4% / 86.4% |
+| 3 pendulums, 15% (Phase 9) | +5.0 | 100% | 99.4% | 84.6% | 0.28 | 99.4% / 86.1% |
+| 3 pendulums, 20% | +7.0 | 98.4% | 98.0% | 80.0% | 0.38 | 99.2% / 83.2% |
+| 5 pendulums, 10–20% | −0.5 to +4.0 | 99.5–99.6% | 99.5% | 86.6–87.2% | 0.23–0.25 | 99.3–99.4% / 83.6–84.8% |
+| 7 pendulums, 10–20% | −4.5 to +2.5 | 98.9–99.4% | 99.5–99.6% | 86.8–87.2% | 0.22–0.25 | 98.8–99.4% / 77.9–85.3% |
+| Event-timed, top pendulum | 0 | 99.5% | 99.4% | 83.4% | 0.31 | 99.4% / 84.9% |
+| **Event-timed, 3 pendulums** | **0** | **99.6%** | **99.4%** | **86.2%** | **0.28** | **99.4% / 86.2%** |
+| Event-timed, 5 pendulums | 0 | 99.6% | 99.5% | 87.1% | 0.26 | 99.3% / 84.8% |
+| Event-timed, 7 pendulums | 0 | 99.1% | 99.5% | 87.6% | 0.24 | 98.8% / 77.8% |
+
+(Test pool; v2 columns are means over 3 seeds; the last column scores each label's models against a common reference.)
+
+- **Every variant names the same hump.** Each one lies within ±1 of Phase 9's site in 98.4–99.6% of test runs.
+- **The knobs barely matter.** v2 reaches 99.4–99.6% within ±1 on every variant but one; the prediction was within 0.5 points of 99.4% for all of them.
+  - The exception is 3 pendulums at 20% (98.0%). It fires 7 time units after the event, when rival humps have had longer to compete. The prediction expected any fall in this direction.
+- **Wider windows are easier, not better located.**
+  - On their own labels, 5 and 7 pendulums give lower mean distances (0.22–0.26 against 0.27–0.28).
+  - Scored against the common reference, they locate the hump no better: 7 pendulums falls to 98.8% and 78–80% exact, except at 10%.
+  - The wide window's centre is a smoother target, not a sharper answer.
+  - The top pendulum alone (1 pendulum) is the noisier marker, as in Phase 10. Three pendulums score best against the common reference.
+- **Decision (rule fixed in advance, validation pool).** The event-timed 3-pendulum label reaches 99.4% within ±1 and 0.28, against 99.4% and 0.28 for Phase 9's label (+0.03 points, +0.001). It becomes the recommended target.
+  - **No energy threshold is left.** Its time is the first pendulum over the top (median τ = 50, 4.5 time units before Phase 9's label), its window is one swing, and its 3 pendulums are the narrowest window that finds the hump's centre.
+  - **Results on Phase 9's label carry over.** The two labels agree within ±1 in 99.6% of test runs (91.7% exactly), and v2 scores the same on both.
+
+#### Amplitude, as a growth rate
+
+**Why.** v1 drew A from 1.65–1.85 rad. The range is a choice, and a narrower one might make the problem easier. Physically, the amplitude enters through the Floquet spectrum: from 1.60 to 1.95 the fastest growth rate σ₁ rises from 0.042 to 0.183, and the number of growing modes from 2 to 7.
+
+**What.**
+- Pools at 8 fixed amplitudes, the narrowest possible range: 60,000 / 5,000 / 10,000 runs each, offsets ±0.025, labels searched to τ = 300.
+- One wide pool with A ~ U(1.60, 1.95).
+- v2 trained at each amplitude (a "specialist") and on the wide pool.
+
+| A | σ₁ | Growing modes | Localization time (median) | Time × σ₁ | Rival hump ≥ half | Floquet filter ±1 | Specialist ±1 (mean distance) | Wide model ±1 | Model trained on 1.65–1.85, ±1 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1.60 | 0.042 | 2 | 120.0 | 5.02 | 0.1% | 17.0% | 98.7% (0.26) | 85.8% | 24.8% |
+| 1.65 | 0.075 | 3 | 72.5 | 5.45 | 3.7% | 53.0% | 99.6% (0.23) | 99.0% | 98.7% |
+| 1.70 | 0.099 | 4 | 58.0 | 5.72 | 10.4% | 69.9% | 99.6% (0.21) | 99.4% | 99.4% |
+| 1.75 | 0.118 | 5 | 47.5 | 5.63 | 19.7% | 74.6% | 99.7% (0.18) | 99.5% | 99.6% |
+| 1.80 | 0.136 | 6 | 43.5 | 5.92 | 29.0% | 86.5% | 99.5% (0.21) | 99.4% | 99.4% |
+| 1.85 | 0.153 | 6 | 36.5 | 5.57 | 40.0% | 88.5% | 99.6% (0.21) | 99.4% | 99.2% |
+| 1.90 | 0.168 | 7 | 33.0 | 5.55 | 50.4% | 93.1% | 99.5% (0.25) | 99.5% | 90.3% |
+| 1.95 | 0.183 | 7 | 33.0 | 6.04 | 58.8% | 93.5% | 99.5% (0.24) | 99.0% | 50.3% |
+
+- **The amplitude sets the clock through the growth rate.**
+  - From 1.60 to 1.95 the localization time falls 3.6-fold, from 120 to 33, while time × σ₁ stays at 5.0–6.0.
+  - On the wide pool, the median of time × σ₁ is 5.75, with bin medians of 5.36–5.85 over seven amplitude bins.
+  - So localization takes 5–6 e-foldings of the fastest mode at every amplitude. That is roughly what it takes to grow the offsets, about 0.002 rad per mode, to the about 1.4 rad that carries a pendulum over the top: ln(1.4/0.002) ≈ 6.5, presumably less because several modes add at one site.
+- **More growing modes mean more rival humps.** The share of runs with a rival hump at least half as large rises from 0.1% (2 modes) to 59% (7 modes). v2 still names the winner: 99.5–99.7% from 1.65 to 1.95, uncorrelated with the number of modes (Spearman −0.22, p = 0.61).
+- **Near the threshold, linear theory fails.** The Floquet filter falls from 93% at 1.90 to 17% at 1.60, where the offsets (±0.025) are as large as the distance above threshold (A − A_c = 0.023). The offset study below shows why. The specialist drops only to 98.7%, with far misses at 0.1%; its extra errors are one-site slips (79.8% exact against 88–90% elsewhere).
+  - The predictions held qualitatively, with three misses. Time × σ₁ varied more than predicted (5.0–6.0 against 5.6–5.9). Near threshold, accuracy was expected to be at least as high. And the specialist's gain exceeded 0.5 points at 1.65 (+0.6) and 1.95 (+0.56) as well as at 1.60.
+- **Narrowing the range barely helps.** The specialist beats the wide model by 0.0–0.6 points from 1.65 to 1.95. The exception is the threshold itself (1.60: 98.7% against 85.8%), where the outcome changes steeply with amplitude. So a narrower range is not what makes the problem easy, as predicted, although by up to 0.6 points rather than under 0.5 away from the threshold.
+- **Models do not extrapolate in amplitude.** The model trained on 1.65–1.85 reaches 98.7–99.6% inside that range, but 90.3% at 1.90, 50.3% at 1.95 and 24.8% at 1.60. A real chain's model must be trained over the amplitudes it will be released at.
+- **The hump's width does not depend on the amplitude.** At the event it is a median 9 pendulums wide at half height (10 at A = 1.70), at every amplitude.
+
+#### Offsets: the clock and the reach of linear theory
+
+**Why.**
+- The offsets are the release scatter. The uniform swing is an exact solution, so without them nothing localizes. Their pattern decides where the energy goes, and their size could decide when.
+- They are physics, not a robustness knob. Noise added to the inputs for robustness would be sensor noise, which Sec. 7 treats separately.
+- v1 states ±0.025 rad; its data were probably made at ±0.0125 (Sec. 2).
+
+**What.** The same runs as the main pools, with the offsets about A scaled by 1/8, 1/4, 1/2, 2 and 4 (±0.003 to ±0.1 rad). Only the size changes, so each run can be followed across sizes. Labels are searched to τ = 300.
+
+| Offsets (×) | ±rad | Localization time (median) | Site unchanged from ×1 / within ±1 / > 10 away | Floquet filter ±1 | v2 trained at that size, ±1 (mean distance) | v2 trained at ×1, ±1 |
+|---|---|---|---|---|---|---|
+| 1/8 | 0.003 | 67.0 | 37.2% / 78.5% / 4.3% | 87.1% | 99.5% (0.23) | 95.4% |
+| 1/4 | 0.006 | 62.5 | 48.3% / 87.8% / 3.3% | 83.2% | 99.7% (0.20) | 98.2% |
+| 1/2 | 0.0125 | 55.0 | 66.8% / 96.2% / 1.9% | 77.9% | 99.5% (0.26) | 99.3% |
+| 1 | 0.025 | 50.0 | | 73.3% | 99.4% (0.28) | 99.4% |
+| 2 | 0.05 | 43.0 | 60.2% / 93.0% / 2.9% | 62.9% | 99.3% (0.31) | 93.1% |
+| 4 | 0.1 | 35.5 | 34.4% / 73.4% / 7.5% | 51.8% | 99.1% (0.37) | 65.4% |
+
+- **The size sets the clock.**
+  - Scaling the offsets by s should shift the localization time by ln(1/s)/σ₁, since the growing modes start s times smaller.
+  - Over 5 sizes × 5 amplitude bins, the measured median delay follows this with slope 1.10 (correlation 0.998, largest deviation 2.8 time units), as predicted.
+  - The 10% excess means the effective growth is slightly slower than the fastest mode's, as for the sensor-noise wait in Sec. 7, which follows the mean rate of the growing modes.
+- **The size also moves the site.**
+  - From ×1 to ×1/8 the site stays put in only 37% of runs (78.5% within ±1, 4.3% far).
+  - The growing modes need longer to grow from smaller offsets, while the modes that do not grow keep their size. So when the hump forms, the local detail of those modes is smaller relative to the growing pattern.
+  - The hump is a little wider then: 11 pendulums at ×1/8 against 8 at ×4.
+- **Linear theory reaches further with smaller offsets.**
+  - The training-free Floquet filter rises from 52% within ±1 (×4) to 73% (×1) to 87% (×1/8). In the amplitude bin around 1.75 it goes from 55% to 97%.
+  - Together with the amplitude pools (Fig. 23d), its accuracy falls as the offsets grow relative to the distance above threshold, η_max/(A − A_c). At v1's lowest amplitude, 1.60, that ratio is 1.07, and the filter gets 17%.
+  - The ratio is not the whole story: the lowest amplitude bin (1.67) stays at 49–65% even with tiny offsets, where only 3–4 modes grow at similar rates. The filter's number of periods was also tuned per pool, not per bin.
+- **v2 learns what linear theory misses, but only at the size it saw.**
+  - Trained at each size, v2 reaches 99.1–99.7%, falling slightly at large offsets as predicted.
+  - The model trained at ×1 reaches 95.4% at ×1/8, 93.1% at ×2 and 65.4% at ×4.
+  - The site depends on the release scatter beyond its pattern, so a real chain's model must be trained at its own scatter, or over a range of it.
+
+#### The number of pendulums
+
+**Why.** N = 100 comes from v1. The growing modes have wavelengths down to about 20 pendulums at A = 1.75, so a longer ring holds more of them, about N/20, at the same growth rates. Changing the amplitude changes both the rates and the number of modes, so changing N separates the two. A threshold on the share of the total energy also means something different on every ring, since one pendulum's share scales as 1/N.
+
+**What.**
+- Pools of 50, 200 and 400 pendulums with v1's amplitudes and offsets (60,000 / 5,000 / 10,000 runs), and the main pools for 100.
+- The same whole-ring architecture at every N, including 100: two more dilated layers (dilations 64 and 128), receptive field 513, 28,994 parameters. Only the ring changes.
+- The circular convolution was extended for dilations larger than the ring, where a shift by d is a shift by d mod N. Existing models are unchanged.
+- On the longest ring the share-of-total labels are not reached in time. At N = 200, searched to τ = 300, v1's 10% label never fires in 1.7% of test runs. At N = 400 the pools stop each block of 1,000 runs once its event-timed labels are complete; by then v1's label has fired in 2.9% of test runs and Phase 9's hump label in 23%. The event-timed label fires in every run at every N.
+
+| N | Growing modes (A = 1.75) | Localization time (median) | Rival hump ≥ half | Hump width (FWHM) | Floquet filter ±1 | v2 ±1 | v2 exact | v2 mean distance | v2 > 10 off |
+|---|---|---|---|---|---|---|---|---|---|
+| 50 | 2 | 54.5 | 2.4% | 7 | 77.6% | 99.9% | 92.9% | 0.09 | 0.1% |
+| 100 | 5 | 50.0 | 19.6% | 9 | 73.3% | 99.5% | 88.8% | 0.24 | 0.4% |
+| 200 | 11 | 46.5 | 48.5% | 11 | 67.5% | 99.3% | 85.5% | 0.51 | 0.6% |
+| 400 | 22 | 43.5 | 71.2% | 12 | 66.0% | 98.8% | 82.3% | 1.31 | 0.9% |
+
+| Model, tested on | ±1 | Mean distance | > 10 off |
+|---|---|---|---|
+| Trained at N = 100, on N = 50 | 98.9% | 0.25 | 0.2% |
+| Trained at N = 100, on N = 200 | 29.7% (± 21.4 between seeds) | 56.1 | 60.8% |
+| Trained at N = 100, on N = 400 | 14.4% (± 23.0) | 90.8 | 73.6% |
+| Trained at N = 200, on N = 100 | 98.9% | 0.36 | 0.5% |
+| Trained at N = 400, on N = 100 | 95.3% | 0.87 | 1.7% |
+| Standard architecture (receptive field 129), trained at N = 100, on N = 200 / 400 | 92.3% / 89.5% | 4.53 / 11.98 | 6.4% / 9.5% |
+
+- **More competing modes make the site only slightly harder to call.**
+  - From 50 to 400 pendulums the number of growing modes rises from 2 to 22, and the share of runs with a rival hump from 2.4% to 71.2%. Yet v2 trained on each ring falls only from 99.9% to 98.8% within ±1, and its far misses rise from 0.1% to 0.9%.
+  - This is the mild fall predicted, clearest at 400.
+  - The mean distance grows faster (0.09 to 1.31), because a far miss costs more pendulums on a longer ring.
+  - The localization time shortens a little with N (54.5 to 43.5), presumably because on a longer ring the earliest of more sites goes over the top sooner.
+- **Linear theory degrades mildly with more modes.** The Floquet filter goes from 77.6% to 66.0%.
+- **Transfer works from long rings to short ones, not the reverse.**
+  - Models trained on 200 or 400 pendulums keep 98.9% and 95.3% at N = 100.
+  - The model trained at N = 100 keeps 98.9% at N = 50 but fails on longer rings: 29.7% at 200 and 14.4% at 400, erratically from seed to seed.
+  - Its receptive field covers those rings, so seeing the whole ring is not enough: the standard model with a receptive field of only 129 does better there (92.3%, 89.5%).
+  - The prediction that the N = 100 model transfers once it sees the whole ring is refuted for longer rings.
+  - A likely reason (not tested): on a long ring the growing modes form a nearly continuous band, and the hump forms by a local modulational instability whose scale (about 20 pendulums) does not depend on N, which a model can learn and reuse. On a 100-pendulum ring only five specific global waves grow, and a model can lean on them. Its longest dilations wrap around the ring and connect pendulums in a way specific to N = 100.
+  - This replaces the explanation given in Sec. 11 for the drop at 150 pendulums.
+- **A share of the total energy is no threshold for other ring sizes.** The event-timed label fires at the same physical moment on every ring, whereas v1's 10% asks one pendulum for 5 times its equipartition share at N = 50 and 40 times at N = 400.
+
+#### What this means for the settings
+
+| Setting | v1's value | In the units of the physics | Tested | What it changes |
+|---|---|---|---|---|
+| Localization threshold | 10% of the total | The first pendulum over the top (≈ 2.4 E_sep at 4%) | 3–15%, 1.5–6 E_sep, the event | Learnability: 10% is near the worst; the event needs no threshold |
+| Hump label | 3 pendulums, 15% (ours, Phase 9) | Timed by the event, one swing, 3 pendulums | 3/5/7 × 10/15/20%, event-timed | Nothing within 0.2 points except a late 20% label |
+| Amplitude | U(1.65, 1.85) | Growth rate σ₁ = 0.075–0.153, 3–6 growing modes | 1.60–1.95 fixed, and wide | The clock (time ≈ 5.75/σ₁) and the number of rival humps; accuracy only at the threshold |
+| Offsets | ±0.025 (probably ±0.0125 in v1's data) | Release scatter; small against A − A_c | ×1/8 to ×4 | The clock (+ln 2/σ₁ per halving), the last-site detail and how far linear theory reaches |
+| Ring size | 100 | About N/20 growing modes at A = 1.75 | 50–400 | Accuracy falls mildly (99.9% to 98.8%); models transfer from long rings to short ones only; share-of-total thresholds stop working |
+| Couplings g̃, h̃ | 0.75, 0.5 | h̃ sets A_c and the growing band; g̃ barely matters for long waves | ±10% at test only (Sec. 11) | h̃ ±10% costs 2.8–4 sites; g̃ ±10% about 0.5 |
+| Damping | none | Quality factor Q against the growth rate | Q = 100 to ∞ (Sec. 11) | Below Q ≈ 1,000 a growing share never localizes |
+| Within ±1 | v1's metric | The hump is 8–9 pendulums wide at half height | Exact, ±1, ±3, mean distance throughout | Kept; mean distance is reported beside it |
+| Not tested | periodic ring, white uniform offsets, samples every 0.5 | | | Stated as limitations (Sec. 12) |
+
+- **Rerun:**
+  - Labels: `python scripts/setting_labels.py --tag main --from-pool --n-train 60000`, and the same with `--offset-scale`, `--amplitude`, `--a-range` or `--n-sites` (see the script's docstring; `--stop-at-event` for N = 400). About 1 h on 8 CPU cores in all.
+  - Training: `python scripts/sweep.py settings_hump` (then set `SETTINGS_LABEL`), `settings_amplitude`, `settings_ring` and `settings_offsets`. About 8 minutes per phase on one L40 at 13 workers; settings_ring longer.
+  - Analysis: `python scripts/settings_analysis.py` and `python scripts/make_figures.py`.
 
 ### A set of sites instead of one
 
@@ -901,7 +1087,7 @@ The model outputs a probability for every site, so it can name the smallest set 
 The pattern follows the Floquet spectrum:
 - **Shifts that leave the spectrum alone cost v2 about half a site** (g ±10%, a doubled initial spread). It stays far ahead of v1.
 - **Shifts that change the spectrum hurt both models alike.** A 10% change in the global coupling h moves the fastest growth rate by +21% or −33% and changes how many modes grow, and both models fall to 4–6 sites, which erases most of v2's lead (v2 loses 2.8–4.0 sites, v1 1.2–2.8). In a real chain, h must be known to a few percent, or the model trained over a range of h.
-- **v2 works on rings of other sizes; v1's dense head cannot.** At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 vs 1.49 of 100). At 150 it degrades (6.3): eight modes compete instead of five, and the ring outgrows the 129-site receptive field.
+- **v2 works on rings of other sizes; v1's dense head cannot.** At 80 pendulums it is as accurate relative to the ring's size (1.31 of 80 vs 1.49 of 100). At 150 it degrades (6.3). A larger receptive field does not fix this: models carry over from longer rings to shorter ones but not the reverse (Sec. 10, *Where the settings come from*), so a chain longer than the training ring needs its own training.
 - **A single slightly weaker pendulum defeats both models.** A 1% weaker restoring force pins the localization site, which neither model saw in training (see Chains with an impurity, below).
 
 ### Sensor noise
@@ -999,7 +1185,7 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 - **Idealized sensor noise.** Noise was white and independent across pendulums and frames. Real cameras add correlated errors (lens distortion, motion blur, a fixed calibration offset per pendulum). A fixed offset acts like a wrong initial state, which the dynamics amplify.
 - **Manufacturing tolerances.** The impurity tests detune one pendulum per chain, and a single 1% impurity already pins the site within ±3 in 92% of runs. A model must therefore be trained with the tolerances it will meet. For one impurity the motion alone reveals it (Sec. 11). A real chain has small differences at every pendulum, which may make a measured map of the chain necessary.
 - **Screening budget and seeds.** Phases 3–5 used 15-epoch runs, and the noise/time grid one seed per cell. Differences below about 0.1 sites in those phases are within noise.
-- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). A first crossing at about 4%, which marks the first pendulum going over the top, is as learnable as the hump label (Sec. 10, *Which threshold?*). The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged and hump labels (Sec. 10), and the noise-and-timing grid on the swing-averaged label (Sec. 7). The sparse sensors and the optimizer were not.
+- **The label.** v1's label (the first pendulum over 10%) jitters by 1–3 sites within a swing (Sec. 10). Exact-site and ±1 accuracy on it partly measure the moment in the swing rather than where the energy goes. Labels averaged over a swing are better targets, and the hump label, read when the hump forms, is the best (Sec. 10). A first crossing at about 4%, which marks the first pendulum going over the top, is as learnable as the hump label (Sec. 10, *Which threshold?*), and timing the hump label by that event removes its threshold (Sec. 10, *Where the settings come from*). Most results were obtained on the threshold-timed hump label, which agrees with the event-timed one within ±1 in 99.6% of runs. The inputs, receptive field, soft labels and recommended setups were re-tested on the swing-averaged and hump labels (Sec. 10), and the noise-and-timing grid on the swing-averaged label (Sec. 7). The sparse sensors and the optimizer were not.
 
 ### Next steps
 
@@ -1011,3 +1197,5 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 6. The noise-and-timing grid on the swing-averaged label is done (Sec. 7): waiting costs about 25 time units per 10× noise on either label, at about the mean growth rate of the growing modes. Still open: predict the rate from each mode's share of the localization instead of a plain mean over the growing modes, and repeat the grid with more than one seed per cell.
 7. The key choices and sensing setups on the hump label are done (Sec. 10). Each choice costs about the same number of sites as on the swing-averaged label, and hard labels beat soft ones there. A second site lifts the cheap camera from 96.8% to 98.3% within ±1, named in 5.6% of runs. Still open: the noise-and-timing and sparse-sensor grids on the hump label.
 8. If the original v1 training code becomes available, check its threshold, energy formula and noise against the reconstruction in Sec. 2, and its train/test split.
+9. Test whether accuracy depends on the chain only through its growth spectrum: train at pairs of h̃ and A with the same σ₁ and number of growing modes (Sec. 10, *Where the settings come from*). The amplitude, offset and ring-size studies point that way but vary one setting at a time.
+10. Train on the longest ring a chain could have: models carry over from longer rings to shorter ones but not the reverse. Check whether a model trained at N = 400 also covers 80–200 and odd sizes, and whether its 4-point loss at N = 100 shrinks with more data.

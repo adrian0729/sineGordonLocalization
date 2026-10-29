@@ -27,3 +27,4 @@ The report's figures, each saved as PNG (used by [REPORT.md](../REPORT.md)) and 
 | [fig20_damping](fig20_damping.png) | Damping decides whether the energy localizes, and how well v2 still predicts the site | 11. Robustness |
 | [fig21_regularization](fig21_regularization.png) | Mirror images delay overfitting with little data | 10. Final model |
 | [fig22_threshold](fig22_threshold.png) | Accuracy against the localization threshold, and how pinned each label is | 10. Final model |
+| [fig23_settings](fig23_settings.png) | The hump label's knobs, localization time against the growth rate, the delay from rescaled offsets, the reach of linear theory, and models trained at other amplitudes and ring sizes | 10. Final model |
