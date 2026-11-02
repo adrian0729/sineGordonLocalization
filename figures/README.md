@@ -28,3 +28,4 @@ The report's figures, each saved as PNG (used by [REPORT.md](../REPORT.md)) and 
 | [fig21_regularization](fig21_regularization.png) | Mirror images delay overfitting with little data | 10. Final model |
 | [fig22_threshold](fig22_threshold.png) | Accuracy against the localization threshold, and how pinned each label is | 10. Final model |
 | [fig23_settings](fig23_settings.png) | The hump label's knobs, localization time against the growth rate, the delay from rescaled offsets, the reach of linear theory, and models trained at other amplitudes and ring sizes | 10. Final model |
+| [fig24_coupling](fig24_coupling.png) | Chains at other global couplings with the same growth spectrum: how often a run keeps its site, the clock and the Floquet filter at every coupling | 10. Final model |

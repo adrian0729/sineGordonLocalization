@@ -13,6 +13,10 @@ A  the hump label's knobs on the main pools: label diagnostics (val, test), trai
 B  amplitude: Floquet growth, label timing in e-folding times, the Floquet filter, specialists vs the wide model.
 C  ring size N: growing modes, label diagnostics, ring_n<N> models and cross-N transfer.
 D  offset size: timing shift against -ln(s)/sigma1, how often the site moves, models and transfer of the scale-1 model.
+E  global coupling h: chains at h = 0.4 / 0.6 whose growth spectra match h = 0.5 at A = 1.65 / 1.75 / 1.85 (the twins
+   of sgloc.ablations.COUPLING_TWINS, same offsets as the amplitude pools) and label-only test pools (setpool_cpl_*:
+   h = 0.5 at other A, h = 0.4 / 0.6 matching only the fastest rate, h = 0.3 / 0.7 twins): clock in e-foldings, rival
+   share, Floquet filter, per-run site agreement with the reference against spectral distance, models and transfer.
 
 The target label L is sgloc.ablations.SETTINGS_LABEL. While it is None, parts B-D report only the label-only
 diagnostics (with label "hump") and no models. Distances are around the ring.
@@ -31,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from sgloc import ablations, data, floquet, metrics, sim  # noqa: E402
 
-PHASES = ("settings_hump", "settings_amplitude", "settings_ring", "settings_offsets")
+PHASES = ("settings_hump", "settings_amplitude", "settings_ring", "settings_offsets", "settings_coupling")
 HUMP_LABELS = [f"hump_k{k}_s{s}" for k in (3, 5, 7) for s in (10, 15, 20)]
 EH_LABELS = [f"eh_k{k}" for k in (1, 3, 5, 7)]
 A_LABELS = HUMP_LABELS + EH_LABELS + ["thr04", "ott", "right"]
@@ -170,9 +174,11 @@ def floquet_baseline(label, tag):
     grid = np.unique(np.round(np.linspace(A_all.min(), A_all.max(), 41), 6)) if np.ptp(A_all) > 1e-9 else A_all[:1]
     n = n_of(val)
     yv, yt = val[f"site_{label}"], test[f"site_{label}"]
+    p = val["meta"].get("params") or {}  # the chain's own coupling (pools at other h store it; others are nominal)
+    g_, h_ = p.get("g", sim.Params().g), p.get("h", sim.Params().h)
 
     def predict(pool, periods):
-        return floquet.floquet_filter(pool["theta0"], pool["A"], periods=periods, a_grid=grid)
+        return floquet.floquet_filter(pool["theta0"], pool["A"], periods=periods, g=g_, h=h_, a_grid=grid)
 
     dist = {p: float(metrics.ring_distance(predict(val, p)[yv >= 0], yv[yv >= 0], n).mean()) for p in range(3, 10)}
     best = min(dist, key=dist.get)
@@ -208,8 +214,8 @@ class Rescorer:
     def __init__(self, skip):
         self.skip, self.cache, self.ev = skip, {}, None
 
-    def one(self, r, pool_name):
-        key = (r["run_dir"], pool_name)
+    def one(self, r, pool_name, label_pool=None):
+        key = (r["run_dir"], pool_name, label_pool)
         if key in self.cache:
             return self.cache[key]
         res = None
@@ -224,15 +230,15 @@ class Rescorer:
                 if self.ev is None:
                     from sgloc import experiment
                     self.ev = experiment.evaluate_saved
-                res = self.ev(r["run_dir"], pool_name)
+                res = self.ev(r["run_dir"], pool_name, label_pool=label_pool)
             except Exception as e:  # keep going; the failure is listed
                 note(f"re-scoring {r['run_dir']} on {pool_name} failed: {type(e).__name__}: {e}")
         self.cache[key] = res
         return res
 
-    def seeds(self, rows, pool_name, keys=("acc_0", "acc_1", "mae", "over_10")):
-        """Seed mean of the re-scored metrics over the rows that could be scored."""
-        res = [m for m in (self.one(r, pool_name) for r in rows) if m and m.get("n")]
+    def seeds(self, rows, pool_name, keys=("acc_0", "acc_1", "mae", "over_10"), label_pool=None):
+        """Seed mean of the re-scored metrics over the rows that could be scored (labels from `label_pool` if given)."""
+        res = [m for m in (self.one(r, pool_name, label_pool) for r in rows) if m and m.get("n")]
         if not res:
             return None
         out = {"n_seeds": len(res), "n": res[0]["n"]}
@@ -467,6 +473,162 @@ def part_d(records, rescorer):
     if not off:
         note("part D: no settings_offsets run records yet")
     return out
+
+
+# ---------------------------------------------------------------------------------------------------- Part E
+@lru_cache(maxsize=None)
+def rates_h(A, h, n_sites=100):
+    return floquet.growth_rates(A, range(1, n_sites // 2 + 1), h=h, n_sites=n_sites)
+
+
+@lru_cache(maxsize=None)
+def a_c(h):
+    return float(floquet.threshold_amplitude(h=h, lo=0.5, hi=np.pi - 0.05))
+
+
+def chain_of(pool):
+    """(h, A) of a fixed-amplitude pool: h from the stored dynamics (nominal pools store none), A from its runs."""
+    h = (pool["meta"].get("params") or {}).get("h", sim.Params().h)
+    assert np.ptp(pool["A"]) < 1e-9, "part E needs fixed-amplitude pools"
+    return float(h), float(pool["A"][0])
+
+
+_LIN = {}
+
+
+def linear_peak(pool, h, n, efolds=5.75):
+    """Peak of the initial offsets evolved through Eq. (hill) for round(efolds / (sigma1 T)) whole swing periods."""
+    key = (pool["meta"].get("tag"), round(h, 6))
+    if key not in _LIN:
+        A = float(pool["A"][0])
+        periods = max(1, int(round(efolds / (float(rates_h(round(A, 6), round(h, 6), n).max()) * float(floquet.period(A))))))
+        _LIN[key] = floquet.propagated_field(pool["theta0"], pool["A"], periods=periods, h=h).argmax(1)
+    return _LIN[key]
+
+
+def site_agreement(a, b, n):
+    keep = (a >= 0) & (b >= 0)
+    d = metrics.ring_distance(a[keep], b[keep], n) if keep.any() else np.array([])
+    return {"n": int(keep.sum()), "identical": float((d == 0).mean()) if len(d) else NAN,
+            "within_1": float((d <= 1).mean()) if len(d) else NAN, "over_10": float((d > 10).mean()) if len(d) else NAN}
+
+
+def part_e(records, rescorer):
+    """Chains at other global couplings h with (nearly) the same growth spectrum as h = 0.5 at A_ref."""
+    L = Lname()
+    cpl = by_name(records, "settings_coupling")
+    amp = by_name(records, "settings_amplitude")
+    wide = amp.get("ampwide", [])
+    out = {"label": L, "families": {}, "points": []}
+    for a_ref in sorted({a for _, a in ablations.COUPLING_TWINS}):
+        ref_tag = f"amp{ablations.tag_of(a_ref)}"
+        ref = pool_of(ref_tag, "test")
+        if not pool_has(ref, L, "ott"):
+            note(f"part E: reference pool {ref_tag} missing")
+            continue
+        n = n_of(ref)
+        eta_ref = ref["theta0"] - ref["A"][:, None]
+        members = [("reference", ref_tag, True)]
+        members += [("twin", ablations.twin_tag(h, a), True) for (h, a) in ablations.COUPLING_TWINS if a == a_ref]
+        for f in sorted((ROOT / "data").glob(f"setpool_cpl_*_ref{ablations.tag_of(a_ref)}_test.npz")):
+            tag = f.name[len("setpool_"):-len("_test.npz")]
+            members.append((tag.split("_")[1], tag, False))
+        fam = {"A_ref": a_ref, "reference": ref_tag, "members": {}}
+        ref_rows = amp.get(ref_tag, [])
+        for kind, tag, trained in members:
+            pool = pool_of(tag, "test")
+            if not pool_has(pool, L, "ott"):
+                note(f"part E: pool {tag} missing or lacks labels")
+                continue
+            h, A = chain_of(pool)
+            r = rates_h(round(A, 6), round(h, 6), n)
+            s1 = float(r.max())
+            e = {"kind": kind, "tag": tag, "h": h, "A": A, "A_c": a_c(h), "A_minus_A_c": A - a_c(h), "sigma1": s1,
+                 "n_growing": int((r > GROW).sum()), "rates_1_8": [float(x) for x in r[:8]],
+                 "spectral_distance": floquet.spectral_distance(A, h, a_ref) if kind != "reference" else 0.0}
+            st = condition_stats(pool, L)
+            st.update(median_time_L_x_sigma1=st["median_time_L"] * s1, median_time_ott_x_sigma1=st["median_time_ott"] * s1)
+            e["pool"] = st
+            same = len(pool["A"]) == len(ref["A"]) and np.allclose(pool["theta0"] - pool["A"][:, None], eta_ref, atol=1e-12)
+            e["same_offsets_as_reference"] = bool(same)
+            if same and kind != "reference":
+                e["agreement"] = {name: site_agreement(pool[f"site_{lab}"], ref[f"site_{lab}"], n) for name, lab in (("L", L), ("ott", "ott"))}
+                # the same comparison in the linearized dynamics: the offsets evolved for the whole number of swing periods
+                # nearest 5.75 e-foldings of each chain's fastest mode, peak against peak
+                e["linear_agreement"] = site_agreement(linear_peak(pool, h, n), linear_peak(ref, sim.Params().h, n), n)
+                e["time_ratio_to_reference"] = st["median_time_ott"] / med(ref["time_ott"])
+            elif kind != "reference":
+                note(f"part E: {tag} does not share the reference's offsets; no per-run agreement")
+            if trained:
+                e["floquet"] = floquet_baseline(L, tag)
+                e["eta_over_distance"] = ETA / (A - a_c(h))
+                rows = cpl.get(tag, []) if kind == "twin" else ref_rows
+                e["model"] = seed_stats(rows)
+                if kind == "twin":
+                    e["reference_model_on_this"] = rescorer.seeds(ref_rows, f"setpool_{tag}_test") if ref_rows else None
+                    e["this_model_on_reference"] = rescorer.seeds(rows, f"setpool_{ref_tag}_test") if rows else None
+                    e["wide_model_on_this"] = (rescorer.seeds(wide, f"setpool_{tag}_test")
+                                               if wide and 1.60 <= A <= 1.95 else None)
+                    # The uniform swing does not depend on h, so the network trained at h = 0.5 over 1.60-1.95 sees this
+                    # chain's swing as that of a chain at h = 0.5 with the same amplitude. Does it predict where that chain,
+                    # released from the same offsets, localizes? (setpool_cplsame_*: h = 0.5, this A, the reference's seed)
+                    same_tag = f"cplsame_h0p5_a{ablations.tag_of(A)}_ref{ablations.tag_of(a_ref)}"
+                    twin05 = pool_of(same_tag, "test") if e["wide_model_on_this"] else None
+                    if pool_has(twin05, L, "ott") and np.array_equal(twin05["theta0"], pool["theta0"]):
+                        e["same_amplitude_h05"] = {
+                            "tag": same_tag,
+                            "agreement": site_agreement(pool[f"site_{L}"], twin05[f"site_{L}"], n),
+                            "wide_model_on_it": rescorer.seeds(wide, f"setpool_{same_tag}_test"),
+                            "wide_model_here_vs_its_sites": rescorer.seeds(wide, f"setpool_{tag}_test",
+                                                                           label_pool=f"setpool_{same_tag}_test")}
+                    if (L, tag) in _FLOQ and (L, ref_tag) in _FLOQ:  # does linear theory put the twin's site where the reference's is?
+                        e["floquet_agreement"] = site_agreement(_FLOQ[(L, tag)][1], _FLOQ[(L, ref_tag)][1], n)
+            fam["members"][tag] = e
+            out["points"].append({"A_ref": a_ref, **{k: e.get(k) for k in ("kind", "tag", "h", "A", "spectral_distance", "sigma1", "n_growing")},
+                                  "efold": st["median_time_ott_x_sigma1"], "rival": st["rival_share"],
+                                  "agree_L_pm1": g(e, "agreement", "L", "within_1"), "agree_L_exact": g(e, "agreement", "L", "identical")})
+        out["families"][ref_tag] = fam
+    if not cpl:
+        note("part E: no settings_coupling run records yet")
+    # does agreement depend on h beyond the spectrum? compare h != 0.5 points with h = 0.5 shifts at similar distance
+    pts = [q for q in out["points"] if q["agree_L_pm1"] is not None]
+    sh = [q for q in pts if q["kind"] == "shift"]
+    ot = [q for q in pts if q["kind"] != "shift"]
+    out["spearman_agreement_vs_distance"] = {
+        "h0.5_shifts": spearman([q["spectral_distance"] for q in sh], [q["agree_L_pm1"] for q in sh]),
+        "other_h": spearman([q["spectral_distance"] for q in ot], [q["agree_L_pm1"] for q in ot]),
+        "all": spearman([q["spectral_distance"] for q in pts], [q["agree_L_pm1"] for q in pts])}
+    return out
+
+
+def md_e(e):
+    s = [f"## Part E: global coupling h, chains with the same growth spectrum (label {e['label']}; test pools)\n"]
+    for ref_tag, fam in e["families"].items():
+        s.append(f"### Reference h = 0.5, A = {fam['A_ref']:g} ({ref_tag})\n")
+        rows = []
+        for tag, m in sorted(fam["members"].items(), key=lambda kv: (kv[1]["kind"] != "reference", kv[1]["spectral_distance"])):
+            p = m["pool"]
+            rows.append([m["kind"], tag, num(m["h"], 1), num(m["A"], 3), num(m["A_minus_A_c"], 3), num(m["sigma1"], 4), m["n_growing"],
+                         pct(m["spectral_distance"]), num(p["median_time_ott"], 1), num(p["median_time_ott_x_sigma1"], 2), pct(p["rival_share"]),
+                         pct(g(m, "agreement", "L", "identical")), pct(g(m, "agreement", "L", "within_1")),
+                         pct(g(m, "floquet", "acc_1")), pm(g(m, "model", "test", "acc_1"), g(m, "model", "test", "acc_1_sd"), 100, 2),
+                         pct(g(m, "reference_model_on_this", "acc_1")), pct(g(m, "this_model_on_reference", "acc_1")),
+                         pct(g(m, "wide_model_on_this", "acc_1")), pct(g(m, "floquet_agreement", "within_1")),
+                         pct(g(m, "linear_agreement", "within_1"))])
+        s.append(table(["Kind", "Pool", "h", "A", "A−A_c", "σ1", "Modes", "Spectral dist. %", "Median t(ott)", "t·σ1", "Rival %",
+                        "Same site %", "Site ±1 %", "Floquet ±1 %", "v2 ±1 %", "Ref. model here ±1 %", "This model on ref. ±1 %",
+                        "Wide model here ±1 %", "Floquet sites ±1 of ref. %", "Linear peaks ±1 of ref. %"], rows))
+    rows = [[tag, num(m["h"], 1), num(m["A"], 3), pct(g(m, "wide_model_on_this", "acc_1")),
+             pct(g(m, "same_amplitude_h05", "agreement", "within_1")), pct(g(m, "same_amplitude_h05", "wide_model_on_it", "acc_1")),
+             pct(g(m, "same_amplitude_h05", "wide_model_here_vs_its_sites", "acc_1"))]
+            for fam in e["families"].values() for tag, m in fam["members"].items() if m.get("same_amplitude_h05")]
+    if rows:
+        s.append("### The network trained at h = 0.5 (A = 1.60-1.95) on twins, against a chain at h = 0.5 with the same amplitude and offsets\n")
+        s.append(table(["Twin", "h", "A", "Wide model ±1 % (twin's sites)", "Twin's site ±1 of the h = 0.5 chain's %",
+                        "Wide model ±1 % on the h = 0.5 chain", "Wide model on the twin, ±1 % of the h = 0.5 chain's sites"], rows))
+    s.append("Spearman of per-run agreement (±1) against spectral distance: "
+             + "; ".join(f"{k}: rho {num(v.get('rho'), 2)} (n {v['n']})" for k, v in e["spearman_agreement_vs_distance"].items()) + "\n")
+    return "\n".join(s)
 
 
 # ---------------------------------------------------------------------------------------------------- new 1a, 1b
@@ -776,7 +938,7 @@ def md_spearman(sp):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--records", nargs="*", default=[], help="extra JSON-lines run files")
-    ap.add_argument("--parts", nargs="+", default=list("ABCD"), choices=list("ABCD"))
+    ap.add_argument("--parts", nargs="+", default=list("ABCDE"), choices=list("ABCDE"))
     ap.add_argument("--skip-rescore", action="store_true", help="skip experiment.evaluate_saved calls (slow)")
     args = ap.parse_args()
 
@@ -787,7 +949,7 @@ def main():
     out = {"label": ablations.SETTINGS_LABEL, "label_for_diagnostics": Lname(),
            "records": {p: sum(r["phase"] == p for r in records) for p in PHASES}}
     md = ["# Settings study\n"]
-    fns = {"A": (part_a, md_a), "B": (part_b, md_b), "C": (part_c, md_c), "D": (part_d, md_d)}
+    fns = {"A": (part_a, md_a), "B": (part_b, md_b), "C": (part_c, md_c), "D": (part_d, md_d), "E": (part_e, md_e)}
     for part in args.parts:
         fn, mdfn = fns[part]
         out[part] = fn(records, rescorer)
@@ -853,6 +1015,9 @@ def main():
             print(f"[hump width {grp}] {k}: median {v['median']:.0f} (10th {v['p10']:.0f}, 90th {v['p90']:.0f})")
     for k, v in sp.items():
         print("[spearman]", k, v)
+    for q in out.get("E", {}).get("points", []):
+        print(f"[E {q['A_ref']:g}] {q['kind']:9s} h {q['h']:.1f} A {q['A']:.3f} dist {pct(q['spectral_distance'])}% s1 {q['sigma1']:.4f} "
+              f"modes {q['n_growing']} t·s1 {q['efold']:.2f} rival {pct(q['rival'])} same site ±1 {pct(q['agree_L_pm1'])} exact {pct(q['agree_L_exact'])}")
     print("wrote results/settings.json and results/settings_tables.md")
 
 

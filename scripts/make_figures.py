@@ -306,7 +306,7 @@ def fig_data_efficiency(ax=None):
     v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     if v1:
         ax.plot([60_000], [np.mean(v1)], marker="D", linestyle="none", color=SLOT[1] if paper else INK2,
-                markeredgecolor=SURFACE, label="rebuilt v1 (26.5M parameters)" if paper else "v1 rebuilt (26.5M parameters)")
+                markeredgecolor=SURFACE, label="v1 (26.5M parameters)" if paper else "v1 rebuilt (26.5M parameters)")
     ax.set_xscale("log")
     ax.set_xlabel("Training runs")
     ax.set_ylabel("Mean distance on test (sites)")
@@ -973,7 +973,7 @@ def fig_threshold(axes=None):
     v1s = [l for l in shares if l in v1]
     if v1s:
         ax.plot([int(l[3:]) for l in v1s], [v1[l]["acc_1"] for l in v1s], color=SLOT[1], marker="s",
-                linestyle="none", label="v1 rebuilt")
+                linestyle="none", label="v1" if axes is not None else "v1 rebuilt")
     if "ott" in v1:
         ax.plot([top], [v1["ott"]["acc_1"]], color=SLOT[1], marker="s", linestyle="none")
     ax.plot([top], [d["baselines"]["ott"]["floquet"]["acc_1"]], color=SLOT[2], marker="o", markersize=3, linestyle="none")
@@ -1052,9 +1052,14 @@ def fig_settings(axes=None, which="abcdef"):
             below = i % 2 == 1 and e["A"] >= 1.85   # the crowded high-amplitude end: alternate above-left and below-right
             ax_b.annotate(f"{e['A']:g}", (xi, yi), xytext=(4, -9) if below else (-4, 4), textcoords="offset points",
                           ha="left" if below else "right", fontsize=7, color=INK2)
+        other = [m for fam in d.get("E", {}).get("families", {}).values() for m in fam["members"].values()
+                 if m["kind"] != "reference" and round(m["h"], 2) != 0.5]
+        if other:  # chains at other global couplings (part E) on the same line
+            ax_b.plot([1 / m["sigma1"] for m in other], [m["pool"]["median_time_L"] for m in other], linestyle="none", marker="D",
+                      color=SLOT[1], markersize=3.5, markeredgecolor="white", markeredgewidth=0.4, label="h = 0.3–0.7")
         ax_b.set_xlim(0, x.max() * 1.08)
         ax_b.set_ylim(0, y.max() * 1.1)
-        ax_b.legend(loc="upper left")
+        ax_b.legend(loc="upper left", fontsize=None if not paper else 6.5)
     ax_b.set_xlabel("e-folding time 1/σ₁ (points: amplitude A)" if not paper else "e-folding time 1/σ₁")
     ax_b.set_ylabel("Median time of the label")
 
@@ -1093,12 +1098,22 @@ def fig_settings(axes=None, which="abcdef"):
         if q:
             ax_d.plot([p_["r"] for p_ in q], [100 * p_["v2_acc_1"] for p_ in q], linestyle="none", marker=marker, markerfacecolor="none",
                       color=SLOT[0], markersize=4.5, label=f"v2, {name}")
+    tw = [m for fam in d.get("E", {}).get("families", {}).values() for m in fam["members"].values()
+          if m["kind"] == "twin" and g_(m, "floquet", "acc_1") is not None and m.get("eta_over_distance")]
+    if tw:  # the trained twins at h = 0.4, 0.6, with A_c of their own coupling
+        ax_d.plot([m["eta_over_distance"] for m in tw], [100 * m["floquet"]["acc_1"] for m in tw], linestyle="none", marker="D",
+                  color=SLOT[1], markersize=4, markeredgecolor="white", markeredgewidth=0.4, label="Floquet filter, h = 0.4, 0.6")
+        tv = [m for m in tw if g_(m, "model", "test", "acc_1") is not None]
+        if tv:
+            ax_d.plot([m["eta_over_distance"] for m in tv], [100 * m["model"]["test"]["acc_1"] for m in tv], linestyle="none",
+                      marker="D", markerfacecolor="none", color=SLOT[1], markersize=4, label="v2, h = 0.4, 0.6")
     ax_d.set_xscale("log")
     ax_d.set_ylim(0, 103)
     ax_d.set_xlabel(r"Offset size over distance above threshold, $\eta_{\max}/(A - A_c)$" if not paper else r"$\eta_{\max}\,/\,(A - A_c)$")
     ax_d.set_ylabel("Within ±1 on test (%)")
     if fr:
-        ax_d.legend(loc="lower left", fontsize=7 if not paper else 6.5)
+        ax_d.legend(loc="lower left", fontsize=7 if not paper else 6, ncol=1 if not paper else 2, columnspacing=0.6,
+                    handletextpad=0.2, borderaxespad=0.3)
 
     # (e) amplitude: specialists, the wide model, and the model trained on 1.65-1.85
     ax_e.axvspan(1.65, 1.85, color=GRID, alpha=0.6, linewidth=0, zorder=0)
@@ -1168,6 +1183,101 @@ def fig_settings(axes=None, which="abcdef"):
         plt.close(spare)
 
 
+COUPLING_KINDS = (("shift", "h = 0.5, other A", MUTED), ("twin", "h = 0.4, 0.6, same spectrum", SLOT[1]),
+                  ("s1match", "h = 0.4, 0.6, same σ₁ only", SLOT[2]), ("twin_far", "h = 0.3, 0.7, closest spectrum", SLOT[3]))
+FAMILY_MARKERS = {1.65: "o", 1.75: "s", 1.85: "^"}
+
+
+def coupling_kind(m):
+    """Plot group of a part-E member: twins at h = 0.3 / 0.7 match less closely and are drawn apart."""
+    return "twin_far" if m["kind"] == "twin" and round(m["h"], 2) in (0.3, 0.7) else m["kind"]
+
+
+def fig_coupling(axes=None, which="abc"):
+    """Global coupling (results/settings.json, part E): per-run site agreement with the h = 0.5 reference run against the
+    distance between growth spectra, localization time against the e-folding time at every h, and the Floquet filter
+    against the offsets over the distance above each chain's own threshold."""
+    d = json.loads((ROOT / "results" / "settings.json").read_text())
+    E, B = d.get("E", {}), d.get("B", {})
+    paper = axes is not None
+    spare = None
+    if paper and len(which) < 3:
+        spare = plt.figure()
+        given = iter(axes)
+        axes = [next(given) if letter in which else spare.add_subplot(1, 3, i + 1) for i, letter in enumerate("abc")]
+    fig, axs = subplots(axes, 1, 3, figsize=(12, 3.8), layout="constrained")
+    ax_a, ax_b, ax_c = np.ravel(axs)
+    members = [(fam["A_ref"], m) for fam in E.get("families", {}).values() for m in fam["members"].values()]
+
+    # (a) same offsets: how often the site stays within +-1 of the reference run's, against spectral distance
+    for kind, name, color in COUPLING_KINDS:
+        for a_ref, marker in FAMILY_MARKERS.items():
+            q = [m for a, m in members if a == a_ref and coupling_kind(m) == kind and g_(m, "agreement", "L", "within_1") is not None]
+            if q:
+                ax_a.plot([100 * m["spectral_distance"] for m in q], [100 * m["agreement"]["L"]["within_1"] for m in q], linestyle="none",
+                          marker=marker, color=color, markersize=5, markeredgecolor="white", markeredgewidth=0.5,
+                          label=name if a_ref == 1.75 else None)
+    ax_a.set_xlabel("Distance between growth spectra (% of σ₁)")
+    ax_a.set_ylabel("Site within ±1 of the h = 0.5 run (%)" if not paper else "Same site within ±1 (%)")
+    ax_a.set_ylim(0, 102)
+    ax_a.set_xlim(left=0)
+    if members:
+        for a_ref, marker in FAMILY_MARKERS.items():  # marker shape: which h = 0.5 amplitude the chain is compared with
+            ax_a.plot([], [], linestyle="none", marker=marker, color=INK2, markerfacecolor="none", markersize=5, label=f"vs A = {a_ref:g}")
+        ax_a.legend(loc="lower left", fontsize=7 if not paper else 6, ncol=2 if paper else 1, columnspacing=0.8, handletextpad=0.3)
+
+    # (b) median time of the first pendulum over the top against 1/sigma1: h = 0.5 amplitudes and every part-E chain
+    pa = [e for e in B.get("per_amplitude", {}).values() if e.get("pool")]
+    xs, ys = [], []
+    if pa:
+        x = [e["efold_time"] for e in pa]
+        y = [e["pool"]["median_time_ott"] for e in pa]
+        xs += x
+        ys += y
+        ax_b.plot(x, y, linestyle="none", marker="o", color=SLOT[0], markersize=5, label="h = 0.5, fixed A")
+    for kind, name, color in COUPLING_KINDS[1:]:
+        q = [m for _, m in members if coupling_kind(m) == kind]
+        if q:
+            x = [1 / m["sigma1"] for m in q]
+            y = [m["pool"]["median_time_ott"] for m in q]
+            xs += x
+            ys += y
+            ax_b.plot(x, y, linestyle="none", marker="D", color=color, markersize=4.5, markeredgecolor="white", markeredgewidth=0.5, label=name)
+    if xs:
+        c = g_(B, "ampwide", "overall_ott", "median") or 5.75
+        grid = np.linspace(0, max(xs) * 1.05, 20)
+        ax_b.plot(grid, c * grid, color=MUTED, linewidth=0.9, linestyle="--", zorder=0, label=f"{c:.2f}/σ₁")
+        ax_b.set_xlim(0, max(xs) * 1.08)
+        ax_b.set_ylim(0, max(ys) * 1.1)
+        ax_b.legend(loc="upper left", fontsize=7 if not paper else 6.5)
+    ax_b.set_xlabel("e-folding time 1/σ₁")
+    ax_b.set_ylabel("Median time over the top")
+
+    # (c) Floquet filter at each chain's own h against eta_max / (A - A_c(h))
+    fr = [p_ for p_ in d.get("floquet_vs_ratio", {}).get("points", []) if p_["kind"] == "fixed"]
+    if fr:
+        ax_c.plot([p_["r"] for p_ in fr], [100 * p_["floquet_acc_1"] for p_ in fr], linestyle="none", marker="o", color=SLOT[0],
+                  markersize=5, label="h = 0.5, fixed A")
+    tw = [m for _, m in members if m["kind"] == "twin" and g_(m, "floquet", "acc_1") is not None]
+    if tw:
+        ax_c.plot([m["eta_over_distance"] for m in tw], [100 * m["floquet"]["acc_1"] for m in tw], linestyle="none", marker="D",
+                  color=SLOT[1], markersize=4.5, markeredgecolor="white", markeredgewidth=0.5, label=COUPLING_KINDS[1][1])
+    ax_c.set_xscale("log")
+    ax_c.set_ylim(0, 103)
+    ax_c.set_xlabel(r"$\eta_{\max}\,/\,(A - A_c(h))$")
+    ax_c.set_ylabel("Floquet filter within ±1 (%)")
+    if fr or tw:
+        ax_c.legend(loc="lower left", fontsize=7 if not paper else 6.5)
+
+    if not paper:
+        for ax, title, letter in zip((ax_a, ax_b, ax_c), ("Same offsets, other chain", "Clock at every coupling",
+                                                          "Linear theory at every coupling"), "abc"):
+            ax.set_title(f"({letter}) {title}", loc="left", fontsize=9)
+        save(fig, "fig24_coupling")
+    if spare is not None:
+        plt.close(spare)
+
+
 def g_(d, *keys):
     """Nested dict lookup that returns None when a key is missing."""
     for k in keys:
@@ -1205,7 +1315,8 @@ def paper_figures():
     paper_figure("paper_fig7_threshold", 2.5, [1.3, 1], fig_threshold)
     # the settings study, split between the physics section (the clock and the reach of linear theory) and the
     # real-chain section (what a model must be trained on)
-    paper_figure("paper_fig_clock", 2.5, [1, 1, 1.15], lambda ax: fig_settings(list(ax), which="bcd"))
+    paper_figure("paper_fig_clock", 4.6, [1, 1], lambda ax: (fig_settings(list(np.ravel(ax)[:3]), which="bcd"),
+                                                             fig_coupling([np.ravel(ax)[3]], which="a")), rows=2)
     paper_figure("paper_fig_training", 2.5, [1, 1], lambda ax: fig_settings(list(ax), which="ef"))
 
 
@@ -1216,7 +1327,7 @@ if __name__ == "__main__":
     for fn in (fig_growth, fig_best_width, fig_sensitivity, fig_baselines, fig_receptive_field, fig_data_efficiency,
                fig_architectures, fig_noise_time, fig_noise_collapse, fig_noise_avg_label, fig_inputs, fig_losses,
                fig_optimizers, fig_sparse, fig_leave_one_out, fig_final_data, fig_robustness, fig_warning_tradeoff,
-               fig_label_jitter, fig_avg_label_ablations, fig_regularization, fig_threshold, fig_settings):
+               fig_label_jitter, fig_avg_label_ablations, fig_regularization, fig_threshold, fig_settings, fig_coupling):
         try:
             fn()
         except FileNotFoundError as err:

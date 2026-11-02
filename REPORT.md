@@ -21,7 +21,7 @@ This report is the full write-up of the follow-up (v2) to Mittal et al., *J. App
 
 A ring of 100 coupled pendulums, released in a nearly uniform swing, suddenly concentrates its energy on one pendulum after about 57 time units on average (about 8 s for 20 cm pendulums). The published model, v1, is a 26.5M-parameter CNN-BiLSTM that predicts which pendulum from the first 4.5 time units.
 
-This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 750 training runs, 47 hours on a laptop and a few short sessions on cloud NVIDIA L40 GPUs. Negative results are listed alongside the positive ones.
+This v2 study rebuilds the problem from its physics, the Floquet growth spectrum of the uniform swing. Each design question gets a physics-based hypothesis, tested by ablations: about 760 training runs, 49 hours on a laptop and a few short sessions on cloud NVIDIA L40 GPUs. Negative results are listed alongside the positive ones.
 
 ### How v2 locates the hotspot
 
@@ -119,6 +119,11 @@ This v2 study rebuilds the problem from its physics, the Floquet growth spectrum
   - Their size also moves the site: from ×1 to ×1/8 it stays put in only 37% of runs (78.5% within ±1).
   - The Floquet filter rises from 52% to 87% within ±1 as the offsets shrink from ×4 to ×1/8, and falls to 17% at A = 1.60, where the offsets match the distance above threshold.
   - v2 trained at each size stays at 99.1–99.7%, but a model trained at one size fails at others (65% at ×4).
+- **The global coupling enters through the spectrum too.**
+  - Chains at h̃ = 0.4 and 0.6 whose spectra match h̃ = 0.5 ("twins") localize after the same 5.4–5.8 e-foldings.
+  - From the same offsets, their sites agree within ±1 in 88–98% of runs, against 77–91% when only σ₁ matches.
+  - The exact site also depends on the stable modes, which differ between twins.
+  - A network trained at h̃ = 0.5 ignores h̃: on a twin it predicts the site of an h̃ = 0.5 chain with the same amplitude (98–99% within ±1). It must be trained at the chain's own h̃, where it reaches 99.3–99.7%.
 - **Ring size sets the number of competing modes** (about N/20). From 50 to 400 pendulums v2 falls only from 99.9% to 98.8%.
   - Models carry over from longer rings to shorter ones, not the reverse, even when they see the whole ring.
   - A threshold on the share of the total energy loses its meaning on other ring sizes.
@@ -287,7 +292,7 @@ A run is labeled at the first sample (Δτ = 0.5) where one site holds more than
   - symmetric split
   - symmetric energy averaged over one swing
 - **Threshold study:** [scripts/threshold_labels.py](scripts/threshold_labels.py) recomputes the first crossing at 3–15% of the total energy (right and even spring split), at 1.5–6 times the separatrix energy, and the first pendulum past the top, for every pool. They go into separate files, `data/thrpool_full_*.npz` (and `data/thrpool_half_*.npz` with the offsets halved), which configs use through the `pools` key; the shared pools are unchanged. Its 10% label equals the stored label on all 140,000 runs.
-- **Settings study:** [scripts/setting_labels.py](scripts/setting_labels.py) makes the pools for Sec. 10, *Where the settings come from*: the main pools' runs with the offsets about A rescaled, fixed amplitudes (60,000 / 5,000 / 10,000 runs each), a wide range of amplitudes, and rings of 50, 200 and 400 pendulums. Labels are searched to τ = 300. Besides v1's label it stores the first pendulum past the top, the threshold-timed hump label at 3/5/7 pendulums and 10/15/20%, and the **event-timed hump label**: at the sample where the first pendulum passes the top, the symmetric site energy averaged over the 16 samples centred on it, and the centre of the K neighbouring pendulums with the most energy (K = 1, 3, 5, 7). For the main pools' runs, its v1 and hump labels equal the stored ones on all 100,000 runs.
+- **Settings study:** [scripts/setting_labels.py](scripts/setting_labels.py) makes the pools for Sec. 10, *Where the settings come from*: the main pools' runs with the offsets about A rescaled, fixed amplitudes (60,000 / 5,000 / 10,000 runs each), a wide range of amplitudes, rings of 50, 200 and 400 pendulums, and chains at other global couplings h̃ (`--h`). Labels are searched to τ = 300. Besides v1's label it stores the first pendulum past the top, the threshold-timed hump label at 3/5/7 pendulums and 10/15/20%, and the **event-timed hump label**: at the sample where the first pendulum passes the top, the symmetric site energy averaged over the 16 samples centred on it, and the centre of the K neighbouring pendulums with the most energy (K = 1, 3, 5, 7). For the main pools' runs, its v1 and hump labels equal the stored ones on all 100,000 runs.
 
 ### Data pools
 
@@ -889,8 +894,8 @@ The threshold was not the only setting fixed by hand. The hump label has two kno
 
 **How.**
 - Every pool comes from [scripts/setting_labels.py](scripts/setting_labels.py). Its labels for the main pools' runs equal the stored ones on all 100,000 runs.
-- The final recipe was trained on each condition with 3 seeds: about 93 runs on one Brev L40, with the labels computed on the laptop.
-- The motivation, the prediction and, for the hump label, the decision rule of each study were written in `sgloc/ablations.py` (phases `settings_hump`, `settings_amplitude`, `settings_ring`, `settings_offsets`) before its runs started.
+- The final recipe was trained on each condition with 3 seeds: about 93 runs on one Brev L40, with the labels computed on the laptop, and the 18 runs of the coupling study on the laptop GPU.
+- The motivation, the prediction and, for the hump label, the decision rule of each study were written in `sgloc/ablations.py` (phases `settings_hump`, `settings_amplitude`, `settings_ring`, `settings_offsets`, `settings_coupling`) before its runs started.
 - Baselines are tuned on validation; everything is reported on test.
 
 #### The hump label, timed by an event
@@ -1034,6 +1039,81 @@ The threshold was not the only setting fixed by hand. The hump label has two kno
   - This replaces the explanation given in Sec. 11 for the drop at 150 pendulums.
 - **A share of the total energy is no threshold for other ring sizes.** The event-timed label fires at the same physical moment on every ring, whereas v1's 10% asks one pendulum for 5 times its equipartition share at N = 50 and 40 times at N = 400.
 
+#### The global coupling, and whether the spectrum is all that matters
+
+**Why.** The couplings g̃ = 0.75 and h̃ = 0.5 come from v1's code. g̃ barely changes the long waves (±10% leaves the spectrum essentially unchanged, Sec. 11). h̃ adds the same stiffness to every mode except the uniform swing (Eq. of Sec. 3), so it shifts the whole spectrum: A_c = 1.375 at h̃ = 0.4, 1.577 at 0.5 and 1.778 at 0.6. At h̃ = 0.6, v1's A = 1.75 would not localize at all. The amplitude, offset and ring studies each suggested that a chain enters the problem only through its growth spectrum, but each changed one setting. If that is so, a change of h̃ can be undone by a change of A that restores the spectrum.
+
+**What.**
+- **Twins.** For A_ref = 1.65, 1.75 and 1.85 at h̃ = 0.5, the amplitude at h̃ = 0.4 and at 0.6 whose growth rates differ least from the reference's (`floquet.matched_amplitude`). The distance between two spectra is the rms difference of the rates of modes 1–12, in % of the reference's σ₁.
+  - The twins are A = 1.463 / 1.845, 1.573 / 1.944 and 1.656 / 2.036, at spectral distances of 2.1–6.0%.
+  - Each has the same number of growing modes as its reference and lies at about the same distance above its own threshold (A − A_c within 0.025 of the reference's).
+  - For comparison, a change of A by 0.025 at h̃ = 0.5 moves the spectrum by 5–17%.
+- **Same offsets.** The twins use the seeds of the amplitude pools, so every run starts from exactly the same offsets as its reference run. 60,000 / 5,000 / 10,000 runs, labels to τ = 300, v2 trained with 3 seeds (phase `settings_coupling`, 18 runs on the laptop GPU).
+- **Label-only test pools** (10,000 runs, same offsets):
+  - h̃ = 0.5 at A_ref ± 0.01, ± 0.025 and ± 0.05
+  - h̃ = 0.4 and 0.6 at the amplitude that matches only σ₁
+  - the closest chains at h̃ = 0.3 and 0.7, which match less well (4.9–13%)
+- **Predictions**, written in `sgloc/ablations.py` before any of these pools existed:
+  - the clock within 0.3 e-foldings of the reference
+  - the rival share within 5 points
+  - the Floquet filter within 5 points
+  - the site within ±1 of the reference run's in at least 80% of runs, and at least as often as at h̃ = 0.5 with A_ref ± 0.025
+  - v2 at 99.4–99.7%
+  - transfer between twins below 60%
+- **A fix found on the way.** The event-timed label gave runs that never go over the top a spurious site at τ = −0.5. No existing pool has such a run, so no stored label changed.
+
+| Chain | h̃ | A | A − A_c | Spectral distance | σ₁ | Time × σ₁ | Rival hump | Site ±1 / exact vs reference run | Floquet filter ±1 | v2 ±1 | Reference model here / this model on reference |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Reference | 0.5 | 1.65 | 0.073 | – | 0.075 | 5.45 | 3.7% | – | 53.0% | 99.6% | – |
+| Twin | 0.4 | 1.463 | 0.088 | 2.1% | 0.072 | 5.77 | 4.7% | 88.2% / 47.9% | 55.6% | 99.7% | 19.3% / 46.2% |
+| Twin | 0.6 | 1.845 | 0.067 | 2.3% | 0.079 | 5.40 | 3.4% | 93.6% / 56.5% | 49.3% | 99.5% | 48.0% / 28.0% |
+| Reference | 0.5 | 1.75 | 0.173 | – | 0.118 | 5.63 | 19.7% | – | 74.6% | 99.7% | – |
+| Twin | 0.4 | 1.573 | 0.198 | 3.4% | 0.111 | 5.83 | 21.7% | 94.6% / 61.8% | 81.2% | 99.5% | 25.0% / 54.9% |
+| Twin | 0.6 | 1.944 | 0.166 | 4.0% | 0.128 | 5.75 | 21.3% | 97.5% / 73.2% | 77.8% | 99.6% | 49.0% / 4.0% |
+| Reference | 0.5 | 1.85 | 0.273 | – | 0.153 | 5.57 | 40.0% | – | 88.5% | 99.6% | – |
+| Twin | 0.4 | 1.656 | 0.281 | 6.0% | 0.136 | 5.76 | 37.0% | 98.0% / 82.5% | 90.3% | 99.3% | 1.7% / 34.2% |
+| Twin | 0.6 | 2.036 | 0.258 | 3.7% | 0.163 | 5.61 | 42.7% | 96.7% / 71.5% | 89.6% | 99.6% | 6.2% / 14.7% |
+
+| Compared with the reference run (same offsets) | Spectral distance | Site ±1 | Exact site |
+|---|---|---|---|
+| h̃ = 0.5, A_ref ± 0.01 | 1.9–5.0% | 91.2–99.5% | 51.7–91.4% |
+| Twins at h̃ = 0.4, 0.6 | 2.1–6.0% | 88.2–98.0% | 47.9–82.5% |
+| Closest chains at h̃ = 0.3, 0.7 | 4.9–13.2% | 80.7–93.2% | 39.1–61.1% |
+| h̃ = 0.4, 0.6, matching only σ₁ | 5.0–14.8% | 76.9–90.6% | 35.9–53.8% |
+| h̃ = 0.5, A_ref ± 0.025 | 5.1–16.5% | 55.2–98.2% | 20.9–80.5% |
+
+- **The clock follows the spectrum at every coupling.** All 39 chains studied (h̃ = 0.3–0.7, A = 1.26–2.25) localize after 5.0–6.0 e-foldings of their fastest mode, the twins after 5.40–5.83 (Fig. 24b). Five of the six twins lie within 0.3 of their reference, as predicted. The sixth (h̃ = 0.4 at 1.463) lies 0.32 above it.
+- **Competition and linear theory follow it too.**
+  - The twins have a rival hump as often as their references to within 3 points.
+  - The Floquet filter, computed with each chain's own h̃ and A_c, lies within 7 points of its reference and on the same curve against η_max/(A − A_c(h̃)) (Fig. 24c). It is within the predicted 5 points in 5 of 6 twins; at h̃ = 0.4 and 1.573 it is 6.6 points higher.
+- **The whole spectrum sets the coarse site, not σ₁ alone.**
+  - From the same offsets, a twin's site lies within ±1 of its reference run's in 88–98% of runs (predicted: at least 80%).
+  - Chains that share only the fastest rate do so in 77–91%, and agreement falls with spectral distance (Spearman ρ = −0.89 over the 18 chains at h̃ = 0.5).
+- **It does not set the last pendulum.**
+  - Against the yardstick of the prediction, the shifts of A by 0.025 at h̃ = 0.5 (5–17% away), the twins agree about as often: more at 1.65 (88–94% within ±1 against 55–74%), as often at 1.75 (95–98% against 95–96%), slightly less at 1.85 (97–98% against 98%). That part of the prediction holds at 1.65 and 1.75 and misses by up to 1.5 points at 1.85.
+  - But the twins are closer in spectrum than those shifts. At the same spectral distance, chains at h̃ = 0.5 whose amplitude differs by 0.01 keep the site more often: 91–99.5% within ±1 and 52–91% exactly, against 88–98% and 48–83% for the twins. At A_ref = 1.75, shifts 3% away keep 99% within ±1, the twins 3–4% away 95–98%.
+  - So the spectrum fixes the site to within about a pendulum, but not the last pendulum: equal spectra from a different h̃ do less than equal spectra from the same h̃.
+- **Why: the modes that do not grow.**
+  - The swing is even in time about the release, so every monodromy matrix has M₁₁ = M₂₂. A growing mode's response to an initial offset after n swings is then exactly cosh(nσₘT), which depends on the chain only through σₘ (checked numerically to 10⁻¹⁰). The twins therefore grow the same long-wave pattern from the same offsets.
+  - A stable mode instead turns by an angle per swing that depends on A and h̃ separately. For mode 7 it is 0.79 rad at the reference A = 1.75, against 0.60 and 0.98 rad for its twins. These modes carry the local detail.
+  - The linearized dynamics show the same gap. The offsets were evolved for the whole number of swings nearest 5.75 e-foldings. At A_ref = 1.75 and 1.85 the twins' linear peaks lie within ±1 of the reference's in 71–94% of runs, against 94–99% for the ±0.01 shifts. So the extra difference is already linear, not only nonlinear.
+  - At 1.65 the linear peak is too flat to compare (the filter itself is right in only 53%).
+- **Trained networks.**
+  - v2 trained on each twin places 99.3–99.7% of runs within ±1, as on its reference (predicted: 99.4–99.7%; the h̃ = 0.4 twin of 1.85 is at 99.3%).
+  - Transfer fails both ways, as predicted (below 60%). The reference's network places 2–49% of a twin's runs within ±1, and the twin's network 4–55% of the reference's, with seed-to-seed spreads of up to 52 points.
+  - The network trained over 1.60–1.95 at h̃ = 0.5 places only 23–47% within ±1 on the three twins whose amplitudes lie in that range, with little spread between seeds (0.3–1.1 points).
+- **Why: a network trained at one h̃ ignores h̃.**
+  - The uniform swing does not depend on h̃, so that network sees a chain at h̃ = 0.5 with the twin's amplitude.
+  - Label-only pools at h̃ = 0.5 with the twins' amplitudes and offsets (`setpool_cplsame_*`, 10,000 runs each) settle it. On the twins' own inputs, the network lands within ±1 of the h̃ = 0.5 chain's site in 98.2–99.3% of runs, against 99.1–99.5% on that chain itself.
+  - The twins' sites agree with those of the h̃ = 0.5 chains in 23.1 / 46.9 / 24.4% of runs. The network is right on the twins in 22.6 / 47.0 / 23.9%.
+
+**What it means.**
+- h̃ is not a separate knob for where the energy goes. A chain enters the clock, the competition between humps and the site to within a pendulum through its growth spectrum alone. Equivalently, it enters through its distance above threshold, which fixes the spectrum's shape to within a few percent.
+- h̃ matters beyond the spectrum only for the last pendulum, through the stable modes, and for the swing a network sees.
+- In these units, v1's chain is 3–6 growing modes at σ₁ = 0.075–0.153, 0.07–0.27 rad above threshold.
+- A network trained at one h̃ reads the amplitude from the swing and answers for its own h̃. A real chain's h̃ must therefore be known, or its spectrum measured, to set the clock, and the network must be trained at it.
+- Untested: whether a network trained over a range of h̃ can tell couplings apart from the first 4.5 time units.
+
 #### What this means for the settings
 
 | Setting | v1's value | In the units of the physics | Tested | What it changes |
@@ -1043,14 +1123,14 @@ The threshold was not the only setting fixed by hand. The hump label has two kno
 | Amplitude | U(1.65, 1.85) | Growth rate σ₁ = 0.075–0.153, 3–6 growing modes | 1.60–1.95 fixed, and wide | The clock (time ≈ 5.75/σ₁) and the number of rival humps; accuracy only at the threshold |
 | Offsets | ±0.025 (probably ±0.0125 in v1's data) | Release scatter; small against A − A_c | ×1/8 to ×4 | The clock (+ln 2/σ₁ per halving), the last-site detail and how far linear theory reaches |
 | Ring size | 100 | About N/20 growing modes at A = 1.75 | 50–400 | Accuracy falls mildly (99.9% to 98.8%); models transfer from long rings to short ones only; share-of-total thresholds stop working |
-| Couplings g̃, h̃ | 0.75, 0.5 | h̃ sets A_c and the growing band; g̃ barely matters for long waves | ±10% at test only (Sec. 11) | h̃ ±10% costs 2.8–4 sites; g̃ ±10% about 0.5 |
+| Couplings g̃, h̃ | 0.75, 0.5 | h̃ sets A_c and the growing band; g̃ barely matters for long waves | ±10% at test only (Sec. 11); h̃ = 0.3–0.7 at matched spectra, trained at 0.4 and 0.6 | h̃ enters through the spectrum (clock, rival humps, site within ±1), plus the stable modes (last pendulum). Networks must be trained at the chain's h̃: untrained, h̃ ±10% costs 2.8–4 sites, and g̃ ±10% about 0.5 |
 | Damping | none | Quality factor Q against the growth rate | Q = 100 to ∞ (Sec. 11) | Below Q ≈ 1,000 a growing share never localizes |
 | Within ±1 | v1's metric | The hump is 8–9 pendulums wide at half height | Exact, ±1, ±3, mean distance throughout | Kept; mean distance is reported beside it |
 | Not tested | periodic ring, white uniform offsets, samples every 0.5 | | | Stated as limitations (Sec. 12) |
 
 - **Rerun:**
-  - Labels: `python scripts/setting_labels.py --tag main --from-pool --n-train 60000`, and the same with `--offset-scale`, `--amplitude`, `--a-range` or `--n-sites` (see the script's docstring; `--stop-at-event` for N = 400). About 1 h on 8 CPU cores in all.
-  - Training: `python scripts/sweep.py settings_hump` (then set `SETTINGS_LABEL`), `settings_amplitude`, `settings_ring` and `settings_offsets`. About 8 minutes per phase on one L40 at 13 workers; settings_ring longer.
+  - Labels: `python scripts/setting_labels.py --tag main --from-pool --n-train 60000`, and the same with `--offset-scale`, `--amplitude`, `--a-range`, `--n-sites` or `--h` (see the script's docstring; `--stop-at-event` for N = 400). About 1 h on 8 CPU cores in all, plus about 1 h for the coupling study's pools.
+  - Training: `python scripts/sweep.py settings_hump` (then set `SETTINGS_LABEL`), `settings_amplitude`, `settings_ring`, `settings_offsets` and `settings_coupling`. About 8 minutes per phase on one L40 at 13 workers; settings_ring longer, and settings_coupling about 50 minutes on the laptop GPU at 2 workers.
   - Analysis: `python scripts/settings_analysis.py` and `python scripts/make_figures.py`.
 
 ### A set of sites instead of one
@@ -1193,9 +1273,9 @@ Test-time sensor noise on every pendulum and frame, mean distance:
 2. Build a bench-top chain and test the recommended setup: one camera, every 2nd pendulum, a short window of frames after release.
 3. Calibrate the prediction sets (Sec. 10), which are conservative, for example with a temperature fitted on the validation pool.
 4. Train with small differences at every pendulum, plus a measured map of each pendulum's frequency.
-5. Train over a range of the global coupling h, which moves the growth spectrum (Sec. 11), or estimate it from the chain first.
+5. Train over a range of the global coupling h̃, which moves the growth spectrum (Sec. 11), or estimate it from the chain first. A network trained at one h̃ ignores h̃ (Sec. 10, *The global coupling*); whether one trained over a range of h̃ can tell couplings apart from the first 4.5 time units is open.
 6. The noise-and-timing grid on the swing-averaged label is done (Sec. 7): waiting costs about 25 time units per 10× noise on either label, at about the mean growth rate of the growing modes. Still open: predict the rate from each mode's share of the localization instead of a plain mean over the growing modes, and repeat the grid with more than one seed per cell.
 7. The key choices and sensing setups on the hump label are done (Sec. 10). Each choice costs about the same number of sites as on the swing-averaged label, and hard labels beat soft ones there. A second site lifts the cheap camera from 96.8% to 98.3% within ±1, named in 5.6% of runs. Still open: the noise-and-timing and sparse-sensor grids on the hump label.
 8. If the original v1 training code becomes available, check its threshold, energy formula and noise against the reconstruction in Sec. 2, and its train/test split.
-9. Test whether accuracy depends on the chain only through its growth spectrum: train at pairs of h̃ and A with the same σ₁ and number of growing modes (Sec. 10, *Where the settings come from*). The amplitude, offset and ring-size studies point that way but vary one setting at a time.
+9. Done (Sec. 10, *The global coupling, and whether the spectrum is all that matters*). A chain enters the clock, the rival humps and the site within ±1 through its growth spectrum; the last pendulum also depends on the stable modes. Networks do not carry over between couplings.
 10. Train on the longest ring a chain could have: models carry over from longer rings to shorter ones but not the reverse. Check whether a model trained at N = 400 also covers 80–200 and odd sizes, and whether its 4-point loss at N = 100 shrinks with more data.
