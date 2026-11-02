@@ -53,6 +53,28 @@ def threshold_amplitude(g=0.75, h=0.5, n_sites=100, lo=1.5, hi=1.7, tol=1e-5):
     return hi
 
 
+def spectral_distance(A, h, A_ref, h_ref=0.5, g=0.75, n_sites=100, modes=12):
+    """How far the growth spectrum at (A, h) is from the one at (A_ref, h_ref): the rms difference of the
+    rates of modes 1..modes (all modes that grow anywhere near v1's range), over the reference's fastest rate."""
+    m = np.arange(1, modes + 1)
+    ref = growth_rates(A_ref, m, g, h_ref, n_sites)
+    return float(np.sqrt(((growth_rates(A, m, g, h, n_sites) - ref) ** 2).mean()) / ref.max())
+
+
+def matched_amplitude(A_ref, h, h_ref=0.5, g=0.75, n_sites=100, modes=12, decimals=3):
+    """The amplitude at global coupling h whose growth spectrum is closest to that at (A_ref, h_ref), by
+    spectral_distance: a coarse scan above the threshold, then a bounded search, rounded to `decimals`."""
+    from scipy.optimize import minimize_scalar
+
+    a_c = threshold_amplitude(g, h, n_sites, lo=0.5, hi=np.pi - 0.05)
+    grid = np.arange(a_c + 0.002, min(a_c + 0.8, np.pi - 0.05), 0.005)
+    dist = [spectral_distance(a, h, A_ref, h_ref, g, n_sites, modes) for a in grid]
+    a0 = grid[int(np.argmin(dist))]
+    best = minimize_scalar(lambda a: spectral_distance(a, h, A_ref, h_ref, g, n_sites, modes),
+                           bounds=(a0 - 0.006, a0 + 0.006), method="bounded", options={"xatol": 1e-5})
+    return round(float(best.x), decimals)
+
+
 @lru_cache(maxsize=512)
 def _all_mode_monodromy(A, g, h, n_sites):
     return monodromy(A, np.arange(1, n_sites // 2 + 1), g, h, n_sites)[1]

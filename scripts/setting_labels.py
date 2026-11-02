@@ -5,8 +5,9 @@
     python scripts/setting_labels.py --tag amp1p75 --amplitude 1.75 --sizes 60000 5000 10000 --seed 1750
     python scripts/setting_labels.py --tag ampwide --a-range 1.60 1.95 --sizes 60000 5000 10000 --seed 4000
     python scripts/setting_labels.py --tag n200 --n-sites 200 --sizes 60000 5000 10000 --seed 5200
+    python scripts/setting_labels.py --tag h0p6_a1p75 --h 0.6 --amplitude 1.944 --sizes 60000 5000 10000 --seed 1750
 
-Each run (g = 0.75, h = 0.5, dt = 0.05, samples every 0.5, released from rest) is integrated until every
+Each run (g = 0.75, h = --h (default 0.5), dt = 0.05, samples every 0.5, released from rest) is integrated until every
 label has fired or tau = --tmax (default 300) and gets these labels, each stored as site_<name> (int16, -1 if
 never) and time_<name> (float32, NaN if never). E_tot is the conserved total energy.
   right        v1's label: first sample where one site's energy (spring booked to the right) exceeds 10% of E_tot.
@@ -31,6 +32,7 @@ import json
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
@@ -82,7 +84,7 @@ def rival(H):
 def chunk(args):
     theta0, tmax, *rest = args
     stop_at_event = bool(rest and rest[0])
-    p = sim.Params()
+    p = sim.Params() if len(rest) < 2 or rest[1] is None else replace(sim.Params(), h=rest[1])
     theta = np.array(theta0, dtype=float)
     omega = np.zeros_like(theta)
     runs, n_sites = theta.shape
@@ -122,7 +124,7 @@ def chunk(args):
                     fire(name, hit, where, k)
                     if K == 3 and S == 15 and hit.any():
                         riv["rival_hump"][hit] = rival(H[hit])
-        idx = np.nonzero(ott_k == k - LAG)[0]  # the window k0-8 .. k0+7 is now complete
+        idx = np.nonzero((ott_k >= 0) & (ott_k == k - LAG))[0]  # the window k0-8 .. k0+7 is now complete
         if len(idx):
             avg = buf[:, idx].sum(axis=0) / min(W, k + 1)  # fewer than 16 samples only when k0 < 8
             for K in EVENT_K:
@@ -142,8 +144,8 @@ def chunk(args):
     return site, when, riv
 
 
-def run_split(theta0, tmax, workers, size, stop_at_event=False):
-    parts = [(theta0[i:i + size], tmax, stop_at_event) for i in range(0, len(theta0), size)]
+def run_split(theta0, tmax, workers, size, stop_at_event=False, h=None):
+    parts = [(theta0[i:i + size], tmax, stop_at_event, h) for i in range(0, len(theta0), size)]
     with ProcessPoolExecutor(workers) as ex:
         res = list(ex.map(chunk, parts))
     out = {}
@@ -170,6 +172,7 @@ def main():
     parser.add_argument("--amplitude", type=float, default=None, help="fixed amplitude A for every new run")
     parser.add_argument("--a-range", type=float, nargs=2, default=None, metavar=("LO", "HI"))
     parser.add_argument("--n-sites", type=int, default=100)
+    parser.add_argument("--h", type=float, default=sim.Params().h, help="global coupling h~ of the simulated chain")
     parser.add_argument("--offset", type=float, default=data.NOISE, help="full width of the offsets")
     parser.add_argument("--sizes", type=int, nargs=3, default=None, metavar=("TRAIN", "VAL", "TEST"))
     parser.add_argument("--seed", type=int, default=None, help="split seeds are seed*10 + 1/2/3")
@@ -218,8 +221,10 @@ def main():
             if args.amplitude is not None:
                 meta["amplitude"] = args.amplitude
         meta.update(n_runs=len(theta0), n_sites=theta0.shape[1])
+        if args.h != sim.Params().h:  # experiment.true_system then observes the inputs with this chain's dynamics
+            meta["params"] = asdict(replace(sim.Params(), h=args.h, t_final=args.tmax))
 
-        out = run_split(theta0, args.tmax, args.workers, args.chunk, args.stop_at_event)
+        out = run_split(theta0, args.tmax, args.workers, args.chunk, args.stop_at_event, args.h)
         meta["stop_at_event"] = args.stop_at_event
         meta.update(seconds=round(time.time() - start), created=time.strftime("%Y-%m-%d %H:%M"))
         path = ROOT / "data" / f"setpool_{args.tag}_{split}.npz"
@@ -229,7 +234,7 @@ def main():
         med = float(np.nanmedian(out["time_ott"])) if np.isfinite(out["time_ott"]).any() else float("nan")
         print(f"{split}: {len(theta0)} runs in {time.time() - start:.0f}s -> {path.name}; localized: "
               + ", ".join(f"{n} {v:.4f}" for n, v in frac.items()) + f"; median ott time {med:.1f}", flush=True)
-        if pool is not None and args.offset_scale == 1.0:
+        if pool is not None and args.offset_scale == 1.0 and args.h == sim.Params().h:
             t_final = pool["meta"].get("params", {}).get("t_final", sim.Params().t_final)
             ok = True
             for name in ("right", "hump"):

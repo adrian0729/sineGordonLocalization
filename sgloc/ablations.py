@@ -717,9 +717,57 @@ def settings_offsets():
     return t.configs
 
 
+# (h, reference amplitude at h = 0.5) -> the amplitude at h whose growth spectrum is closest to the reference's,
+# from floquet.matched_amplitude (rms over modes 1-12 of the rate difference, over the reference's fastest rate:
+# 2.1-6.0%, against 5-17% for a 0.025 rad change of A at h = 0.5).
+COUPLING_TWINS = {(0.4, 1.65): 1.463, (0.6, 1.65): 1.845, (0.4, 1.75): 1.573, (0.6, 1.75): 1.944,
+                  (0.4, 1.85): 1.656, (0.6, 1.85): 2.036}
+
+
+def twin_tag(h, a_ref):
+    return f"h{tag_of(h)}_twin{tag_of(a_ref)}"
+
+
+def settings_coupling():
+    """Where the settings come from, part 5: the global coupling h, and whether the chain matters only through its
+    growth spectrum. h = 0.5 (and g = 0.75) come from v1's code. In Eq. (hill) h adds the same stiffness to every
+    non-uniform mode, so it moves the threshold (A_c = 1.38, 1.58, 1.78 at h = 0.4, 0.5, 0.6): v1's A = 1.75 would
+    not localize at all at h = 0.6. The amplitude, offset and ring studies suggest that a chain enters only through
+    its growth spectrum, but each varied one setting. Here h and A change together so that the spectrum stays the
+    same: chains at h = 0.4 and 0.6 (20% either way) at the amplitude whose spectrum is closest to h = 0.5 at
+    A = 1.65, 1.75, 1.85 (COUPLING_TWINS), with the same seeds as those amplitude pools, so every run starts from
+    exactly the same offsets as its reference run. 60,000 / 5,000 / 10,000 runs at offsets +-0.025, labels
+    searched to tau = 300. Label-only test pools (no training) add h = 0.5 at A_ref +- 0.025 and +- 0.05, the
+    amplitudes at h = 0.4 and 0.6 that match only the fastest rate, and the closest (less close) twins at h = 0.3
+    and 0.7, all with the same offsets, to see how per-run agreement falls with spectral distance."""
+    t = Table(None, "settings_coupling")
+    three = (0, 1, 2)
+    # Predictions, written before any of these pools existed (reference values at h = 0.5 on the test pools,
+    # A = 1.65 / 1.75 / 1.85: median time of the first pendulum over the top 72.5 / 47.5 / 36.5, i.e. 5.45 / 5.63 /
+    # 5.57 e-foldings; rival share 3.7 / 19.7 / 40.0%; Floquet filter 53 / 75 / 89% within +-1; v2 99.6 / 99.7 / 99.6%):
+    # - Clock: each twin localizes after 5.0-6.0 e-foldings of its own fastest mode, within 0.3 of its reference, so
+    #   its median time differs from the reference's by the inverse ratio of the fastest rates (-11% to +12%).
+    # - Competition: the rival share is within 5 points of the reference's (at h = 0.5 it changes by about 10 points
+    #   per 0.05 rad of amplitude).
+    # - Linear reach: the Floquet filter (at the twin's own h) is within 5 points of the reference's within +-1.
+    # - Same offsets, same site: a twin's event-timed site lies within +-1 of its reference run's in at least 80% of
+    #   runs, and at least as often as at h = 0.5 with A_ref +- 0.025, whose spectra are farther (5-17% against
+    #   2-6%). If agreement at a given spectral distance is clearly lower across h than across A, the chain matters
+    #   beyond its growth rates (through the Floquet eigenvectors or the nonlinear stage), and we say so.
+    # - v2 trained on each twin: 99.4-99.7% within +-1, as its reference.
+    # - Transfer: the reference's network fails on its twin, and the twin's on the reference (below 60% within +-1),
+    #   although the sites mostly coincide, because the swing it sees differs by 0.1-0.2 rad and networks do not
+    #   extrapolate in amplitude (1.65-1.85 model: 50% at 1.95, 25% at 1.60).
+    for (h, a_ref), a in COUPLING_TWINS.items():
+        t.base = _settings_base(twin_tag(h, a_ref))
+        t.add("twin", twin_tag(h, a_ref), f"settings: global coupling h = {h} at A = {a}, whose growth spectrum is "
+              f"closest to h = 0.5 at A = {a_ref}; same offsets as amp{tag_of(a_ref)}", three)
+    return t.configs
+
+
 PHASES = {"phase2": phase2, "phase3": phase3, "phase4": phase4, "phase5": phase5, "phase6": phase6,
           "phase6_deploy": phase6_deploy, "phase6_label": phase6_label, "phase6_damping": phase6_damping,
           "phase7": phase7, "phase8": phase8, "phase3_avg": phase3_avg, "phase9": phase9, "deploy_start": deploy_start,
           "phase10": phase10, "threshold": threshold,
           "settings_hump": settings_hump, "settings_amplitude": settings_amplitude, "settings_ring": settings_ring,
-          "settings_offsets": settings_offsets}
+          "settings_offsets": settings_offsets, "settings_coupling": settings_coupling}
