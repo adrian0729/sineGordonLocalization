@@ -11,47 +11,57 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 ```
 
 - Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
-  The five PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
-- Current state (2026-10-21): 16 pages (11pt article, 1 in margins), the same as v1 in this layout;
-  about 6,400 words of text and 700 of captions, 6 figures, 4 tables. No LaTeX warnings or overfull boxes.
+  The figure PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
+- Current state (2026-11-02): 22 pages (11pt article, 1 in margins; the last page holds three references),
+  9 figures, 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract is 1,854 characters
+  as plain text; arXiv's limit is 1,920.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
 - Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
-- Set `\draftnotesfalse` in `main.tex` to hide the red TODO-AUTHOR-REVIEW box once Sec. 4 is agreed.
 
 ## Length and what was left out
 
 The 2026-10-17 draft was 20 pages, about 7,500 words with roughly twice v1's density of numbers, and
-8 tables; it read like a condensed `REPORT.md`. The 2026-10-21 rewrite brings it to v1's length, halves the
-number density, and gives the reason behind each design decision before its result, a schematic of both
+8 tables; it read like a condensed `REPORT.md`. The 2026-10-21 rewrite brought it to v1's length, halved the
+number density, and gave the reason behind each design decision before its result, a schematic of both
 networks (Fig. 3) and a table of v2's design choices with their physical reasons and costs (Table 2).
-It builds on v1 rather than repeating it: v1's background, architecture details and the notes on its
-published text are left to v1 and to `papers/jand2026_arxiv/ERRATA.md`, and the reasons we moved away from v1's
-LSTM take one paragraph of Sec. 3.2, whose focus is the network v2 built; Sec. 2.4 describes v1 briefly. Left to `REPORT.md`, with at most a sentence
-here: the regularization grid with little data, the key choices repeated on three labels, the damping table
-and figure, the sensing-setup table and coarse-camera start times, the second-site rule and prediction sets,
-the hump-top control, the Floquet clocks, the unknown-start numbers, and the optimizer list.
+The threshold, settings and coupling studies (2026-10-22 to 11-02) brought it back to 21 pages.
+
+The 2026-11-02 review (an independent referee-style read, then edits):
+- The settings study (clock, offsets, couplings; Fig. 7) moved out of Sec. 3.1 into its own Sec. 3.6,
+  after the target is defined, since it uses the event-timed hump label, the first pendulum over the top and
+  rival humps. Sec. 3.7 now runs noise, sensors, parameter errors and impurities, damping, then the training
+  conditions (amplitude, offsets, coupling, ring size).
+- Sec. 4 on the published accuracy became Appendix B, with a bridge in the threshold paragraph of Sec. 3.5.
+- Secs. 3.2 to 3.4 were condensed (the two-branch network, GRU, loss variants, regularization; the time head
+  moved into the clock paragraph). v1's architecture is described once in Sec. 2.4 and in Fig. 3.
+- Table 3 gained the event-timed hump label as the bold recommended target; Table 4 lost the
+  doubled-offsets and ring-size rows (the offsets are covered in Sec. 3.7, and the first-crossing label
+  fails on other ring sizes for its own reasons).
+- Kept on purpose: the Spearman correlations of the threshold study (the link to the physical baselines),
+  and the statements of what was predicted before each test.
+
+The paper builds on v1 rather than repeating it: v1's background, architecture details and the notes on its
+published text are left to v1 and to `papers/jand2026_arxiv/ERRATA.md`. Left to `REPORT.md`, with at most a
+sentence here: the regularization grid with little data, the key choices repeated on three labels, the damping
+table and figure, the sensing-setup table and coarse-camera start times, the second-site rule and prediction
+sets, the hump-top control, the Floquet clocks, the unknown-start numbers, and the optimizer list.
 
 ## Open TODOs
 
 ### Before posting (blocking)
 
-1. **TODO-AUTHOR-REVIEW: Sec. 4, "Reproduction of the earlier network".** Wording to be agreed with
-   L.Q. English before posting; also ask whether the original training code or dataset is available.
-   Keep every mention of the published 94.4% consistent with the agreed wording:
-   - abstract ("falls short of the accuracy originally reported")
-   - Introduction, paragraphs 2 and 5
-   - Table 1 and its caption (wrap-around of the 1.44)
-   - Sec. 3.4, second paragraph
-   - Sec. 4
-   - Conclusions, limitations paragraph
-2. **Authors.** Mittal (Department of Physics, Carnegie Mellon University) and English (Dickinson College);
-   v2 is new work that cites Ref. [v1] for the earlier results. English still has to agree. Contact e-mail:
-   almittal@andrew.cmu.edu.
-3. **Acknowledgements** are left out for now; consider adding a line before posting.
-4. **Before uploading to arXiv** (which publishes the TeX source): delete the `\authorreview` box and its
-   macro, set or remove `\draftnotes`, and strip every `%` comment from `main.tex` (e.g. with
-   `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
+1. **Author.** Adrian Mittal alone (decided 2026-11-02), Department of Physics, Carnegie Mellon University;
+   almittal@andrew.cmu.edu. v2 is new work that cites Ref. [v1] for the earlier results.
+2. **Appendix B and the published accuracy.** It treats the retrained CNN-BiLSTM as v1's network and states
+   that the published accuracy was obtained at an effective threshold of 4–5% and offsets of ±0.0125
+   (decided 2026-11-02; the original training code never came). Every mention of the published 94.4% follows
+   it: abstract, Introduction (paragraphs 2 and 5), Table 1 caption, Sec. 3.4, Sec. 3.5 (threshold paragraph),
+   Appendix B, Conclusions (limitations). `REPORT.md` (Sec. 2) keeps the hedged account of the rebuild.
+3. **Acknowledgements** are left out for now; consider a line before posting (for example for the coauthors
+   of Ref. [v1]).
+4. **Before uploading to arXiv** (which publishes the TeX source): strip every `%` comment from `main.tex`
+   (e.g. with `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
 5. **Data and code availability** gives the repository URL. Add a version tag or DOI (e.g. a Zenodo archive).
 
 ### Should check
@@ -73,7 +83,7 @@ the hump-top control, the Floquet clocks, the unknown-start numbers, and the opt
      seen through a low-pass filter."
    - Sec. 3.2: the contrast with the CNN-BiLSTM design (one frame and nine pendulums per convolutional
      feature, 98.9% of the parameters in position-tied LSTM input weights).
-   - Sec. 3.6: the reason offered for the waiting rate (white noise in every mode, the site depending on all
+   - Sec. 3.7: the reason offered for the waiting rate (white noise in every mode, the site depending on all
      growing modes) is an interpretation, not a derivation.
    - Conclusions: "the features that decide the localization site are largely the projections of the early
      state onto the few growing long waves".

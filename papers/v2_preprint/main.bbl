@@ -159,14 +159,6 @@ Adam Paszke et~al.
 \newblock In \emph{Advances in Neural Information Processing Systems},
   volume~32, pages 8024--8035, 2019.
 
-\bibitem[Daumont et~al.(1997)Daumont, Dauxois, and
-  Peyrard]{daumont1997modulational}
-I.~Daumont, T.~Dauxois, and M.~Peyrard.
-\newblock Modulational instability: first step towards energy localization in
-  nonlinear lattices.
-\newblock \emph{Nonlinearity}, 10\penalty0 (3):\penalty0 617--630, 1997.
-\newblock \doi{10.1088/0951-7715/10/3/003}.
-
 \bibitem[Li et~al.(2021)Li, Kovachki, Azizzadenesheli, Liu, Bhattacharya,
   Stuart, and Anandkumar]{li2021fourier}
 Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu, Kaushik
@@ -228,12 +220,6 @@ Ilya Loshchilov and Frank Hutter.
 \newblock In \emph{International Conference on Learning Representations}, 2017.
 \newblock arXiv:1608.03983.
 
-\bibitem[Kingma and Ba(2015)]{kingma2015adam}
-Diederik~P. Kingma and Jimmy Ba.
-\newblock Adam: A method for stochastic optimization.
-\newblock In \emph{International Conference on Learning Representations}, 2015.
-\newblock arXiv:1412.6980.
-
 \bibitem[Yu and Koltun(2016)]{yu2016multiscale}
 Fisher Yu and Vladlen Koltun.
 \newblock Multi-scale context aggregation by dilated convolutions.
@@ -255,11 +241,25 @@ Nitish Srivastava, Geoffrey Hinton, Alex Krizhevsky, Ilya Sutskever, and Ruslan
 \newblock \emph{Journal of Machine Learning Research}, 15:\penalty0 1929--1958,
   2014.
 
+\bibitem[Daumont et~al.(1997)Daumont, Dauxois, and
+  Peyrard]{daumont1997modulational}
+I.~Daumont, T.~Dauxois, and M.~Peyrard.
+\newblock Modulational instability: first step towards energy localization in
+  nonlinear lattices.
+\newblock \emph{Nonlinearity}, 10\penalty0 (3):\penalty0 617--630, 1997.
+\newblock \doi{10.1088/0951-7715/10/3/003}.
+
 \bibitem[Kivshar and Peyrard(1992)]{kivshar1992modulational}
 Yuri~S. Kivshar and Michel Peyrard.
 \newblock Modulational instabilities in discrete lattices.
 \newblock \emph{Physical Review A}, 46\penalty0 (6):\penalty0 3198--3205, 1992.
 \newblock \doi{10.1103/PhysRevA.46.3198}.
+
+\bibitem[Kingma and Ba(2015)]{kingma2015adam}
+Diederik~P. Kingma and Jimmy Ba.
+\newblock Adam: A method for stochastic optimization.
+\newblock In \emph{International Conference on Learning Representations}, 2015.
+\newblock arXiv:1412.6980.
 
 \bibitem[Hendrycks and Gimpel(2016)]{hendrycks2016gelu}
 Dan Hendrycks and Kevin Gimpel.
