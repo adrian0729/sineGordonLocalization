@@ -881,12 +881,38 @@ v1 set its 10% threshold "somewhat arbitrarily". This study recomputes the first
 
 - **The most learnable threshold is 4%**, about 2.4 E_sep: v2 reaches 99.39 ± 0.04% within ±1 and a mean distance of 0.34, as on the hump label. Every label from 3% to 5% and at 2–3 E_sep is within 0.4 points of it.
 - **Those labels mark one physical event.** They fire a median of at most two time units from the first pendulum past the top and name it within ±1 in 98.7–99.2% of test runs. The learnable threshold is the one that catches a pendulum going over the top.
-- **Past 5% the label fires while energy passes to the neighbours.** Hump agreement, the Floquet filter and v2 fall to a minimum near 9–10% (Floquet 51.7% at 9%, v2 77.1% at 10%), and v1, trained only at 4%, 5% and 10%, drops to 60.1% at 10%. The 10% of v1 is close to the worst choice.
-- **Partial recovery at 12–15%,** as one pendulum comes to dominate the hump (the share of sites that move under an even spring split falls back to 9%). At 15%, 1.1% of runs have not localized by τ = 150.
+- **Past 5% the label fires later, and which pendulum crosses first then depends on the phase of the swing** (see *What the sweep says about the hump label*, below). Hump agreement, the Floquet filter and v2 fall to a minimum near 9–10% (Floquet 51.7% at 9%, v2 77.1% at 10%), and v1, trained only at 4%, 5% and 10%, drops to 60.1% at 10%. The 10% of v1 is close to the worst choice. (An earlier version of this bullet said the label fires "while energy passes to the neighbours"; nothing measured that.)
+- **Partial recovery at 12–15%:** the label lies within ±1 of the hump centre more often again (74.8% and 85.3%), and the share of sites that move under an even spring split falls back to 9% at 15%. Why is not established. At 15%, 1.1% of runs have not localized by τ = 150.
 - **Accuracy follows the physics across the ten shares** (Spearman): v2 ±1 against hump agreement 0.99, against the Floquet filter 0.93, against the box-car 0.87, against the lag after the first pendulum past the top −0.83. The box-car stays weak everywhere (36–43%).
 - **A physical choice, fixed before any model was trained:** the smallest share that fires no earlier than the first pendulum past the top in at least 95% of validation runs and lies within ±1 of the hump centre in at least 98%. No share passes, narrowly: 5% fires after it in 94.5% of runs (hump 98.6%), and 6% nearly always does (99.99%) but reaches only 95.9% hump agreement. Among all candidates, 3 E_sep and the first pendulum past the top pass. The event itself needs no threshold, and labelling it directly gives v2 98.9%, 0.5 points below the best share.
 - **What changes.** The 10% label stays for every comparison with v1, and the hump label stays the recommended target, now timed by the first pendulum over the top instead of a threshold (*Where the settings come from*, below). A first crossing at about 4%, or the first pendulum past the top, is the simplest single-pendulum definition with a physical meaning, and is predicted as well as the hump.
 - **Rerun:** `python scripts/threshold_labels.py` (labels, ~10 min on CPU), `python scripts/sweep.py threshold` (v2, ~1.8 h on MPS at 2 workers), `python scripts/train_v1_threshold.py --label thr04 --seed 0` (one v1 run), `python scripts/threshold_analysis.py` and `python scripts/make_figures.py`.
+
+#### What the sweep says about the hump label
+
+The sweep was run before the event-timed hump label existed. Read again with that label in hand, it answers two questions about the hump label rather than about thresholds. The checks below need no training: they re-score the saved predictions of the sweep's v2 runs and use the saved pools ([results/threshold_hump.json](results/threshold_hump.json), `python scripts/threshold_hump.py`, a few seconds).
+
+- **What a network learns from one pendulum is where the hump forms.**
+  - Re-scored against the hump centre (the Phase 9 site), the v2 runs trained at every threshold from 3% to 12% lie within ±1 of it in 90.4–99.2% of test runs (91.1% at 10%).
+  - On its own label, v2 is within 2.4 points of the hump centre used as a predictor (shifted by the best constant offset on validation: one site at 7–12%, none otherwise) at every threshold from 3% to 12%. At 15%, read 11.5 time units after the event, v2 beats it (91.1% against 85.3%).
+- **One pendulum marks the hump only around the event.** The swing phase is φ = (τ mod T/2)/(T/2), with T the period of the uniform swing at the run's amplitude. "Bottom" is 0.375 ≤ φ < 0.625, "turning point" is the quarter around φ = 0.
+
+  | Label | Within ±1 of the hump centre: all runs | near the bottom (share of runs) | near a turning point (share of runs) |
+  |---|---|---|---|
+  | 3% | 99.4% | 99.4% (66.5%) | – (0%) |
+  | 4% | 99.4% | 99.5% (59.1%) | 100% (0.4%) |
+  | 5% | 98.9% | 99.4% (43.0%) | 99.1% (3.2%) |
+  | 10% | 62.9% | 93.5% (16.4%) | 31.8% (36.0%) |
+  | 10%, springs split evenly | 64.6% | 92.2% (16.7%) | 34.2% (34.0%) |
+  | swing-averaged | 93.0% | 95.2% (26.5%) | 91.4% (20.3%) |
+
+  The even split barely changes the 10% row, so the phase of the swing, not the spring convention, decides whether the 10% label lands on the hump.
+- **The hump label does not care when it is read** (paper Fig. 6b).
+  - Phase 9's label always fires after the first pendulum past the top: a median of 5.0 time units later, with a 1st–99th percentile range of 3.0–7.5 and a maximum of 15.0.
+  - That pendulum lies within ±1 of the label's site in 99.1% of runs.
+  - Hump labels read 3, 5 and 7 time units after the event (3 pendulums at 10, 15, 20%) score 99.4%, 99.4% and 98.0%. Single pendulums read 3, 5.5 and 7.5 after it (7, 10, 12%) score 92.9%, 77.1% and 83.7%.
+  - The swing and three-pendulum average is what made the inherited 15% harmless.
+- **Paper.** These results are why Sec. 3.5 keeps the sweep in the main text: it explains why the hump label works and why the event should time it. Ring sizes are covered under *The number of pendulums*, below.
 
 ### Where the settings come from
 
@@ -1000,7 +1026,7 @@ The threshold was not the only setting fixed by hand. The hump label has two kno
 
 #### The number of pendulums
 
-**Why.** N = 100 comes from v1. The growing modes have wavelengths down to about 20 pendulums at A = 1.75, so a longer ring holds more of them, about N/20, at the same growth rates. Changing the amplitude changes both the rates and the number of modes, so changing N separates the two. A threshold on the share of the total energy also means something different on every ring, since one pendulum's share scales as 1/N.
+**Why.** N = 100 comes from v1. At A = 1.75 every wave longer than 18.1 pendulums grows, so a longer ring samples the same band more finely. It holds about N/18 growing modes (2, 5, 11, 22 at N = 50, 100, 200, 400), and its fastest rate (always mode 1) changes by less than 5% (σ1 = 0.113, 0.118, 0.120, 0.120; [results/threshold_hump.json](results/threshold_hump.json), `rings`). Changing the amplitude changes both the rates and the number of modes, so changing N separates the two. A threshold on the share of the total energy also means something different on every ring, since one pendulum's share scales as 1/N.
 
 **What.**
 - Pools of 50, 200 and 400 pendulums with v1's amplitudes and offsets (60,000 / 5,000 / 10,000 runs), and the main pools for 100.
@@ -1028,16 +1054,23 @@ The threshold was not the only setting fixed by hand. The hump label has two kno
   - From 50 to 400 pendulums the number of growing modes rises from 2 to 22, and the share of runs with a rival hump from 2.4% to 71.2%. Yet v2 trained on each ring falls only from 99.9% to 98.8% within ±1, and its far misses rise from 0.1% to 0.9%.
   - This is the mild fall predicted, clearest at 400.
   - The mean distance grows faster (0.09 to 1.31), because a far miss costs more pendulums on a longer ring.
-  - The localization time shortens a little with N (54.5 to 43.5), presumably because on a longer ring the earliest of more sites goes over the top sooner.
+  - The localization time shortens a little with N (54.5 to 43.5), presumably because on a longer ring the earliest of more sites goes over the top sooner. In e-foldings of the fastest mode this is 6.0, 5.8, 5.5 and 5.3, still within the 5–6 found across amplitudes.
 - **Linear theory degrades mildly with more modes.** The Floquet filter goes from 77.6% to 66.0%.
 - **Transfer works from long rings to short ones, not the reverse.**
   - Models trained on 200 or 400 pendulums keep 98.9% and 95.3% at N = 100.
   - The model trained at N = 100 keeps 98.9% at N = 50 but fails on longer rings: 29.7% at 200 and 14.4% at 400, erratically from seed to seed.
   - Its receptive field covers those rings, so seeing the whole ring is not enough: the standard model with a receptive field of only 129 does better there (92.3%, 89.5%).
   - The prediction that the N = 100 model transfers once it sees the whole ring is refuted for longer rings.
-  - A likely reason (not tested): on a long ring the growing modes form a nearly continuous band, and the hump forms by a local modulational instability whose scale (about 20 pendulums) does not depend on N, which a model can learn and reuse. On a 100-pendulum ring only five specific global waves grow, and a model can lean on them. Its longest dilations wrap around the ring and connect pendulums in a way specific to N = 100.
+  - A likely reason (not tested): on a long ring the growing modes form a nearly continuous band, and the hump forms by a local modulational instability whose scale (the band is cut off at 18 pendulums on every ring) does not depend on N, which a model can learn and reuse. On a 100-pendulum ring only five specific global waves grow, and a model can lean on them. Its longest dilations wrap around the ring and connect pendulums in a way specific to N = 100.
   - This replaces the explanation given in Sec. 11 for the drop at 150 pendulums.
-- **A share of the total energy is no threshold for other ring sizes.** The event-timed label fires at the same physical moment on every ring, whereas v1's 10% asks one pendulum for 5 times its equipartition share at N = 50 and 40 times at N = 400.
+- **A share of the total energy is no threshold for other ring sizes.** The event-timed label fires at the same physical moment on every ring, whereas v1's 10% asks one pendulum for 5 times its equipartition share at N = 50 and 40 times at N = 400. Even where share-based labels fire, they drift away from the event as N grows ([results/threshold_hump.json](results/threshold_hump.json), `rings`; agreement within ±1 with the event-timed site):
+
+  | N | 4%: lag, agreement | v1's 10%: fired, lag, agreement | Phase 9 hump: fired, lag, agreement |
+  |---|---|---|---|
+  | 50 | −3.0, 99.7% | 100%, 2.0, 95.8% | 100%, 1.5, 100.0% |
+  | 100 | 1.5, 99.8% | 100%, 5.5, 62.0% | 100%, 5.0, 99.6% |
+  | 200 | 3.5, 86.5% | 98.4%, 20.5, 48.6% | 100.0%, 9.0, 82.1% |
+  | 400 | 8.5, 40.5% (fired in 98.7%) | 2.9%, 23.5, 49.1% | 23.0%, 16.5, 70.2% |
 
 #### The global coupling, and whether the spectrum is all that matters
 

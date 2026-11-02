@@ -950,16 +950,44 @@ def fig_robustness():
     save(fig, "fig16_robustness")
 
 
-def fig_threshold(axes=None):
+def fig_threshold_lag(bx, d):
+    """v2 within +-1 of its label against the median lag of the label after the first pendulum passes the top: the
+    first-crossing labels of the threshold study and the hump labels of the settings study (results/settings.json,
+    part A), all on the same test runs."""
+    s = json.loads((ROOT / "results" / "settings.json").read_text())["A"]
+    dt, ds = d["diagnostics"]["test"], s["diagnostics"]["test"]
+    shares = [l for l in d["labels"] if l.startswith("thr") and l in d["v2"]]
+    lag = [dt[l]["lag_after_ott_median"] for l in shares]
+    acc = [d["v2"][l]["acc_1"] for l in shares]
+    bx.plot(lag, acc, color=SLOT[0], marker="o", markersize=3.5, label="one pendulum")
+    for l, x_, y_ in zip(shares, lag, acc):
+        if l in ("thr03", "thr07", "thr10", "thr12", "thr15"):
+            bx.annotate(f"{int(l[3:])}%", (x_, y_), textcoords="offset points", xytext=(4, -9), fontsize=7,
+                        color=SLOT[0])
+    hump = [l for l in s["v2"] if l.startswith("hump_")]
+    bx.plot([ds[l]["lag_after_ott_median"] for l in hump], [s["v2"][l]["test"]["acc_1"] for l in hump],
+            color=SLOT[3], marker="D", markersize=3.5, linestyle="none", label="hump, by a threshold")
+    eh = [l for l in s["v2"] if l.startswith("eh_") and l != "eh_k1"]
+    bx.plot([ds[l]["lag_after_ott_median"] for l in eh], [s["v2"][l]["test"]["acc_1"] for l in eh],
+            color=SLOT[3], marker="*", markersize=8, linestyle="none", label="hump, by the event")
+    bx.axvline(0, color=AXIS, linewidth=0.8, zorder=0)
+    bx.set_xlabel("Median lag after the first pendulum passes the top")
+    bx.set_ylabel("v2 within ±1 of its label (test)")
+    bx.set_ylim(0.75, 1.005)
+    bx.legend(loc="center left", bbox_to_anchor=(0.0, 0.47), fontsize=7.5)
+
+
+def fig_threshold(axes=None, lag_panel=False):
     """Threshold study (results/threshold.json): accuracy within +-1 against the localization threshold for v2,
-    the rebuilt v1, the Floquet filter and the hump-centre ceiling, and how pinned each label is."""
+    the rebuilt v1, the Floquet filter and the hump centre as a predictor; then how pinned each label is or, with
+    lag_panel (the preprint), v2's accuracy against how long each label comes after the first pendulum past the top."""
     d = json.loads((ROOT / "results" / "threshold.json").read_text())
     shares = [l for l in d["labels"] if l.startswith("thr")]
     x = np.array([int(l[3:]) for l in shares])
     top = 17  # the first pendulum past the top, drawn after the shares
     fig, (ax, bx) = subplots(axes, 1, 2, figsize=(11, 4), gridspec_kw={"width_ratios": [1.3, 1]})
     ceiling = [d["baselines"][l]["hump_oracle"]["acc_1"] for l in shares]
-    ax.plot(x, ceiling, color=MUTED, linewidth=0.9, linestyle="--", label="hump centre, as a predictor")
+    ax.plot(x, ceiling, color=MUTED, linewidth=0.9, linestyle="--", label="hump center, as a predictor")
     ax.plot(x, [d["baselines"][l]["floquet"]["acc_1"] for l in shares], color=SLOT[2], marker="o", markersize=3,
             label="Floquet filter (no training)")
     v2 = [l for l in shares if l in d["v2"]]
@@ -983,6 +1011,9 @@ def fig_threshold(axes=None):
     ax.set_ylabel("Within ±1 of the label (test)")
     ax.set_ylim(0.25, 1.01)
     ax.legend(loc="lower left", ncol=2, fontsize=7.5, columnspacing=1.2)
+    if lag_panel:
+        fig_threshold_lag(bx, d)
+        return
     dt = d["diagnostics"]["test"]
     bx.plot(x, [dt[l]["hump_pm1"] for l in shares], color=SLOT[0], marker="o", markersize=3, label="label within ±1 of the hump centre")
     bx.plot(x, [dt[l]["flip_even_split"] for l in shares], color=SLOT[1], marker="o", markersize=3,
@@ -1312,7 +1343,7 @@ def paper_figures():
     paper_figure("paper_fig4_ring", 2.4, [1, 1], lambda ax: (fig_receptive_field(ax[0]), fig_data_efficiency(ax[1])))
     paper_figure("paper_fig5_jitter", 2.4, [1, 1.4], fig_label_jitter)
     paper_figure("paper_fig6_noise", 2.6, [1, 1], lambda ax: (fig_noise_collapse(ax[:1]), fig_noise_avg_label(ax[1])))
-    paper_figure("paper_fig7_threshold", 2.5, [1.3, 1], fig_threshold)
+    paper_figure("paper_fig7_threshold", 2.5, [1.3, 1], lambda ax: fig_threshold(ax, lag_panel=True))
     # the settings study, split between the physics section (the clock and the reach of linear theory) and the
     # real-chain section (what a model must be trained on)
     paper_figure("paper_fig_clock", 4.6, [1, 1], lambda ax: (fig_settings(list(np.ravel(ax)[:3]), which="bcd"),

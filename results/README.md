@@ -23,6 +23,8 @@ Each `<table>_tables.md` gives, for every config of an ablation table, the mean 
 | [phase9_tables.md](phase9_tables.md) | Phase 9: the hump label |
 | [phase10_tables.md](phase10_tables.md) | Phase 10: the key choices and sensing setups on the hump label |
 | [deploy_start_tables.md](deploy_start_tables.md) | When a coarse camera should start watching |
+| [threshold_tables.md](threshold_tables.md) | The threshold study (written by `scripts/threshold_analysis.py`) |
+| [settings_tables.md](settings_tables.md) | The settings and coupling studies (written by `scripts/settings_analysis.py`) |
 
 ## Records and analysis outputs
 
@@ -41,3 +43,6 @@ Each `<table>_tables.md` gives, for every config of an ablation table, the mean 
 | `phase8_curves.json`, `phase8_train.json` | Validation curves and training-set scores of the Phase 8 runs | `scripts/regularization.py` |
 | `top2.json`, `top2_deploy.json` | Second-site output for the final models and the sensing setups | `scripts/top2.py` |
 | `hump_label.json` | Why the hump label is easier to predict | `scripts/hump_label.py` |
+| `threshold.json` | The threshold study: label diagnostics, physics baselines, v1 and v2 on every label, correlations and the two threshold choices | `scripts/threshold_analysis.py` |
+| `threshold_hump.json` | What the threshold study means for the hump label, and the growing modes and label timing on other ring sizes (no training) | `scripts/threshold_hump.py` |
+| `settings.json` | The settings and coupling studies: label diagnostics, Floquet filter, trained models, cross-scoring and the hump label's decision rule | `scripts/settings_analysis.py` |
