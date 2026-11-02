@@ -58,8 +58,9 @@ sets, the hump-top control, the Floquet clocks, the unknown-start numbers, and t
    (decided 2026-11-02; the original training code never came). Every mention of the published 94.4% follows
    it: abstract, Introduction (paragraphs 2 and 5), Table 1 caption, Sec. 3.4, Sec. 3.5 (threshold paragraph),
    Appendix B, Conclusions (limitations). `REPORT.md` (Sec. 2) keeps the hedged account of the rebuild.
-3. **Acknowledgements** are left out for now; consider a line before posting (for example for the coauthors
-   of Ref. [v1]).
+3. **Acknowledgements** (added 2026-11-02, after the Conclusions as in v1) thank L.Q. English and the other
+   coauthors of Ref. [v1] for the collaboration this work builds on. Add funding, or anything more specific
+   about the earlier work, before posting if wanted.
 4. **Before uploading to arXiv** (which publishes the TeX source): strip every `%` comment from `main.tex`
    (e.g. with `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
 5. **Data and code availability** gives the repository URL. Add a version tag or DOI (e.g. a Zenodo archive).
