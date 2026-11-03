@@ -1,7 +1,7 @@
 """What puts one pendulum over a share of the total energy (paper Sec. 3.5; REPORT.md "What the sweep says about the
 hump label"). Writes results/crossing_energy.json.
 
-    python scripts/crossing_energy.py        # about eight minutes on a laptop CPU
+    python scripts/crossing_energy.py        # about five minutes on an idle laptop CPU
 
 The threshold study's test pool (data/thrpool_full_test.npz, 20,000 runs) is integrated again from its initial
 angles with the pools' own simulator, and at the sample where each first-crossing label fires (5%, 10% and 15% of
@@ -22,7 +22,9 @@ Runs are grouped by the phase of the uniform swing at the crossing, as in script
 Within each group they are split by whether the label lies within +-1 of the hump centre or two or more sites from it
 (on a flank). Medians over runs. For each group the energy profile across the hump is also kept: the median share of
 the total energy held by the pendulums at offsets -4..+4 from the centre, and how far the labelled pendulum lies from
-the centre with its sign (positive to the right, the side whose spring each pendulum owns).
+the centre with its sign (positive to the right, the side whose spring each pendulum owns). Since a median profile
+need not look like any one run's, the shape is also checked run by run: the share of runs in which the centre holds
+more than both pendulums two sites off, and in which it holds the most of the five pendulums from -2 to +2.
 """
 import json
 import sys
@@ -100,7 +102,8 @@ def snapshots(t, p):
 
 
 def summary(r, sel):
-    lab, ctr = r["lab"][sel], r["ctr"][sel]
+    lab, ctr, prof = r["lab"][sel], r["ctr"][sel], r["profile"][sel]
+    c, m2, p2 = prof[:, 4], prof[:, 2], prof[:, 6]  # offsets 0, -2 and +2
     return {"n": int(sel.sum()),
             "label_share_of_total": float(np.median(lab.sum(1))),
             "label_parts_of_its_energy": {k: float(np.median(lab[:, i] / lab.sum(1))) for i, k in enumerate(PARTS)},
@@ -110,7 +113,9 @@ def summary(r, sel):
             "pendulums_beyond_top": float(np.median(r["beyond_top"][sel])),
             "ring_share_global": float(np.median(r["ring_global"][sel])),
             "ring_share_kinetic": float(np.median(r["ring_kinetic"][sel])),
-            "profile_around_centre": {str(o): float(v) for o, v in zip(OFFSETS, np.median(r["profile"][sel], 0))}}
+            "profile_around_centre": {str(o): float(v) for o, v in zip(OFFSETS, np.median(prof, 0))},
+            "runs_centre_above_both_pm2": float(((c > m2) & (c > p2)).mean()),
+            "runs_centre_is_max_of_5": float((np.argmax(prof[:, 2:7], 1) == 2).mean())}
 
 
 def main():

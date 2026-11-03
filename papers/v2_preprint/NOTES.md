@@ -12,9 +12,9 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 
 - Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
   The figure PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
-- Current state (2026-11-03, after the sixth round): 25 pages (11pt article, 1 in margins), 9
-  figures, 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract is 1,770 characters raw,
-  150 under arXiv's limit of 1,920.
+- Current state (2026-11-03, after the cuts): 23 pages (11pt article, 1 in margins), 9 figures (Fig. 9 one
+  panel, at 0.6 of the text width), 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract
+  is 1,606 characters raw, 314 under arXiv's limit of 1,920.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
 - Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
@@ -178,7 +178,32 @@ The 2026-11-03 round:
   right edge wins; the 5–6% window of the physics rule; "thus" and the three-pendulum window reworded.
   Untraced by the reader in `results/` (they are in REPORT.md): "agree exactly in only a third", "half of those
   two-site misses", the 17-site stack factors, the soft- and hard-label remarks, the adoption-rule margins and
-  the side-by-side 0.28.
+  the side-by-side 0.28. The last two were cut; the others are traced to the data since (Traceability).
+
+The 2026-11-03 cuts, after the user asked to cut what is not important and does not lead anywhere, in the
+abstract and the paper (about 1,700 words, 25 to 23 pages; backup of the text before them in the session
+scratchpad only):
+- Abstract, 1,770 to 1,606 characters raw: "We close with what this means for a real chain" (says nothing), the 60
+  times less training data (not one of the Introduction's three findings), "the initial offsets set this clock",
+  and "revisit the problem starting from" became "start from".
+- Ring size. Secs. 3.6 and 3.7 each keep one paragraph: in Sec. 3.6 the growing modes and rival humps against
+  N, the Floquet filter against a version of v2 trained on each ring, and the energy share that changes meaning
+  with N while the event does not; in Sec. 3.7 v2's transfer from N = 100 (97.4% at 80 to 89.5% at 400) and
+  the wider network's failure from N = 100 (13–30%), with "presumably" for the dilations that reach more than
+  halfway around its ring. Gone: Fig. 9(b), the transfer to rings whose size divides the training ring's, the
+  other training rings, both caveats, the e-foldings on other rings, the 10% and 4% crossings at N = 400, and
+  the unexplained loss at N = 80. The full matrix and the dilation-wrap analysis stay in `REPORT.md`.
+- Side results with no follow-up: mirror images (they add nothing at 60,000 runs; also the mirror map in
+  App. A), energies at an unknown start, the rival-hump fraction at N = 100 and the twins' rival humps, the
+  hump label's gain split between timing and window, the side-by-side 0.28, the three-pendulum window at 20%
+  with its ±3 numbers, the Floquet periods near threshold (Sec. 2.4 says it), and App. B's pointer to the
+  report for v1's time axes.
+- Compressed: the threshold rule (169 to 118 words, keeping the rule and its outcome; the margins of the
+  adoption rule became "It did neither"), the last-pendulum paragraph (cosh and the linear-theory gap went),
+  the damping detail, and the 15% loose end (one sentence in the 15% paragraph).
+- Kept on purpose: the single-pendulum to hump mechanism (untouched), the threshold sweep and its baselines,
+  the statements of what was predicted before each test, the two-branch network and the Floquet input (the
+  Introduction promises the choices that did not pay off), and every real-chain result except ring transfer.
 
 ## Open TODOs
 
@@ -202,36 +227,65 @@ The 2026-11-03 round:
 
 6. **v1 cross-references** ("Sec. 2.1", "Sec. 2.3 and the Appendix", "Figs. 2–5 and 7", "Eq. (5)",
    "Fig. 6" in the email) were checked against the published JAND PDF.
-7. **References added from memory** (not in `papers/jand2026_arxiv/refs.bib`) should be verified:
-   `sievers1988intrinsic`, `flach2008discrete`, `magnus1966hill`, `virtanen2020scipy`,
-   `karniadakis2021physics`, `cohen2016group`, `yu2016multiscale`, `oord2016wavenet`, `li2021fourier`,
-   `cho2014learning`, `hendrycks2016gelu`, `kingma2015adam`, `loshchilov2019decoupled`,
-   `loshchilov2017sgdr`, `szegedy2016rethinking`, `srivastava2014dropout`, `liu1989limited`,
-   `paszke2019pytorch`. `smith2019super`, `chen2023symbolic` and `guo2017calibration` are still in
-   `refs.bib` but no longer cited.
+7. **References added from memory** (not in `papers/jand2026_arxiv/refs.bib`), verified 2026-11-03 against
+   live records: Crossref for `sievers1988intrinsic`, `flach2008discrete`, `virtanen2020scipy`,
+   `karniadakis2021physics`, `liu1989limited`, `szegedy2016rethinking` (10.1109/CVPR.2016.308) and
+   `cho2014learning` (10.3115/v1/D14-1179); Crossref's 1967 review for `magnus1966hill`; PMLR v48 for
+   `cohen2016group`; jmlr.org for `srivastava2014dropout`; the NeurIPS BibTeX for `paszke2019pytorch`, which
+   gives no pages, so the unverifiable 8024–8035 went; the arXiv API (authors in full, and the ICLR year in
+   the arXiv comment) for `yu2016multiscale`, `kingma2015adam`, `loshchilov2017sgdr`,
+   `loshchilov2019decoupled`, `oord2016wavenet`, `hendrycks2016gelu` and `li2021fourier`. Only the venue of
+   `li2021fourier` (ICLR 2021) is from memory: OpenReview and DBLP answer scripts with a browser challenge.
+   `smith2019super`, `chen2023symbolic` and `guo2017calibration` are still in `refs.bib` but not cited, so
+   they do not reach `main.bbl`.
 8. **Edits to reused v1 references:** `thakur2007driven` says 2008 (J. Phys. D 41, 015503) and lists the
    author as "Basu Thakur, R."; `cuevas2014sine` is a `@book` with editors; SciPy is cited as Virtanen et al.
    (2020). Revert if the v1 forms are preferred.
-9. **Interpretive sentences to confirm:**
-   - Sec. 3.1: "The energetic clusters identified in Ref. [v1] thus appear to be the growing long waves,
-     seen through a low-pass filter."
-   - Sec. 3.2: the contrast with the CNN-BiLSTM design (one frame and nine pendulums per convolutional
-     feature, 98.9% of the parameters in position-tied LSTM input weights).
-   - Sec. 3.7: the reason offered for the waiting rate (white noise in every mode, the site depending on all
-     growing modes) is an interpretation, not a derivation.
-   - Sec. 3.7: the failed transfers of the wider network trained at N = 100 "point to how its dilations wrap
-     around that ring" (a controlled comparison with v2, with the two caveats stated), "what matters seems to be
-     whether a dilation exceeds half of the ring a network was trained on", and the two candidate causes of v2's
-     loss on longer rings (untested).
-   - Conclusions: "the features that decide the localization site are largely the projections of the early
-     state onto the few growing long waves".
-   - Sec. 3.5: "because the hump's energy has not yet spread over its top" and "the top of the hump is flat" read
-     median energy profiles at the crossing; why the top is flat in the kinetic phase was not derived.
+9. **Interpretive sentences**, checked 2026-11-03:
+   - Sec. 3.1, "The energetic clusters identified in Ref. [v1] thus appear to be the growing long waves, seen
+     through a low-pass filter": rests on Fig. 2(a) (the best width follows the band edge at seven amplitudes)
+     and Fig. 2(c) (the five growing modes alone keep the site within ±3 in 91%), and says "appear".
+   - Sec. 3.2, the CNN-BiLSTM design: confirmed in `sgloc/models.py`. Four convolutions of kernel 3 act on each
+     frame separately, so a feature sees nine pendulums of one frame; each direction's LSTM input kernel is
+     512 × 25,600 = 13,107,200 weights, so the two hold 26,214,400 of the 26,499,205 parameters (98.9%), each
+     weight tied to one pendulum and channel of the flattened frame.
+   - Sec. 3.7, the waiting rate: an interpretation, worded "A likely reason"; it predicted 24.8 time units on
+     the swing-averaged label before those runs finished, against 25.5 measured.
+   - Sec. 3.7, the wider network's failure from N = 100, "presumably because its two extra layers, with
+     dilations of more than half the ring, connect pendulums in a way specific to the ring it was trained on":
+     hedged. `REPORT.md` has the controlled comparison with v2 (the two networks differ only in those layers)
+     and the caveat the paper no longer states: the same layers also make the view go around that ring more
+     than twice, which the data cannot separate from the dilations.
+   - Conclusions, "largely the projections of the early state onto the few growing long waves": rests on
+     Fig. 2(c), the Floquet filter and the linear ring filter, and says "largely".
+   - Sec. 3.5, the median profiles, checked run by run (`crossing_energy.json`, `runs_centre_above_both_pm2`
+     and `runs_centre_is_max_of_5`). When the 5% label fires near a turning point, the center holds more than
+     both pendulums two sites off in 98.8% of the 642 runs, so "not yet spread over its top" holds run by run.
+     When the 10% label fires near a turning point, the center holds the most of the five pendulums from −2 to
+     +2 in only 13.7% of the 7,199 runs and less than one of the pendulums two sites off in 75%, against 78.8%
+     and 9.8% near the bottom, so the top is flat or dips at the center run by run, as the median says. Why the
+     top is flat in the kinetic phase is still not derived. The 15% sentence said "no pendulum on a flank comes
+     close", but run by run the center holds more than both pendulums two sites off in only 72% (bottom) and
+     87% (turning point) of runs; it now gives the medians alone ("far above the 8.6–8.7%").
 10. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
    localization in a sine-Gordon pendulum ring".
 11. Once the v1 preprint has an arXiv ID, consider adding it to the `mittal2026jand` entry.
 
 ## Traceability
+
+- 2026-11-03, the numbers an independent reader found only in `REPORT.md`, now traced to the data:
+  "agree exactly in only a third" is 32.9% of the 19,949 test runs in which the swing-averaged label fires
+  (`data/pool_test.npz`, `site_avg` against `site_right`), the averaged site lying 1–3 sites to the left in
+  45.5% and to the right in 17.6%; with plain cross-entropy v2 misses by two sites in 26.2–27.0% and by one
+  in 22.5–24.3% (three seeds, `runs/plain_cross_entropy_*/pred_test.npy`), and 51–53% of the two-site misses
+  sit on the swing-averaged site; the 17-site stack (`runs.jsonl`: `rf17_v1label` 2.37 against 1.49, ×1.6;
+  `rf17_avg` 1.78 against 0.58, ×3.1; `rf17_hump` 1.48 against 0.27, ×5.4); soft labels (`soft_off_avg`
+  0.59 against 0.58, `soft_off_hump` 0.245 against 0.273, exact 88.3% against 84.7%).
+- 2026-11-03, after the cuts: the ring paragraphs read `settings.json` `C.per_n` (growing modes 2 to 22,
+  rival share 2.44% to 71.2%, 19.6% at N = 100; the wider network 99.85% to 98.84%), `threshold_hump.json`
+  `rings` (10% lags 2.0, 5.5, 20.5; 48.6% and 82% within ±1 of the event-timed label at N = 200) and
+  `ring_transfer.json` (v2 from N = 100: 97.37%, 99.44%, 94.31%, 89.47% at N = 80, 100, 150, 400, far misses
+  0.42% to 9.51%; the wider network from N = 100: 16.6%, 12.8%, 29.7%, 14.5%).
 
 Every number in `main.tex` was checked against `REPORT.md`, `results/headline.md`, `results/*.md` and
 `*.json`, `results/runs.jsonl`, the plan and progress logs (git 7641a57), `sgloc/` and the v1 source. An
