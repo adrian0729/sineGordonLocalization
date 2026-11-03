@@ -167,6 +167,18 @@ The 2026-11-03 round:
 - The Floquet filter of Sec. 3.6 and Fig. 7(c): periods searched from 3 to 20, per amplitude bin, at the
   estimated amplitude (Traceability, below). 17% at A = 1.60 became 25%, and "stays below 65% even with small
   offsets" near threshold went (per bin, the lowest bin reaches 89%).
+- An independent read of Sec. 3.5 then led to: the 5.5% "averaged over a swing" is the trailing swing, so it
+  includes growth (now said; "breathing" became "changes form within each swing, as we show below"); the rival
+  hump no longer motivates the hump label (it has rivals too: 14.4% against 16.3% in `top2.json`
+  `rival_share`) and is stated as a limit neither label removes; "libration turns into rotation" became "past
+  the inverted position", since the hump's pendulums come back; the labeled pendulum "turned through about a
+  full revolution", with why one turn holds about 8% (the global term is not periodic); the flat top is given
+  with the dip at the center on the off-center runs instead of "small differences in speed"; the 5%-vs-10%
+  comparison at the next turning point names its 291 and 2,405 runs; the 85% at lag 9 gives its 94 runs; why the
+  right edge wins; the 5–6% window of the physics rule; "thus" and the three-pendulum window reworded.
+  Untraced by the reader in `results/` (they are in REPORT.md): "agree exactly in only a third", "half of those
+  two-site misses", the 17-site stack factors, the soft- and hard-label remarks, the adoption-rule margins and
+  the side-by-side 0.28.
 
 ## Open TODOs
 
@@ -213,9 +225,8 @@ The 2026-11-03 round:
      loss on longer rings (untested).
    - Conclusions: "the features that decide the localization site are largely the projections of the early
      state onto the few growing long waves".
-   - Sec. 3.5: "Which of the five crosses 10% first is decided by small differences in speed" and "because the
-     hump's energy has not yet spread over its top" read the median energy profiles; why the profile is flat
-     across the top in the kinetic phase was not derived.
+   - Sec. 3.5: "because the hump's energy has not yet spread over its top" and "the top of the hump is flat" read
+     median energy profiles at the crossing; why the top is flat in the kinetic phase was not derived.
 10. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
    localization in a sine-Gordon pendulum ring".
 11. Once the v1 preprint has an arXiv ID, consider adding it to the `mittal2026jand` entry.
