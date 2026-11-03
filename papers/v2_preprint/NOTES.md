@@ -12,9 +12,9 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 
 - Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
   The figure PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
-- Current state (2026-11-02, after the fifth check): 25 pages (11pt article, 1 in margins), 9
-  figures, 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract is 1,918 characters raw
-  (about 1,911 as plain text), 2 under arXiv's limit of 1,920, so any addition to it needs a cut.
+- Current state (2026-11-03, after the sixth round): 25 pages (11pt article, 1 in margins), 9
+  figures, 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract is 1,770 characters raw,
+  150 under arXiv's limit of 1,920.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
 - Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
@@ -155,6 +155,19 @@ sentence here: the regularization grid with little data, the key choices repeate
 table and figure, the sensing-setup table and coarse-camera start times, the second-site rule and prediction
 sets, the hump-top control, the Floquet clocks, the unknown-start numbers, and the optimizer list.
 
+The 2026-11-03 round:
+- The abstract was cut from 1,918 to 1,770 characters; its ring-size clause went (ring size stays in Sec. 3.6,
+  Sec. 3.7, the Introduction and the Conclusions).
+- Sec. 3.5 now explains why a single-pendulum label leaves the hump center, from `crossing_energy.json`: after
+  the event the hump's pendulums swing over the top and back together; near the bottom of the swing the global
+  coupling's twist holds the energy and peaks at the most-turned pendulum, the center; near a turning point the
+  energy is kinetic and flat across five pendulums, so the label often lands two sites off. The spring
+  convention only picks the side. Paragraph 1's "motion and the springs on either side" was wrong and went; the
+  15% paragraph's "presumably" became the measured narrowing of the hump; the Conclusions gained one clause.
+- The Floquet filter of Sec. 3.6 and Fig. 7(c): periods searched from 3 to 20, per amplitude bin, at the
+  estimated amplitude (Traceability, below). 17% at A = 1.60 became 25%, and "stays below 65% even with small
+  offsets" near threshold went (per bin, the lowest bin reaches 89%).
+
 ## Open TODOs
 
 ### Before posting (blocking)
@@ -200,6 +213,9 @@ sets, the hump-top control, the Floquet clocks, the unknown-start numbers, and t
      loss on longer rings (untested).
    - Conclusions: "the features that decide the localization site are largely the projections of the early
      state onto the few growing long waves".
+   - Sec. 3.5: "Which of the five crosses 10% first is decided by small differences in speed" and "because the
+     hump's energy has not yet spread over its top" read the median energy profiles; why the profile is flat
+     across the top in the kinetic phase was not derived.
 10. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
    localization in a sine-Gordon pendulum ring".
 11. Once the v1 preprint has an arXiv ID, consider adding it to the `mittal2026jand` entry.
@@ -237,11 +253,26 @@ of θ_n(0)). Notes:
   sampled lag (`by_sample_lag`: the 30/99/19/85% at 10%), and the 15% label crossed 6–12 or 14 or more time units
   after the event, with v2 on its own label there. The event's own phase (96% in the quarter of a half period
   after a turning point) is `swing_phase` → `ott` → `by_eighth`, the first two eighths.
+- Sec. 3.5's mechanism paragraph is `results/crossing_energy.json` (`scripts/crossing_energy.py`, about 4–8
+  minutes on CPU, no training): the test runs integrated again and, at each 5/10/15% crossing, the labelled
+  pendulum's energy split into its four parts of Eq. (2) (right-hand spring), pendulums beyond the top, and
+  `profile_around_centre` (median share of the total at offsets −4..+4 from the hump centre), by swing phase.
+  At 10%: near the bottom, 7 beyond the top, the label at |θ| = 6.43, global 0.80 of its energy, profile
+  10.3% at the centre and 7.1–7.6% at ±2; near a turning point, 0 beyond the top, kinetic 0.89, profile 9.2%
+  at the centre and 9.4–10.0% at ±1 and ±2; signed offsets +2 44.8%, −2 8.2% (even split: 28.7% and 27.7%,
+  from `site_sym10` in `data/thrpool_full_test.npz`). The 5% label near a turning point: 5.1% at the centre,
+  4.1% at ±2. The 15% label: 15.4% and 8.6–8.7%. Its 94/32/36% match `swing_phase` in `threshold_hump.json`.
+  Before 2026-11-03 the paper said the energy "moves between a pendulum's motion and the springs on either
+  side"; the springs hold under 5% of the labelled pendulum's energy, so that was replaced.
 - The ring paragraph's label lags and agreements come from `rings` (runs in which the label fired; at N = 400
   censored at the end of the integration, `integration_end`).
-- Sec. 3.6 and Fig. 7(c) use the Floquet filter with the number of periods chosen per pool on validation
-  (`periods` in `settings.json`: 5, 6 and 8 for 4×, 1× and 1/8× the offsets; 9 at A = 1.60; 7, 6, 5, 5 on the
-  rings) and the pool's true amplitude rather than the estimate (at most 0.1 point where checked).
+- Sec. 3.6 and Fig. 7(c) use the Floquet filter with the number of periods chosen on validation from 3 to 20,
+  per pool and, in Fig. 7(c), per amplitude bin (`periods` in `settings.json` and `floquet_periods` in
+  `floquet_vs_ratio`: 5, 6 and 8 for 4×, 1× and 1/8× the offsets; 15 at A = 1.60, 4 from 1.85 up; 7, 6, 5, 5 on
+  the rings; 3–15 overall, none at the top of the range), each run evolved at its estimated amplitude, the mean of
+  its initial angles, as Sec. 2.4 says. Until 2026-11-03 the search stopped at 9 (A = 1.60 sat at that cap and
+  scored 17%; it is 25% at 15), the bins reused their pool's period count (the lowest bin then stayed at 49–65%
+  with small offsets; tuned per bin it reaches 89%), and the pools used their true amplitude.
 - The hump-center predictor of Fig. 6(a) is the Eq. (6) site shifted by the constant offset that suits each
   label best on validation (one site at 7–12%, none otherwise; `baselines.*.hump_oracle`).
 - The ring numbers come from the wider network (dilations up to 128, 28,994 parameters), including at
@@ -260,6 +291,7 @@ of θ_n(0)). Notes:
   four or five times, 16 points eight times) are differences between cells of that matrix. Its new test pools
   (`data/setpool_n80_test.npz`, `data/setpool_n150_test.npz`, 10,000 runs each) are git-ignored; the commands that
   rebuild them are in the script's docstring.
-- Sec. 3.6's Floquet accuracies (52/73/87% against the offset scale, 17% at A = 1.60) are scores against
+- Sec. 3.6's Floquet accuracies (52/73/87% against the offset scale; 89–99% where η_max/(A − A_c) < 0.04 and
+  25–35% where it is about one, 25% at A = 1.60) are scores against
   the event-timed hump label (`settings_analysis.py`, `floquet_baseline` with L = eh_k3). An earlier draft
   called them scores against the first pendulum over the top.

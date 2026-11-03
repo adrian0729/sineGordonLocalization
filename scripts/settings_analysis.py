@@ -163,28 +163,49 @@ def per_run_growing(A, n_sites, points=21):
 
 
 _FLOQ = {}   # (label, tag) -> (periods, predicted sites on the test pool), filled by floquet_baseline
+_FPRED = {}  # tag -> {"val"|"test": {periods: predicted sites}}, filled by floquet_preds
+# Swing periods tried on validation. Close to threshold growth is slow and the best number reaches 15 (A = 1.60),
+# so the search goes well beyond the 3-9 of the main pools, whose best (6) lies inside both ranges.
+FLOQ_PERIODS = tuple(range(3, 21))
+
+
+def floquet_preds(tag):
+    """Floquet-filter predictions on the validation and test runs of a pool for every number of periods in
+    FLOQ_PERIODS, each run evolved at its estimated amplitude, the chain mean of its initial angles (as for the main
+    pools, scripts/phase1.py), with the chain's own coupling (pools at other h store it; others are nominal)."""
+    if tag not in _FPRED:
+        val, test = pool_of(tag, "val"), pool_of(tag, "test")
+        amp = {"val": val["theta0"].mean(1), "test": test["theta0"].mean(1)}
+        a_all = np.concatenate([amp["val"], amp["test"]])
+        grid = np.unique(np.round(np.linspace(a_all.min(), a_all.max(), 41), 6))
+        p = val["meta"].get("params") or {}
+        g_, h_ = p.get("g", sim.Params().g), p.get("h", sim.Params().h)
+        _FPRED[tag] = {s: {k: floquet.floquet_filter(pool["theta0"], amp[s], periods=k, g=g_, h=h_, a_grid=grid)
+                           for k in FLOQ_PERIODS} for s, pool in (("val", val), ("test", test))}
+    return _FPRED[tag]
+
+
+def best_periods(tag, pred_val, yv, n, sel=None):
+    """The number of periods with the smallest mean ring distance on the labelled validation runs (in sel, if given)."""
+    m = yv >= 0 if sel is None else (yv >= 0) & sel
+    dist = {k: float(metrics.ring_distance(pred_val[k][m], yv[m], n).mean()) for k in FLOQ_PERIODS}
+    best = min(dist, key=dist.get)
+    if best == FLOQ_PERIODS[-1]:
+        note(f"Floquet filter on {tag}: the best number of periods is the largest tried ({best})")
+    return best, dist[best]
 
 
 def floquet_baseline(label, tag):
-    """Floquet filter on label: number of periods (3..9) chosen on val by mean ring distance, scored on test."""
+    """Floquet filter on label: number of periods (FLOQ_PERIODS) chosen on val by mean ring distance, scored on test."""
     val, test = pool_of(tag, "val"), pool_of(tag, "test")
     if not (pool_has(val, label) and pool_has(test, label)):
         return None
-    A_all = np.concatenate([val["A"], test["A"]])
-    grid = np.unique(np.round(np.linspace(A_all.min(), A_all.max(), 41), 6)) if np.ptp(A_all) > 1e-9 else A_all[:1]
     n = n_of(val)
-    yv, yt = val[f"site_{label}"], test[f"site_{label}"]
-    p = val["meta"].get("params") or {}  # the chain's own coupling (pools at other h store it; others are nominal)
-    g_, h_ = p.get("g", sim.Params().g), p.get("h", sim.Params().h)
-
-    def predict(pool, periods):
-        return floquet.floquet_filter(pool["theta0"], pool["A"], periods=periods, g=g_, h=h_, a_grid=grid)
-
-    dist = {p: float(metrics.ring_distance(predict(val, p)[yv >= 0], yv[yv >= 0], n).mean()) for p in range(3, 10)}
-    best = min(dist, key=dist.get)
-    pred = predict(test, best)
+    pr = floquet_preds(tag)
+    best, vdist = best_periods(tag, pr["val"], val[f"site_{label}"], n)
+    pred = pr["test"][best]
     _FLOQ[(label, tag)] = (int(best), pred)
-    return {"periods": int(best), "val_mean_distance": dist[best], **metrics.site_metrics(pred, yt, n)}
+    return {"periods": int(best), "val_mean_distance": vdist, **metrics.site_metrics(pred, test[f"site_{label}"], n)}
 
 
 # ---------------------------------------------------------------------------------------------------- models
@@ -641,9 +662,18 @@ def spec_pred(r, n_runs):
     return pred if len(pred) == n_runs else None
 
 
+def amp_bins(A):
+    """The five amplitude bins of A_RANGE that split the offset pools in floquet_vs_ratio."""
+    edges = np.linspace(*A_RANGE, 6)
+    b = np.digitize(A, edges) - 1
+    b[A == edges[-1]] = 4
+    return b
+
+
 def floquet_vs_ratio(records, out):
     """Floquet filter and v2 within +-1 against r = eta_max / (A - A_c): the fixed-amplitude pools (part B) and the
-    five amplitude bins of every offset pool (part D)."""
+    five amplitude bins of every offset pool (part D). In each bin the filter's number of periods is chosen on the
+    validation runs of that bin, as each fixed-amplitude pool's is on its own validation runs."""
     L = Lname()
     A_c = float(floquet.threshold_amplitude())
     pts = []
@@ -652,49 +682,46 @@ def floquet_vs_ratio(records, out):
         if not f:
             continue
         pts.append({"source": f"fixed A={e['A']:g}", "kind": "fixed", "A": e["A"], "scale": 1, "eta_max": ETA,
-                    "r": ETA / (e["A"] - A_c), "floquet_acc_1": f["acc_1"], "v2_acc_1": g(sp, "test", "acc_1"),
+                    "r": ETA / (e["A"] - A_c), "floquet_periods": f["periods"], "floquet_acc_1": f["acc_1"],
+                    "v2_acc_1": g(sp, "test", "acc_1"),
                     "n_runs": g(e, "pool", "n_runs")})
     d = out.get("D")
     main = pool_of("main", "test")
     if d and d.get("bins") and pool_has(main, L):
         n = n_of(main)
-        edges = np.linspace(*A_RANGE, 6)
-        b = np.digitize(main["A"], edges) - 1
-        b[main["A"] == edges[-1]] = 4
+        b = amp_bins(main["A"])
         hump_rows = by_name(records, "settings_hump", "label")
         std, _ = std_rows(hump_rows)
         off = by_name(records, "settings_offsets")
         for key, e in d["per_scale"].items():
             s, tag = e["scale"], e["pool_tag"]
-            test = pool_of(tag, "test")
-            if not pool_has(test, L):
+            test, val = pool_of(tag, "test"), pool_of(tag, "val")
+            if not (pool_has(test, L) and pool_has(val, L)) or len(test["A"]) != len(main["A"]):
                 continue
-            if (L, tag) not in _FLOQ:
-                floquet_baseline(L, tag)
-            if (L, tag) not in _FLOQ or len(test["A"]) != len(main["A"]):
-                continue
-            pred = _FLOQ[(L, tag)][1]
+            pr = floquet_preds(tag)
+            bv = amp_bins(val["A"])
             rows = std if s == 1 else off.get(f"off{ablations.tag_of(s)}", [])
             preds = [p for p in (spec_pred(r, len(test["A"])) for r in rows) if p is not None]
             for j in range(5):
                 m = b == j
                 if not m.any():
                     continue
+                k, _ = best_periods(f"{tag} bin {j + 1}", pr["val"], val[f"site_{L}"], n, bv == j)
                 medA = float(np.median(test["A"][m]))
                 v2 = [ring_acc(p[m], test[f"site_{L}"][m], 1, n) for p in preds]
                 pts.append({"source": f"scale {s:g}, bin {j + 1}", "kind": "offset", "A": medA, "scale": s, "bin": j,
-                            "eta_max": ETA * s, "r": ETA * s / (medA - A_c),
-                            "floquet_acc_1": ring_acc(pred[m], test[f"site_{L}"][m], 1, n),
+                            "eta_max": ETA * s, "r": ETA * s / (medA - A_c), "floquet_periods": int(k),
+                            "floquet_acc_1": ring_acc(pr["test"][k][m], test[f"site_{L}"][m], 1, n),
                             "v2_acc_1": float(np.mean(v2)) if v2 else None, "v2_n_seeds": len(v2), "n_runs": int(m.sum())})
     pts.sort(key=lambda q: q["r"])
     return {"A_c": A_c, "points": pts}
 
 
 def md_ratio(fr):
-    rows = [[q["source"], num(q["A"], 3), num(q["eta_max"], 4), num(q["r"], 3), q["n_runs"], pct(q["floquet_acc_1"]),
-             pct(q.get("v2_acc_1"))] for q in fr["points"]]
+    rows = [[q["source"], num(q["A"], 3), num(q["eta_max"], 4), num(q["r"], 3), q["n_runs"], q.get("floquet_periods"),
+             pct(q["floquet_acc_1"]), pct(q.get("v2_acc_1"))] for q in fr["points"]]
     return (f"## Floquet filter against the offsets' size (A_c = {fr['A_c']:.4f}; r = eta_max / (A - A_c))\n\n"
-            + table(["Point", "A (median)", "eta_max", "r", "Runs", "Floquet ±1 %", "v2 ±1 %"], rows))
+            + table(["Point", "A (median)", "eta_max", "r", "Runs", "Periods", "Floquet ±1 %", "v2 ±1 %"], rows))
 
 
 def hump_width_pool(tag, L_unused=None, n_runs=HUMP_RUNS, chunk=50):
