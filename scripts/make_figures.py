@@ -1322,13 +1322,15 @@ def g_(d, *keys):
     return d
 
 
-def paper_figure(name, height, widths, draw, rows=1):
-    """One full-width preprint figure: rows of panels drawn by draw(axes), each marked only by its letter."""
-    fig, axes = plt.subplots(rows, len(widths), figsize=(PAPER_WIDTH, height), gridspec_kw={"width_ratios": widths},
+def paper_figure(name, height, widths, draw, rows=1, width=PAPER_WIDTH):
+    """One preprint figure, full width unless given: rows of panels drawn by draw(axes), each marked only by its letter
+    (none when there is one panel)."""
+    fig, axes = plt.subplots(rows, len(widths), figsize=(width, height), gridspec_kw={"width_ratios": widths},
                              layout="constrained")
     draw(axes)
     flat = np.ravel(axes)
-    letters = [ax.set_title(f"({s})", loc="left", fontsize=9, fontweight="bold") for ax, s in zip(flat, "abcdef")]
+    letters = [ax.set_title(f"({s})", loc="left", fontsize=9, fontweight="bold") for ax, s in zip(flat, "abcdef")
+               if len(flat) > 1]
     fig.canvas.draw()  # then line each letter up with the left edge of its panel's axis label
     for ax, letter in zip(flat, letters):
         letter.set_x(ax.transAxes.inverted().transform(ax.yaxis.get_tightbbox().p0)[0])
@@ -1352,7 +1354,7 @@ def paper_figures():
     # real-chain section (what a model must be trained on)
     paper_figure("paper_fig_clock", 4.6, [1, 1], lambda ax: (fig_settings(list(np.ravel(ax)[:3]), which="bcd"),
                                                              fig_coupling([np.ravel(ax)[3]], which="a")), rows=2)
-    paper_figure("paper_fig_training", 2.5, [1, 1], lambda ax: fig_settings(list(ax), which="ef"))
+    paper_figure("paper_fig_training", 2.5, [1], lambda ax: fig_settings([ax], which="e"), width=3.9)
 
 
 if __name__ == "__main__":
