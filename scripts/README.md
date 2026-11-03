@@ -22,7 +22,7 @@ Each phase answers one question of the study and is written up in the [report](.
 | 10 | The key choices and sensing setups on the hump label | `add_labels.py hump_top`, `sweep.py phase10`, `hump_label.py` | `results/phase10_tables.md`, `results/hump_label.json` |
 | Camera start time | When a coarse camera should start watching, at full budget | `sweep.py deploy_start` | `results/deploy_start_tables.md` |
 | Threshold | Which localization threshold, what it means physically, and what it says about the hump label | `threshold_labels.py`, `sweep.py threshold`, `train_v1_threshold.py`, `threshold_analysis.py`, `threshold_hump.py` | `results/threshold_tables.md`, `results/threshold.json`, `results/threshold_hump.json` |
-| Settings | Where the hump label's knobs, the amplitude, the offsets, the ring size and the global coupling come from | `setting_labels.py`, `sweep.py settings_hump` (then `settings_amplitude`, `settings_ring`, `settings_offsets`, `settings_coupling`), `settings_analysis.py` | `results/settings_tables.md`, `results/settings.json` |
+| Settings | Where the hump label's knobs, the amplitude, the offsets, the ring size and the global coupling come from | `setting_labels.py`, `sweep.py settings_hump` (then `settings_amplitude`, `settings_ring`, `settings_offsets`, `settings_coupling`), `settings_analysis.py`, `ring_transfer.py` | `results/settings_tables.md`, `results/settings.json`, `results/ring_transfer.json` |
 
 ## Data and checks
 
@@ -62,8 +62,9 @@ Each phase answers one question of the study and is written up in the [report](.
 | `top2.py` | A second site, for runs where a rival hump competes | `results/top2.json`, `results/top2_deploy.json` |
 | `hump_label.py` | Why the hump label is easier to predict than the swing-averaged label | `results/hump_label.json` |
 | `threshold_analysis.py` | Label diagnostics, physics baselines and trained models for every threshold-study label, and the two threshold choices | `results/threshold.json` |
-| `threshold_hump.py` | What the threshold study means for the hump label, without training: the sweep's v2 runs re-scored against the hump centre, each label's agreement with the hump centre by phase of the swing, how the hump label follows the first pendulum past the top, and the growing modes, clock and label timing on rings of 50–400 pendulums | `results/threshold_hump.json` |
+| `threshold_hump.py` | What the threshold study means for the hump label, without training: the sweep's v2 runs re-scored against the hump centre, each label's agreement with the hump centre by phase of the swing and by lag after the first pendulum past the top, how the hump label follows the first pendulum past the top, and the growing modes, clock and label timing on rings of 50–400 pendulums | `results/threshold_hump.json` |
 | `settings_analysis.py` | Label diagnostics, physics, Floquet filter, trained models and cross-scoring for the five settings studies (part E: chains at other global couplings with the same growth spectrum, run by run, and what a network trained at h̃ = 0.5 predicts on them); the decision rule of the hump study | `results/settings.json`, `results/settings_tables.md` |
+| `ring_transfer.py` | The settings study's ring-size networks and the standard network (v2) scored on every ring of 50–400 pendulums, including new pools of 80 and 150 (`setpool_n80_test`, `setpool_n150_test` from `setting_labels.py`), and a check that on a ring whose size divides the training ring's a circular CNN computes what it computes on its own ring with the state repeated | `results/ring_transfer.json` |
 
 ## Tables and figures
 

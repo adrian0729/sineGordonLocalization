@@ -1,7 +1,7 @@
 """Report figures from the saved results, written to figures/ as PNG and PDF.
 
     python scripts/make_figures.py            # every figure whose inputs exist
-    python scripts/make_figures.py --paper    # only the preprint's five figures, into papers/v2_preprint/figures/
+    python scripts/make_figures.py --paper    # only the preprint's eight data figures, into papers/v2_preprint/figures/
 
 Style follows the data-viz rules used for the report: one hue per job, the reference categorical
 order (blue, orange, aqua), a single-hue sequential ramp, thin marks, hairline grids, text in ink
@@ -22,6 +22,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
+from matplotlib.patches import Rectangle  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -951,7 +952,7 @@ def fig_robustness():
 
 
 def fig_threshold_lag(bx, d):
-    """v2 within +-1 of its label against the median lag of the label after the first pendulum passes the top: the
+    """v2 within +-1 of its label against the median lag of the label after the first pendulum goes over the top: the
     first-crossing labels of the threshold study and the hump labels of the settings study (results/settings.json,
     part A), all on the same test runs."""
     s = json.loads((ROOT / "results" / "settings.json").read_text())["A"]
@@ -971,7 +972,7 @@ def fig_threshold_lag(bx, d):
     bx.plot([ds[l]["lag_after_ott_median"] for l in eh], [s["v2"][l]["test"]["acc_1"] for l in eh],
             color=SLOT[3], marker="*", markersize=8, linestyle="none", label="hump, by the event")
     bx.axvline(0, color=AXIS, linewidth=0.8, zorder=0)
-    bx.set_xlabel("Median lag after the first pendulum passes the top")
+    bx.set_xlabel("Median lag after the first pendulum\ngoes over the top")
     bx.set_ylabel("v2 within ±1 of its label (test)")
     bx.set_ylim(0.75, 1.005)
     bx.legend(loc="center left", bbox_to_anchor=(0.0, 0.47), fontsize=7.5)
@@ -980,11 +981,11 @@ def fig_threshold_lag(bx, d):
 def fig_threshold(axes=None, lag_panel=False):
     """Threshold study (results/threshold.json): accuracy within +-1 against the localization threshold for v2,
     the rebuilt v1, the Floquet filter and the hump centre as a predictor; then how pinned each label is or, with
-    lag_panel (the preprint), v2's accuracy against how long each label comes after the first pendulum past the top."""
+    lag_panel (the preprint), v2's accuracy against how long each label comes after the first pendulum over the top."""
     d = json.loads((ROOT / "results" / "threshold.json").read_text())
     shares = [l for l in d["labels"] if l.startswith("thr")]
     x = np.array([int(l[3:]) for l in shares])
-    top = 17  # the first pendulum past the top, drawn after the shares
+    top = 17  # the first pendulum over the top, drawn after the shares
     fig, (ax, bx) = subplots(axes, 1, 2, figsize=(11, 4), gridspec_kw={"width_ratios": [1.3, 1]})
     ceiling = [d["baselines"][l]["hump_oracle"]["acc_1"] for l in shares]
     ax.plot(x, ceiling, color=MUTED, linewidth=0.9, linestyle="--", label="hump center, as a predictor")
@@ -1007,7 +1008,9 @@ def fig_threshold(axes=None, lag_panel=False):
     ax.plot([top], [d["baselines"]["ott"]["floquet"]["acc_1"]], color=SLOT[2], marker="o", markersize=3, linestyle="none")
     ax.axvline(10, color=AXIS, linewidth=0.8, zorder=0)
     ax.set_xticks(list(x) + [top], [str(v) for v in x] + ["top"])
-    ax.set_xlabel("Threshold (% of the total energy); \"top\": first pendulum past the top")
+    # the preprint explains the "top" tick in its caption; its two x labels would otherwise run into each other
+    ax.set_xlabel("Threshold (% of the total energy)" if lag_panel else
+                  "Threshold (% of the total energy); \"top\": first pendulum over the top")
     ax.set_ylabel("Within ±1 of the label (test)")
     ax.set_ylim(0.25, 1.01)
     ax.legend(loc="lower left", ncol=2, fontsize=7.5, columnspacing=1.2)
@@ -1044,7 +1047,7 @@ def fig_settings(axes=None, which="abcdef"):
     fig, axs = subplots(axes, 2, 3, figsize=(12, 7.2), layout="constrained")
     ax_a, ax_b, ax_c, ax_d, ax_e, ax_f = np.ravel(axs)
     titles = ["Label variants", "Localization time and growth rate", "Delay from smaller or larger offsets",
-              "Linear theory against offset size", "Amplitude", "Ring size"]
+              "Linear theory against offset size", "Amplitude", "Ring size: each network on each ring"]
     pct_ = lambda v: None if v is None else 100 * v  # noqa: E731
 
     # (a) the 13 labels: scored on their own label (filled), and the same models against eh_k3 (open)
@@ -1146,12 +1149,13 @@ def fig_settings(axes=None, which="abcdef"):
         ax_d.legend(loc="lower left", fontsize=7 if not paper else 6, ncol=1 if not paper else 2, columnspacing=0.6,
                     handletextpad=0.2, borderaxespad=0.3)
 
-    # (e) amplitude: specialists, the wide model, and the model trained on 1.65-1.85
+    # (e) amplitude: models trained at each amplitude, over 1.60-1.95 and over 1.65-1.85 ("wide" is kept out of the
+    # legend: the preprint's "wider network" is the one with dilations up to 128 of panel f)
     ax_e.axvspan(1.65, 1.85, color=GRID, alpha=0.6, linewidth=0, zorder=0)
     pe = list(B.get("per_amplitude", {}).values())
     lo = 80
-    series = [("specialist per amplitude", SLOT[0], "o", lambda e: g_(e, "specialist", "test", "acc_1"), lambda e: g_(e, "specialist", "test", "acc_1_sd")),
-              ("wide model", SLOT[2], "s", lambda e: g_(e, "wide_rescored", "acc_1"), lambda e: None),
+    series = [("trained at that amplitude", SLOT[0], "o", lambda e: g_(e, "specialist", "test", "acc_1"), lambda e: g_(e, "specialist", "test", "acc_1_sd")),
+              ("trained on 1.60–1.95", SLOT[2], "s", lambda e: g_(e, "wide_rescored", "acc_1"), lambda e: None),
               ("trained on 1.65–1.85", SLOT[1], "^", lambda e: g_(e, "standard_rescored", "acc_1"), lambda e: None)]
     for name, color, marker, val, sd in series:
         pts = [(e["A"], pct_(val(e)), pct_(sd(e)) or 0) for e in pe if val(e) is not None]
@@ -1169,42 +1173,42 @@ def fig_settings(axes=None, which="abcdef"):
     ax_e.set_ylabel("Within ±1 on test (%)")
     ax_e.legend(loc="lower center", fontsize=7.5)
 
-    # (f) ring size
-    C = d.get("C", {})
-    per = C.get("per_n", {})
-    Ns = [50, 100, 200, 400]
-    own = [(N, per[f"n{N}"]["model"]["test"]) for N in Ns if g_(per, f"n{N}", "model", "test")]
-    if own:
-        ax_f.errorbar([o[0] for o in own], [100 * o[1]["acc_1"] for o in own], yerr=[100 * (o[1]["acc_1_sd"] or 0) for o in own],
-                      color=SLOT[0], marker="o", markersize=4.5, capsize=0, label="trained on its own ring")
-        x100 = [(t, C["cross"].get(f"ring_n100_on_n{t}")) for t in (50, 200, 400)]
-        x100 = [(t, v) for t, v in x100 if v]
-        if x100:
-            ax_f.plot([t for t, _ in x100], [100 * v["acc_1"] for _, v in x100], linestyle="none", marker="o", markerfacecolor="none",
-                      color=SLOT[1], markersize=4.5, label="N = 100 model on other rings")
-        down = [(f, C["cross"].get(f"ring_n{f}_on_n100")) for f in (200, 400)]
-        down = [(f, v) for f, v in down if v]
-        for f, v in down:  # models trained on larger rings, scored at N = 100
-            ax_f.annotate(f"{f}", (100, 100 * v["acc_1"]), xytext=(4, -3), textcoords="offset points", fontsize=6.5, color=SLOT[2])
-        if down:
-            ax_f.plot([100] * len(down), [100 * v["acc_1"] for _, v in down], linestyle="none", marker="v", color=SLOT[2],
-                      markersize=4.5, label="N = 200, 400 models at N = 100")
-    else:
-        ax_f.text(0.5, 0.62, "models pending", transform=ax_f.transAxes, ha="center", va="center", color=MUTED, fontsize=11)
-        ax_f.set_yticks([])
-    rv = {N: per[f"n{N}"]["pool"]["rival_share"] for N in Ns if g_(per, f"n{N}", "pool", "rival_share") is not None}
-    for N, o in own:  # the share of runs with a rival hump, written under each ring's own point
-        if N in rv:
-            ax_f.annotate(f"rival {100 * rv[N]:.0f}%", (N, 100 * o["acc_1"]), xytext=(0, -17), textcoords="offset points",
-                          ha="center", fontsize=6.5, color=MUTED)
-    if own:
-        ax_f.legend(loc="center left", bbox_to_anchor=(0.0, 0.5), fontsize=7 if not paper else 6.5)
-    ax_f.set_ylim(0, 106)
-    ax_f.set_xscale("log", base=2)
-    ax_f.set_xticks(Ns, [str(N) for N in Ns])
-    ax_f.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
-    ax_f.set_xlabel("Ring size N")
-    ax_f.set_ylabel("Within ±1 on test (%)")
+    # (f) ring size: each network scored on each ring (results/ring_transfer.json, within ±1 on test, seed means).
+    # Outlined: the ring it was trained on. Asterisk: a ring whose size divides the training ring's, on which a
+    # circular network computes what it would on its own ring with the state repeated, so the cell does not test
+    # whether it carries over to another ring.
+    rt = ROOT / "results" / "ring_transfer.json"
+    tr = json.loads(rt.read_text())["transfers"] if rt.exists() else {}
+    Ns = [50, 80, 100, 150, 200, 400]
+    rows = [(f"wider, {s}", f"ring_n{s}", s) for s in (50, 100, 200, 400)] + [("v2, 100", "standard", 100)]
+    ys = [0, 1, 2, 3, 4.3]  # v2 set apart below the wider network's rows
+    cmap = LinearSegmentedColormap.from_list("blue_seq", ["white" if paper else RAMP[0]] + RAMP[1:])
+    cells = 0
+    for (_, key, src), y in zip(rows, ys):
+        for i, t in enumerate(Ns):
+            v = tr.get(f"{key}_on_n{t}")
+            if not v:
+                continue
+            cells += 1
+            acc, own_ring = 100 * v["acc_1"], t == src
+            face = cmap(acc / 100)
+            ax_f.add_patch(Rectangle((i - 0.46, y - 0.44), 0.92, 0.88, facecolor=face, linewidth=1.1 if own_ring else 0,
+                                     edgecolor=INK if own_ring else "none", zorder=2))
+            dark = 0.2126 * face[0] + 0.7152 * face[1] + 0.0722 * face[2] < 0.45  # white text on the darker cells
+            ax_f.text(i, y, f"{acc:.1f}" + ("*" if t < src and src % t == 0 else ""), ha="center", va="center", zorder=3,
+                      fontsize=7 if paper else 8, color="white" if dark else INK, fontweight="bold" if own_ring else "normal")
+    if not cells:
+        ax_f.text(0.5, 0.5, "models pending", transform=ax_f.transAxes, ha="center", va="center", color=MUTED, fontsize=11)
+    ax_f.set_xlim(-0.5, len(Ns) - 0.5)
+    ax_f.set_ylim(ys[-1] + 0.5, -0.5)
+    ax_f.set_xticks(range(len(Ns)), [str(N) for N in Ns])
+    ax_f.set_yticks(ys, [r[0] for r in rows])
+    ax_f.tick_params(length=0)
+    ax_f.grid(False)
+    for s_ in ax_f.spines.values():
+        s_.set_visible(False)
+    ax_f.set_xlabel("Scored on a ring of N pendulums")
+    ax_f.set_ylabel("Trained on N")
 
     if not paper:
         for ax, t, letter in zip((ax_a, ax_b, ax_c, ax_d, ax_e, ax_f), titles, "abcdef"):
@@ -1336,7 +1340,7 @@ def paper_figure(name, height, widths, draw, rows=1):
 
 
 def paper_figures():
-    """The preprint's five data figures, numbered as in the preprint (its other figures are made elsewhere)."""
+    """The preprint's eight data figures, numbered as in the preprint (its other figures are made elsewhere)."""
     plt.rcParams.update(PAPER_RC)
     paper_figure("paper_fig1_spectrum", 2.5, [1.25, 1], fig_growth)
     paper_figure("paper_fig2_physics", 2.4, [1, 1.1, 0.9], lambda ax: (fig_best_width(ax[0]), fig_sensitivity(ax[1:])))

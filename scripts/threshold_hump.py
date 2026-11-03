@@ -12,9 +12,14 @@ results/threshold_hump.json.
    (0.375 <= phi < 0.625) and near a turning point (phi >= 0.875 or phi < 0.125), with where the label lies
    relative to the centre in each (label minus centre, around the ring; positive is to the right). Also for the
    10% label with each spring split evenly (sym10), and for the swing-averaged label (avg).
-3. Timing on the main test pool: how the hump label of Eq. (6) follows the first pendulum past the top, run by run,
+3. Lag strata. The same agreement against when each first-crossing label fires after the first pendulum over the
+   top, in bins of two time units, split again by the phase of the swing, and at each sampled lag from -4 to 16
+   (the event comes just after a turning point, so within a bin the phase follows the lag); for the runs labelled
+   6-12 and 14 or more time units after that event, also how often the label lies five or more sites from the hump
+   centre and the threshold study's v2 on its own label.
+4. Timing on the main test pool: how the hump label of Eq. (6) follows the first pendulum past the top, run by run,
    and how the site of that pendulum agrees with the hump label and with the event-timed label (eh_k3).
-4. Rings of 50, 100, 200 and 400 pendulums (setpool test pools): the growing modes and sigma1 at A = 1.75, the
+5. Rings of 50, 100, 200 and 400 pendulums (setpool test pools): the growing modes and sigma1 at A = 1.75, the
    continuum cut-off wavelength of the growing band, the clock (median over runs of tau_ott * sigma1(A, N)), and for
    the 4% and 10% first-crossing labels and the hump label of Eq. (6) the share of runs labelled, the median lag
    after the first pendulum past the top and the agreement with the event-timed label. The N = 400 pools stop each
@@ -112,6 +117,51 @@ def swing_phase(t):
     return out
 
 
+LAG_EDGES = [-np.inf, 0, 2, 4, 6, 8, 10, 12, 14, np.inf]
+
+
+def lag_strata(t):
+    """Agreement of each first-crossing label with the hump centre against when it fires after the first pendulum
+    over the top, overall, near the bottom of the swing and near a turning point; for the runs labelled 6-12 and
+    14 or more time units after that event, also the threshold study's v2 scored on its own label."""
+    period = floquet.period(t["A"])
+    out = {}
+    for lab in SHARES + ["sym10"]:
+        y, tau = t[f"site_{lab}"], t[f"time_{lab}"]
+        m = (y >= 0) & (t["site_hump"] >= 0)
+        lag = tau[m] - t["time_ott"][m]
+        dist = ring_dist(y[m], t["site_hump"][m], 100)
+        ok = dist <= 1
+        half = period[m] / 2
+        phi = np.mod(tau[m], half) / half
+        bottom = (phi >= 0.375) & (phi < 0.625)
+        turning = (phi >= 0.875) | (phi < 0.125)
+
+        def cell(sel):
+            return {"share_of_runs": float(sel.mean()), "n": int(sel.sum()), "pm1_hump": share(ok, sel),
+                    "bottom": {"n": int((sel & bottom).sum()), "pm1_hump": share(ok, sel & bottom)},
+                    "turning": {"n": int((sel & turning).sum()), "pm1_hump": share(ok, sel & turning)}}
+
+        entry = {"by_lag": {f"{lo:g} to {hi:g}": cell((lag >= lo) & (lag < hi))
+                            for lo, hi in zip(LAG_EDGES[:-1], LAG_EDGES[1:])}}
+        # the event comes just after a turning point in nearly every run, so within a bin the phase follows the lag;
+        # each sampled lag (0.5 time units) shows whether the agreement falls with the lag or swings with the phase
+        lag_s = np.round(2 * lag) / 2
+        entry["by_sample_lag"] = {f"{L:g}": {"n": int(sel.sum()), "pm1_hump": share(ok, sel),
+                                             "bottom_n": int((sel & bottom).sum()), "turning_n": int((sel & turning).sum())}
+                                  for L in np.unique(lag_s[(lag_s >= -4) & (lag_s <= 16)]) for sel in [lag_s == L]}
+        windows = {"lag_6_to_12": (lag >= 6) & (lag < 12), "lag_14_or_more": lag >= 14}
+        dirs = sorted(glob.glob(str(ROOT / "runs" / f"{lab}_s[0-9]_*")))
+        preds = [np.load(Path(d) / "pred_test.npy")[m] for d in dirs]
+        for key, sel in windows.items():
+            entry[key] = cell(sel)
+            entry[key]["five_or_more_from_centre"] = share(dist >= 5, sel)
+            if preds and sel.any():
+                entry[key]["v2_pm1_own"] = float(np.mean([(ring_dist(p[sel], y[m][sel], 100) <= 1).mean() for p in preds]))
+        out[lab] = entry
+    return out
+
+
 def timing(t, s):
     """The hump label of Eq. (6) against the first pendulum past the top, on the main test pool."""
     assert np.allclose(t["theta0"], s["theta0"]), "thrpool_full and setpool_main must hold the same runs"
@@ -196,6 +246,7 @@ def main():
     out = {
         "cross_scores": cross_scores(t, threshold),
         "swing_phase": swing_phase(t),
+        "lag_strata": lag_strata(t),
         "timing": timing(t, s),
         "rings": rings(),
     }
@@ -216,6 +267,21 @@ def main():
               f"({100 * p['turning']['share_of_runs']:4.1f}% of runs)")
     for lab in ("thr10", "sym10"):
         print(f"  {lab} near a turning point, label minus centre: {out['swing_phase'][lab]['turning']['offset_from_centre']}")
+    print("\nlabel within +-1 of the hump centre by lag after the event: all / near the bottom / near a turning point")
+    for lab in ("thr10", "thr12", "thr15"):
+        ls = out["lag_strata"][lab]
+        for key in ("6 to 8", "lag_6_to_12", "lag_14_or_more"):
+            c = ls["by_lag"][key] if key in ls["by_lag"] else ls[key]
+            extra = (f"; >=5 from centre {pct(c['five_or_more_from_centre'])}; v2 on own label {pct(c.get('v2_pm1_own'))}"
+                     if key.startswith("lag_") else "")
+            print(f"  {lab} {key:14s} {100 * c['share_of_runs']:5.1f}% of runs: {pct(c['pm1_hump'])} "
+                  f"{pct(c['bottom']['pm1_hump'])} (n={c['bottom']['n']}) {pct(c['turning']['pm1_hump'])} "
+                  f"(n={c['turning']['n']}){extra}")
+    print("\nlabel within +-1 of the hump centre at each sampled lag after the event (n; near the bottom / near a turning point)")
+    for lab in ("thr10", "sym10", "thr12"):
+        sl = out["lag_strata"][lab]["by_sample_lag"]
+        print(f"  {lab}: " + "  ".join(f"{L}: {pct(sl[L]['pm1_hump']).strip()} ({sl[L]['n']}; {sl[L]['bottom_n']}/{sl[L]['turning_n']})"
+                                       for L in ("3.5", "4.5", "5.5", "6", "7", "7.5", "9") if L in sl))
     tm = out["timing"]
     print(f"\nEq. (6) after the event: strictly after in {100 * tm['eq6_strictly_after_ott']:.2f}% of runs; lag "
           f"{tm['eq6_lag_after_ott']}; ott vs Eq. 6 +-1 {100 * tm['ott_vs_eq6']['pm1']:.2f}%, ott vs eh_k3 +-1 "

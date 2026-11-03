@@ -46,3 +46,4 @@ Each `<table>_tables.md` gives, for every config of an ablation table, the mean 
 | `threshold.json` | The threshold study: label diagnostics, physics baselines, v1 and v2 on every label, correlations and the two threshold choices | `scripts/threshold_analysis.py` |
 | `threshold_hump.json` | What the threshold study means for the hump label, and the growing modes and label timing on other ring sizes (no training) | `scripts/threshold_hump.py` |
 | `settings.json` | The settings and coupling studies: label diagnostics, Floquet filter, trained models, cross-scoring and the hump label's decision rule | `scripts/settings_analysis.py` |
+| `ring_transfer.json` | Every ring-size network and v2 scored on every ring of 50–400 pendulums, including new pools of 80 and 150 (no training; the matrix of the preprint's Fig. 9b), and the identity behind the transfers to rings whose size divides the training ring's | `scripts/ring_transfer.py` |

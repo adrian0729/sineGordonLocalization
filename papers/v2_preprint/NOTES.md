@@ -12,9 +12,9 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 
 - Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
   The figure PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
-- Current state (2026-11-02, second pass): 23 pages (11pt article, 1 in margins), 9 figures, 5 tables, two
-  appendices. No LaTeX warnings or overfull boxes. The abstract is 1,902 characters as plain text (1,909 raw);
-  arXiv's limit is 1,920.
+- Current state (2026-11-02, after the fifth check): 25 pages (11pt article, 1 in margins), 9
+  figures, 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract is 1,918 characters raw
+  (about 1,911 as plain text), 2 under arXiv's limit of 1,920, so any addition to it needs a cut.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
 - Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
@@ -59,6 +59,96 @@ are the other ring sizes?". A three-judge panel agreed to keep the sweep in the 
 - The abstract, the Introduction (paragraph 4) and the Conclusions (paragraphs 1 and 3) each gained a
   ring-size clause. Appendix B no longer says energy "passes to the neighbors".
 
+The audit of the second pass (2026-11-02; about 170 numbers confirmed against `results/`) led to these changes:
+- Disclosures. The Floquet filter's number of periods is chosen per pool on validation (Sec. 2.4). The N = 400
+  pools stop integrating once the event-timed labels are complete (Sec. 2.3); Sec. 3.6 now leads with the
+  uncensored N = 50 to 200 lags. The hump-center predictor's one-site shift is stated in the text, and Fig. 6
+  leaves out the 1.1% of runs that never cross 15%.
+- Sec. 3.5 explains the partial recovery at 15%: crossed 6–12 time units after the event, the label marks the
+  hump center in 99% of runs, and the misses are runs that cross 14 or more units after it, where most of v2's
+  gain over the hump center comes from. It also gives the flank (near a turning point the 10% label most often
+  lies two sites from the center).
+- Sec. 3.7 gives two reasons for the failed transfer to longer rings, the wide network's dilations wrapping on
+  the 100-pendulum ring and the continuous band, and says that whether a long-ring model must see its whole
+  ring is untested (the third check, below, separated the two reasons).
+- One name for the event ("over the top"); "the label" where "the event" meant the label firing; Fig. 9 moved up;
+  Fig. 3 no longer cited before Fig. 2. The paper grew to 24 pages.
+
+A check of those changes (2026-11-02, all numbers confirmed) led to a second set:
+- The fixed-lag check was confounded: the first pendulum goes over the top just after a turning point in 96% of
+  runs, so a later label's phase follows from its lag, and in the 6–8 bin the crossings near the bottom are all
+  at lag 6.0 and those near a turning point at 6.5–7.5. Sec. 3.5 now shows the agreement rising and falling
+  with each half swing (30%, 99%, 19% and 85% at lags 3.5, 5.5, 7.5 and 9), from `by_sample_lag`.
+- Claims made per threshold, not per run: a single-pendulum label marks the hump reliably only at thresholds
+  passed around the event (the 15% label crossed 6–12 units after it marks the hump in 99%). The phase matters
+  only where the pendulums on the flanks of the hump can also reach the threshold; near the event the 5% label
+  is the evidence (the first pendulum over the top is picked by its angle). The 20% hump label: "in some runs
+  the hump has moved", since in general it stays put for about a swing.
+- Sec. 3.7 says the transfers to shorter rings ask little of a circular network, which on a ring whose size
+  divides its training ring's computes what it computes on its own ring with the state repeated (every shorter
+  ring tested then did divide; the third check, below, tested others).
+- The N = 400 sentence no longer reads the integration end (32.5) as the 10% label's lag (23.5). Two long
+  paragraphs split. Fig. 9(a)'s legend no longer says "wide model" (the wider network is the one of 9(b)), and
+  9(b) draws the two networks scored at N = 100 to either side of it. Fig. 6 moved up to the page of its first
+  citation.
+
+A third check (2026-11-02, numbers confirmed) led to the last set:
+- Near the event the phase does not matter, shown per run: the 5% label lies within ±1 of the hump center in
+  99% of the 3% of runs that reach 5% in the quarter around a turning point, and in 98% of those that reach it
+  2–4 time units after the event (near the next turning point), against 28% for the 10% label; the first
+  pendulum over the top lies within ±1 in 99% of the 62% of runs in which it goes over in the quarter around a
+  turning point. "Around the event" became "close to the event", the even spring split's contrast (92% and
+  34%) is stated, one more paragraph split, and the Fig. 9 caption says where the triangles are drawn.
+- "Networks carry over from longer rings to shorter ones" overclaimed: every shorter ring tested divided the
+  training ring. New test pools at N = 80 and 150 (`scripts/ring_transfer.py`) show that the wider network
+  carries over only when trained on 400 pendulums (98% at 150); trained on 50–200 it places 0–62% within ±1.
+  The standard network trained at N = 100, which differs only in lacking the dilations of 64 and 128, keeps 97%
+  at 80 and loses accuracy gradually on longer rings (94%, 92%, 89% at 150, 200, 400). The wider network's
+  failures thus point to its dilations wrapping around its training ring, not to the 100-pendulum ring's
+  global modes. Sec. 3.7's transfer paragraph became two, and the advice for a real chain (Sec. 3.7 and the
+  Conclusions) changed from "a ring at least as long, preferably of its own length" to "a ring of its own
+  length".
+
+A check of that rewrite (2026-11-02, all numbers confirmed) led to a fourth set, after every network was scored on
+every ring (`ring_transfer.py` now fills the whole matrix, five networks on six rings):
+- Fig. 9(b) is now that matrix (rows: the wider network trained at 50–400 and v2 at 100; columns: rings of 50–400;
+  outlined the training ring, asterisks the rings that divide it). It replaces the line plot whose transfers were
+  all to rings dividing the training ring or to longer rings, so that it suggested that long rings carry over to
+  short ones. Its rival-hump labels remain in Sec. 3.6's text (2.4% to 71%).
+- Transfers to rings that divide the training ring no longer "ask little": the repeated state is one the network
+  never met, and the more often it repeats, the more the network loses (under a point twice, 4–6 points four or
+  five times, 16 points eight times). The 93% at N = 80, the 13% at 150 and the network trained at 50 are
+  reported, and "large differences between seeds" is limited to the networks trained at 100 and 200.
+- "The standard network" is v2, with its own-ring 99.4% and 0.4% far misses as the baseline. Two caveats qualify
+  the dilation explanation (the extra layers also widen the view, 513 against 129; networks trained on longer
+  rings saw more modes), and "what matters seems to be the ring a network was trained on" rests on 400 → 150
+  working and 100 → 400 failing. v2's loss on longer rings has two candidate causes, the modes it never saw and a
+  view that no longer spans the ring, and "the hump forms by a local process" became a hedged "suggests ...
+  perhaps". The expectation that was refuted is stated in full (seeing the whole ring would let a network carry
+  over to rings of other sizes).
+- The closing advice is its own paragraph and says "a ring of the chain's size"; the Conclusions say "to larger
+  offsets" (toward smaller ones the network keeps 99.3% at half and 98.2% at a quarter of the offsets). Sec. 2.3
+  lists the pools of 80 and 150 pendulums. The paper grew to 25 pages.
+
+A final check of that rewrite and of the new Fig. 9(b) (2026-11-02; every number confirmed, only wording and
+precision) led to a fifth set:
+- Sec. 3.7's ring paragraphs open by naming the networks scored. A transfer to a ring that divides the training
+  ring "does not test whether" a network carries over, and the losses on repeated states are stated against the
+  network's own ring (against the one trained on the test ring, the eight-fold loss would read 17 points). The
+  wider network trained at 100 is quoted at N = 80 too (17%, against v2's 97.4%), and v2's row is given to one
+  decimal, as in the figure (89.5%, which an integer 89% contradicted on rounding).
+- The second ring paragraph is split, and the argument from N = 100 is scoped to the network trained there.
+  "What matters" is now whether a dilation exceeds half of the training ring rather than the test ring. The view
+  caveat covers every training ring: a view spans 4 × the largest dilation + 1, so the largest dilation exceeds
+  half a ring just when the view goes more than twice around it, and the wider network's view goes 10, 5, 2.6
+  and 1.3 times around its training rings (the one that carries over, 400, has v2's 1.3). The caveat on modes
+  includes the network trained at 50, which saw fewer.
+- v2's gradual loss gets its missing step (on rings of 150–400 only one to three of the 8 to 22 growing modes
+  are longer than its view), and the loss at N = 80, which neither candidate explains, may act on longer rings
+  too. The caption of Fig. 9(b) names the four training rings and says "shorter rings" for the asterisks;
+  Sec. 2.3 says "other amplitudes and couplings" and is split in two; the Conclusions give the reasons in the
+  order of the requirements.
+
 The paper builds on v1 rather than repeating it: v1's background, architecture details and the notes on its
 published text are left to v1 and to `papers/jand2026_arxiv/ERRATA.md`. Left to `REPORT.md`, with at most a
 sentence here: the regularization grid with little data, the key choices repeated on three labels, the damping
@@ -68,34 +158,6 @@ sets, the hump-top control, the Floquet clocks, the unknown-start numbers, and t
 ## Open TODOs
 
 ### Before posting (blocking)
-
-**Audit fixes not yet applied (2026-11-02).** An adversarial audit of the second pass confirmed about 170
-numbers against `results/` and found these, still to fix in `main.tex` before the final review:
-- Sec. 2.4 says the Floquet filter runs "for six swing periods"; the number is chosen on validation (six on the
-  main pools, four to nine on the further pools of Sec. 3.6). Its Fig. 3(a) citation comes before Fig. 2.
-- The N = 400 pools stop integrating once the event-timed labels are complete (τ = 75.5–83.0, a median of
-  32.5 time units after the event; `threshold_hump.json`, `rings` → `integration_end`). Secs. 2.3 and 3.6 should
-  say so, since it is why the 10% and Eq. (6) labels fire there in only 2.9% and 23% of runs.
-- Sec. 3.5: "the event" also names the hump label firing (line ~260); use one verb for the event ("goes over
-  the top", not "past" or "passes"); state in the text that the hump-center predictor is shifted one site at
-  7–12%; "a median of at most two time units", not "within two"; the 63% is 79% once shifted; explain 0.27
-  against 0.28 (0.28 each when trained side by side); hedge the drift at 20% (the extra misses are mostly by
-  two or three sites); "none of the shares we computed", naming the E_sep labels tested.
-- Sec. 3.6: "a wider version of v2"; its fall from 99.9% to 98.8% (far misses 0.1% to 0.9%); the rival-hump
-  share at N = 100 (20%).
-- Sec. 3.7: "carry over reliably only from longer rings"; the wide network's dilations 64 and 128 wrap on the
-  100-pendulum ring (128 ≡ 28), another possible reason it fails on longer rings; the standard network's 92%
-  and 89% come with 6% and 10% far misses; "on a ring at least as long, preferably of its own length" (also in
-  the Conclusions).
-- Fig. 6: say why the sweep's 10% scores differ slightly from Table 1 (retrained for the study) and that the
-  1.1% of runs not crossing 15% by τ = 150 are left out; in (b), the diamonds sit at the end of their one-swing
-  average and the stars at zero lag; axis labels "goes over the top" (`make_figures.py`).
-- Fig. 9: define the rival hump at the event; move the figure before "These tests applied a network..." (about
-  a fifth of p. 18 is blank).
-- Abstract: restore "the size of the initial offsets". Introduction: "the 10% threshold of Ref. [v1]", and the
-  ring clause as its own sentence. Conclusions: "from 3% to 12%"; "only when it fires close to ...".
-- `REPORT.md`: "read 3, 5 and 7 time units after the event" should say where the one-swing averages end; the
-  drift wording near the k3_s20 line (about line 951).
 
 1. **Author.** Adrian Mittal alone (decided 2026-11-02), Department of Physics, Carnegie Mellon University;
    almittal@andrew.cmu.edu. v2 is new work that cites Ref. [v1] for the earlier results.
@@ -132,6 +194,10 @@ numbers against `results/` and found these, still to fix in `main.tex` before th
      feature, 98.9% of the parameters in position-tied LSTM input weights).
    - Sec. 3.7: the reason offered for the waiting rate (white noise in every mode, the site depending on all
      growing modes) is an interpretation, not a derivation.
+   - Sec. 3.7: the failed transfers of the wider network trained at N = 100 "point to how its dilations wrap
+     around that ring" (a controlled comparison with v2, with the two caveats stated), "what matters seems to be
+     whether a dilation exceeds half of the ring a network was trained on", and the two candidate causes of v2's
+     loss on longer rings (untested).
    - Conclusions: "the features that decide the localization site are largely the projections of the early
      state onto the few growing long waves".
 10. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
@@ -167,10 +233,33 @@ of θ_n(0)). Notes:
     turning point;
   - `timing`: the Eq. (6) label against the event;
   - `rings`: modes, σ1, e-foldings and label lags at N = 50–400.
+- `lag_strata` in `results/threshold_hump.json` holds Sec. 3.5's lag-and-phase strata: by two-unit bins, at each
+  sampled lag (`by_sample_lag`: the 30/99/19/85% at 10%), and the 15% label crossed 6–12 or 14 or more time units
+  after the event, with v2 on its own label there. The event's own phase (96% in the quarter of a half period
+  after a turning point) is `swing_phase` → `ott` → `by_eighth`, the first two eighths.
+- The ring paragraph's label lags and agreements come from `rings` (runs in which the label fired; at N = 400
+  censored at the end of the integration, `integration_end`).
+- Sec. 3.6 and Fig. 7(c) use the Floquet filter with the number of periods chosen per pool on validation
+  (`periods` in `settings.json`: 5, 6 and 8 for 4×, 1× and 1/8× the offsets; 9 at A = 1.60; 7, 6, 5, 5 on the
+  rings) and the pool's true amplitude rather than the estimate (at most 0.1 point where checked).
 - The hump-center predictor of Fig. 6(a) is the Eq. (6) site shifted by the constant offset that suits each
   label best on validation (one site at 7–12%, none otherwise; `baselines.*.hump_oracle`).
 - The ring numbers come from the wider network (dilations up to 128, 28,994 parameters), including at
-  N = 100 (99.5%, 0.24). They are not Table 3's standard network (99.4%, 0.28).
+  N = 100 (99.5%, 0.24). They are not Table 3's standard network (99.4%, 0.28), which is Fig. 9(b)'s bottom
+  row and the subject of Sec. 3.7's second ring paragraph.
+- The views of 129 and 513 pendulums are what a pendulum's features see (Sec. 3.2's receptive field, 4 × the
+  largest dilation + 1). The head's kernel-3 convolution adds one pendulum on each side to what a site score
+  sees (131 and 515); both were measured on the saved weights. On rings of 150–400 pendulums, 1–3 of the 8–22
+  growing modes (cutoff 18.1 pendulums at A = 1.75, `threshold_hump.json` rings) are longer than 129.
+- Sec. 3.7's transfers and Fig. 9(b) are `results/ring_transfer.json` (`scripts/ring_transfer.py`): the wider network
+  trained at 50, 100, 200 and 400 and v2 trained at 100, each scored on rings of 50, 80, 100, 150, 200 and 400 (the own
+  rings repeat `settings.json` C.per_n and the pairs in C.cross repeat C.cross, exactly), each seed's accuracy, and
+  the check that a network on a ring whose size divides its training ring's computes what it computes there with
+  the state repeated (saved weights, 64 random states, seven pairs: scores within about 1e-4 on scores of up to about
+  1,200, the same predicted site in every state). The losses on repeated states (under a point twice, 4–6 points
+  four or five times, 16 points eight times) are differences between cells of that matrix. Its new test pools
+  (`data/setpool_n80_test.npz`, `data/setpool_n150_test.npz`, 10,000 runs each) are git-ignored; the commands that
+  rebuild them are in the script's docstring.
 - Sec. 3.6's Floquet accuracies (52/73/87% against the offset scale, 17% at A = 1.60) are scores against
   the event-timed hump label (`settings_analysis.py`, `floquet_baseline` with L = eh_k3). An earlier draft
   called them scores against the first pendulum over the top.
