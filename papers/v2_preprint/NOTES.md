@@ -221,9 +221,9 @@ scratchpad only):
 4. **Before uploading to arXiv** (which publishes the TeX source): strip every `%` comment from `main.tex`
    (e.g. with `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
 5. **Data and code availability** gives the repository URL. The repository is public (checked 2026-11-04),
-   but its default branch `main` was last updated 2026-10-21 and lacks the v2 branch's later work (13 commits,
-   among them the settings and crossing-energy scripts and results), so merge `v2-physics-guided` into `main`
-   before posting. Optionally add a version tag or a Zenodo DOI, which archives a frozen copy of a tagged
+   and its default branch `main` was fast-forwarded to `v2-physics-guided` on 2026-11-04 (it had stopped at
+   2026-10-21). Fast-forward `main` again (`git push origin v2-physics-guided:main`) after any later change,
+   so the link in the paper shows the posted version. Optionally add a version tag or a Zenodo DOI, which archives a frozen copy of a tagged
    release, so the link keeps pointing at the code as it was when the paper was posted.
 
 ### Should check
