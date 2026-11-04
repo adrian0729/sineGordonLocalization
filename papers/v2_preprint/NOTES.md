@@ -217,11 +217,14 @@ scratchpad only):
    it: abstract, Introduction (paragraphs 2 and 5), Table 1 caption, Sec. 3.4, Sec. 3.5 (the sweep's baselines paragraph),
    Appendix B, Conclusions (limitations). `REPORT.md` (Sec. 2) keeps the hedged account of the rebuild.
 3. **Acknowledgements** (added 2026-11-02, after the Conclusions as in v1) thank L.Q. English and the other
-   coauthors of Ref. [v1] for the collaboration this work builds on. Add funding, or anything more specific
-   about the earlier work, before posting if wanted.
+   coauthors of Ref. [v1] for the collaboration this work builds on. No funding to add (the user, 2026-11-04).
 4. **Before uploading to arXiv** (which publishes the TeX source): strip every `%` comment from `main.tex`
    (e.g. with `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
-5. **Data and code availability** gives the repository URL. Add a version tag or DOI (e.g. a Zenodo archive).
+5. **Data and code availability** gives the repository URL. The repository is public (checked 2026-11-04),
+   but its default branch `main` was last updated 2026-10-21 and lacks the v2 branch's later work (13 commits,
+   among them the settings and crossing-energy scripts and results), so merge `v2-physics-guided` into `main`
+   before posting. Optionally add a version tag or a Zenodo DOI, which archives a frozen copy of a tagged
+   release, so the link keeps pointing at the code as it was when the paper was posted.
 
 ### Should check
 
@@ -238,9 +241,10 @@ scratchpad only):
    `li2021fourier` (ICLR 2021) is from memory: OpenReview and DBLP answer scripts with a browser challenge.
    `smith2019super`, `chen2023symbolic` and `guo2017calibration` are still in `refs.bib` but not cited, so
    they do not reach `main.bbl`.
-8. **Edits to reused v1 references:** `thakur2007driven` says 2008 (J. Phys. D 41, 015503) and lists the
-   author as "Basu Thakur, R."; `cuevas2014sine` is a `@book` with editors; SciPy is cited as Virtanen et al.
-   (2020). Revert if the v1 forms are preferred.
+8. **Edits to references copied from v1's bibliography:** `thakur2007driven` says 2008 and "Basu Thakur, R."
+   (Crossref, 10.1088/0022-3727/41/1/015503: family name Basu Thakur, online 2007-12-19, in the 2008 print
+   volume 41), against v1's 2007 and "Thakur, R Basu"; `cuevas2014sine` drops the subtitle; SciPy, not in
+   v1's list, is cited as Virtanen et al. (2020). The v2 forms are kept.
 9. **Interpretive sentences**, checked 2026-11-03:
    - Sec. 3.1, "The energetic clusters identified in Ref. [v1] thus appear to be the growing long waves, seen
      through a low-pass filter": rests on Fig. 2(a) (the best width follows the band edge at seven amplitudes)
