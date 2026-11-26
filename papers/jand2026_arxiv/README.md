@@ -11,6 +11,8 @@ This folder rebuilds the paper from its Overleaf source in the standard `article
 
 ## arXiv submission form
 
+This paper will not be posted to arXiv (decided 2026-11-25). The values below are kept for reference only.
+
 | Field | Value |
 |---|---|
 | License | CC BY 4.0, matching the journal (arXiv's license cannot be changed later) |

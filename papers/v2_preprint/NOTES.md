@@ -218,8 +218,10 @@ scratchpad only):
    Appendix B, Conclusions (limitations). `REPORT.md` (Sec. 2) keeps the hedged account of the rebuild.
 3. **Acknowledgements** (added 2026-11-02, after the Conclusions as in v1) thank L.Q. English and the other
    coauthors of Ref. [v1] for the collaboration this work builds on. No funding to add (the user, 2026-11-04).
-4. **Before uploading to arXiv** (which publishes the TeX source): strip every `%` comment from `main.tex`
-   (e.g. with `arxiv_latex_cleaner`); check with `grep -n 'TODO' main.tex`.
+4. **Before uploading to arXiv** (which publishes the TeX source): `main.tex` has 11 `%` comment lines
+   (checked 2026-11-25): two build notes, one layout note, section dividers, and the `TODO-AUTHORS` line in Data
+   and code availability. None is sensitive. Remove the TODO line once the version tag is settled (item 5);
+   stripping the rest is optional. Check with `grep -n '%' main.tex`.
 5. **Data and code availability** gives the repository URL. The repository is public (checked 2026-11-04),
    and its default branch `main` was fast-forwarded to `v2-physics-guided` on 2026-11-04 (it had stopped at
    2026-10-21). Fast-forward `main` again (`git push origin v2-physics-guided:main`) after any later change,
@@ -273,7 +275,8 @@ scratchpad only):
      87% (turning point) of runs; it now gives the medians alone ("far above the 8.6–8.7%").
 10. **Title** is a proposal: "Physics-guided machine-learning prediction of spontaneous energy
    localization in a sine-Gordon pendulum ring".
-11. Once the v1 preprint has an arXiv ID, consider adding it to the `mittal2026jand` entry.
+11. The v1 paper will not be posted to arXiv (decided 2026-11-25), so v2 cites it by its journal reference and DOI
+   only.
 
 ## Traceability
 
