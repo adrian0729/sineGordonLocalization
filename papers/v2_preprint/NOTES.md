@@ -218,15 +218,14 @@ scratchpad only):
    Appendix B, Conclusions (limitations). `REPORT.md` (Sec. 2) keeps the hedged account of the rebuild.
 3. **Acknowledgements** (added 2026-11-02, after the Conclusions as in v1) thank L.Q. English and the other
    coauthors of Ref. [v1] for the collaboration this work builds on. No funding to add (the user, 2026-11-04).
-4. **Before uploading to arXiv** (which publishes the TeX source): `main.tex` has 11 `%` comment lines
-   (checked 2026-11-25): two build notes, one layout note, section dividers, and the `TODO-AUTHORS` line in Data
-   and code availability. None is sensitive. Remove the TODO line once the version tag is settled (item 5);
-   stripping the rest is optional. Check with `grep -n '%' main.tex`.
+4. **Before uploading to arXiv** (which publishes the TeX source): `main.tex` has 10 `%` comment lines
+   (checked 2026-11-25): two build notes, one layout note and section dividers. None is sensitive, so stripping
+   them is optional. Check with `grep -n '%' main.tex`.
 5. **Data and code availability** gives the repository URL. The repository is public (checked 2026-11-04),
    and its default branch `main` was fast-forwarded to `v2-physics-guided` on 2026-11-04 (it had stopped at
    2026-10-21). Fast-forward `main` again (`git push origin v2-physics-guided:main`) after any later change,
-   so the link in the paper shows the posted version. Optionally add a version tag or a Zenodo DOI, which archives a frozen copy of a tagged
-   release, so the link keeps pointing at the code as it was when the paper was posted.
+   so the link in the paper shows the posted version. For now the paper gives the plain repository link, with
+   no version tag or DOI (the user, 2026-11-25); the user will decide what to do before posting.
 
 ### Should check
 
