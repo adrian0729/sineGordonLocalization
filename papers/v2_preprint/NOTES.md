@@ -12,9 +12,9 @@ cd papers/v2_preprint && pdflatex main && bibtex main && pdflatex main && pdflat
 
 - Files: `main.tex`, `main.bbl`, `fig_schematic.tex` (TikZ, read by `\input`), `figures/paper_fig*.pdf`.
   The figure PDFs are drawn by `scripts/make_figures.py --paper`; the schematic is plain TikZ.
-- Current state (2026-11-03, after the cuts): 23 pages (11pt article, 1 in margins), 9 figures (Fig. 9 one
-  panel, at 0.6 of the text width), 5 tables, two appendices. No LaTeX warnings or overfull boxes. The abstract
-  is 1,606 characters raw, 314 under arXiv's limit of 1,920.
+- Current state (2026-11-25, after the writing round): 21 pages (11pt article, 1 in margins), 9 figures (Fig. 9
+  one panel, at 0.6 of the text width), 5 tables, two appendices. No LaTeX warnings or overfull boxes. The
+  abstract is 1,301 characters raw, 619 under arXiv's limit of 1,920.
 - `main.bbl` is committed. arXiv does not run BibTeX, so regenerate and recommit `main.bbl`
   whenever `refs.bib` or the citations change.
 - Upload to arXiv: `main.tex`, `main.bbl`, `fig_schematic.tex`, `figures/*.pdf` (see `../README.md`).
@@ -204,6 +204,72 @@ scratchpad only):
 - Kept on purpose: the single-pendulum to hump mechanism (untouched), the threshold sweep and its baselines,
   the statements of what was predicted before each test, the two-branch network and the Floquet input (the
   Introduction promises the choices that did not pay off), and every real-chain result except ring transfer.
+
+The 2026-11-25 writing round. The user found the prose repetitive, partly unnecessary and clearly
+machine-written. The abstract described too many small results, and short staged paragraph openers ("The present
+paper is that study", "Three findings stand out", "One point applies throughout") read as unnatural. They asked
+for fewer words that mean more, and for figures that read at a glance. The text before this round is commit
+4da050f.
+- Prose went from 11,352 to about 9,450 words (-17%):
+
+  | Section | Before | After |
+  |---|---|---|
+  | Introduction | 686 | 503 |
+  | Sec. 3.5 ("What to predict", now "Defining the localization site") | 2,866 | 2,076 |
+  | Sec. 3.6 | 1,248 | 995 |
+  | Sec. 3.7 | 1,376 | 1,164 |
+  | Conclusions | 775 | 525 |
+
+  Pages went from 23 to 21.
+- Abstract, 266 to 215 words (1,606 to 1,301 characters raw). It keeps the system, the earlier work, the spectrum
+  and determinism, the network's gain, the hump label at the event (99.4%) and the settings result. v1's retrained
+  accuracy and the threshold details are left to the Introduction and App. B.
+- Style:
+  - "rather than" went from 17 to 1 and prose colons from 42 to 2.
+  - No staged short openers are left; a script lists every sentence of eight words or fewer and every paragraph
+    opener of twelve or fewer.
+  - First/Second/Third sequences became prose, one-line closers went, and every caption leads with its message.
+- Moved: the extra pools of Secs. 3.6 and 3.7 now sit in App. A ("Further pools").
+- Cut, as secondary:
+  - the 15% threshold's gain over the hump center (91.1 against 85.3)
+  - the Floquet filter at four times the offsets
+  - the 10% model's 91% within ±1 of the hump label (the sweep's 90–99% covers it)
+  - the hump label's hard-label remark
+  - the Floquet filter's 52.0–72.6% range across thresholds
+  - the twins at h = 0.3, 0.7 (81–93%)
+  - the separatrix energy as a scale (1.7% of the total); 3E_sep, about 5.1%, stays in the threshold rule
+  - the 85% at nine time units
+  - the sub-case profiles of the mechanism
+  The record stays in `REPORT.md`.
+- Kept on purpose:
+  - the single-pendulum to hump mechanism (both phases, the springs choosing the side)
+  - every statement of what was predicted, expected or decided before a test
+  - the threshold sweep with its baselines
+  - all headline numbers
+- Figures (`make_figures.py --paper`; Figs. 1, 2 and 5 unchanged byte for byte):
+  - Fig. 4(b): the legend is titled "two-branch network" with "one score per site, circular", "one score per
+    site, zero-padded" and "flatten + dense head", set narrow enough to clear the 3k point; v1 is labelled with a
+    leader line.
+  - Fig. 6: shown in percent, the lag axis is in time units, and the legend reads "first crossing", "hump,
+    threshold-timed" and "hump, event-timed".
+  - Fig. 7:
+    - h̃ in every legend, and "s = 1/8" and so on.
+    - Panel (a) reads "Median time over the top" from `median_time_ott`. This is identical to the event-timed
+      label's `median_time_L` in every pool, checked.
+    - Only the uncrowded amplitudes are labelled.
+    - The caption explains the marker shapes of (c).
+  - Fig. 8(a): the axis is "Effective noise σ_s e^{-σ_1 τ}", and the caption says the four curves nearly coincide
+    up to about 10^-3 rad (checked against the plot).
+  - Fig. 9: "range of the main pools" is marked in the band.
+- Checks:
+  - A script diffed every number: none is new or more frequent, and the dropped ones are listed above.
+  - Two independent reviewers compared the old and new text section by section. Their findings were applied:
+    the expectations stated before tests (Sec. 2.2, the GRU, Sec. 3.2), why the 15% threshold and the distance
+    term were kept, "so no run appears in two of them", the settings qualifier on the abstract's halving claim,
+    the threshold rule's outcome at 3E_sep, the N = 200 hump label (82%), the 15% label's 99% when it fires 6–12
+    time units after the event, the twins' own A_c, the left-edge spring, "in simulation" for the camera, and
+    the mechanism in the Conclusions. "Mainly" in the abstract's last sentence is deliberate: the spectrum sets
+    the clock and the coarse site, not the last pendulum.
 
 ## Open TODOs
 

@@ -290,9 +290,9 @@ def fig_data_efficiency(ax=None):
     paper = ax is not None
     fig, ax = subplots(ax, figsize=(5.6, 3.4))
     plotted = False
-    series = (("circular", "circular, one score per site" if paper else "circular padding, one score per site"),
-              ("zero_pad", "zero padding"),
-              ("dense_head", "v1-style flatten + dense head" if paper else "flatten + dense head (like v1)"))
+    series = (("circular", "one score per site, circular" if paper else "circular padding, one score per site"),
+              ("zero_pad", "one score per site, zero-padded" if paper else "zero padding"),
+              ("dense_head", "flatten + dense head" if paper else "flatten + dense head (like v1)"))
     colors = [SLOT[0], SLOT[2], SLOT[3]] if paper else SLOT  # in the paper, orange is kept for v1
     for color, (name, label) in zip(colors, series):
         pts = [(n, [r["test"]["mae"] for r in recs.get(("symmetry", f"{name}_n{n}"), [])]) for n in ns]
@@ -307,11 +307,17 @@ def fig_data_efficiency(ax=None):
     v1 = [r["test"]["mae"] for r in load_runs() if r.get("model") == "v1_cnn_bilstm" and r.get("label", "right") == "right"]
     if v1:
         ax.plot([60_000], [np.mean(v1)], marker="D", linestyle="none", color=SLOT[1] if paper else INK2,
-                markeredgecolor=SURFACE, label="v1 (26.5M parameters)" if paper else "v1 rebuilt (26.5M parameters)")
+                markeredgecolor=SURFACE, label=None if paper else "v1 rebuilt (26.5M parameters)")
+        if paper:  # labelled with a leader line: the legend names the variants of the two-branch network
+            ax.annotate("v1 (26.5M parameters)", (60_000, np.mean(v1)), xytext=(24_000, 5.6), textcoords="data",
+                        ha="center", va="bottom", fontsize=7, color=SLOT[1],
+                        arrowprops={"arrowstyle": "-", "color": SLOT[1], "linewidth": 0.6, "shrinkA": 1, "shrinkB": 4})
     ax.set_xscale("log")
     ax.set_xlabel("Training runs")
     ax.set_ylabel("Mean distance on test (sites)")
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", title="two-branch network" if paper else None, title_fontsize=8, alignment="left",
+              fontsize=7.5 if paper else None, handlelength=1.5 if paper else None,
+              handletextpad=0.5 if paper else None)  # narrow enough to clear the 3k point of the dense head
     if paper:
         ax.set_xticks(ns, [f"{n // 1000}k" for n in ns])
         ax.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
@@ -419,7 +425,7 @@ def fig_noise_collapse(axes=None):
         ax.set_xscale("log")
         ax.set_yscale("log")
         if paper:
-            ax.set_xlabel(r"Sensor noise ÷ growth before watching, $\sigma_s\,e^{-\sigma_1\tau}$ (rad)")
+            ax.set_xlabel(r"Effective noise $\sigma_s\,e^{-\sigma_1\tau}$ (rad)")
         else:
             ax.set_title(title, loc="left", fontsize=9)
             ax.set_xlabel("Sensor noise ÷ growth since release, σ_s·exp(−σ₁τ) (rad)")
@@ -959,22 +965,22 @@ def fig_threshold_lag(bx, d):
     dt, ds = d["diagnostics"]["test"], s["diagnostics"]["test"]
     shares = [l for l in d["labels"] if l.startswith("thr") and l in d["v2"]]
     lag = [dt[l]["lag_after_ott_median"] for l in shares]
-    acc = [d["v2"][l]["acc_1"] for l in shares]
-    bx.plot(lag, acc, color=SLOT[0], marker="o", markersize=3.5, label="one pendulum")
+    acc = [100 * d["v2"][l]["acc_1"] for l in shares]
+    bx.plot(lag, acc, color=SLOT[0], marker="o", markersize=3.5, label="first crossing")
     for l, x_, y_ in zip(shares, lag, acc):
         if l in ("thr03", "thr07", "thr10", "thr12", "thr15"):
             bx.annotate(f"{int(l[3:])}%", (x_, y_), textcoords="offset points", xytext=(4, -9), fontsize=7,
                         color=SLOT[0])
     hump = [l for l in s["v2"] if l.startswith("hump_")]
-    bx.plot([ds[l]["lag_after_ott_median"] for l in hump], [s["v2"][l]["test"]["acc_1"] for l in hump],
-            color=SLOT[3], marker="D", markersize=3.5, linestyle="none", label="hump, by a threshold")
+    bx.plot([ds[l]["lag_after_ott_median"] for l in hump], [100 * s["v2"][l]["test"]["acc_1"] for l in hump],
+            color=SLOT[3], marker="D", markersize=3.5, linestyle="none", label="hump, threshold-timed")
     eh = [l for l in s["v2"] if l.startswith("eh_") and l != "eh_k1"]
-    bx.plot([ds[l]["lag_after_ott_median"] for l in eh], [s["v2"][l]["test"]["acc_1"] for l in eh],
-            color=SLOT[3], marker="*", markersize=8, linestyle="none", label="hump, by the event")
+    bx.plot([ds[l]["lag_after_ott_median"] for l in eh], [100 * s["v2"][l]["test"]["acc_1"] for l in eh],
+            color=SLOT[3], marker="*", markersize=8, linestyle="none", label="hump, event-timed")
     bx.axvline(0, color=AXIS, linewidth=0.8, zorder=0)
-    bx.set_xlabel("Median lag after the first pendulum\ngoes over the top")
-    bx.set_ylabel("v2 within ±1 of its label (test)")
-    bx.set_ylim(0.75, 1.005)
+    bx.set_xlabel("Median lag after the first pendulum\ngoes over the top (time units)")
+    bx.set_ylabel("v2 within ±1 of its label (%)")
+    bx.set_ylim(75, 100.5)
     bx.legend(loc="center left", bbox_to_anchor=(0.0, 0.47), fontsize=7.5)
 
 
@@ -987,32 +993,32 @@ def fig_threshold(axes=None, lag_panel=False):
     x = np.array([int(l[3:]) for l in shares])
     top = 17  # the first pendulum over the top, drawn after the shares
     fig, (ax, bx) = subplots(axes, 1, 2, figsize=(11, 4), gridspec_kw={"width_ratios": [1.3, 1]})
-    ceiling = [d["baselines"][l]["hump_oracle"]["acc_1"] for l in shares]
+    ceiling = [100 * d["baselines"][l]["hump_oracle"]["acc_1"] for l in shares]
     ax.plot(x, ceiling, color=MUTED, linewidth=0.9, linestyle="--", label="hump center, as a predictor")
-    ax.plot(x, [d["baselines"][l]["floquet"]["acc_1"] for l in shares], color=SLOT[2], marker="o", markersize=3,
+    ax.plot(x, [100 * d["baselines"][l]["floquet"]["acc_1"] for l in shares], color=SLOT[2], marker="o", markersize=3,
             label="Floquet filter (no training)")
     v2 = [l for l in shares if l in d["v2"]]
     if v2:
         xs = [int(l[3:]) for l in v2]
-        ax.errorbar(xs, [d["v2"][l]["acc_1"] for l in v2], yerr=[d["v2"][l]["acc_1_sd"] or 0 for l in v2],
+        ax.errorbar(xs, [100 * d["v2"][l]["acc_1"] for l in v2], yerr=[100 * (d["v2"][l]["acc_1_sd"] or 0) for l in v2],
                     color=SLOT[0], marker="o", capsize=0, label="v2")
         if "ott" in d["v2"]:
-            ax.plot([top], [d["v2"]["ott"]["acc_1"]], color=SLOT[0], marker="*", markersize=8, linestyle="none")
+            ax.plot([top], [100 * d["v2"]["ott"]["acc_1"]], color=SLOT[0], marker="*", markersize=8, linestyle="none")
     v1 = {k.split("|")[0]: v for k, v in d["v1"].items() if k.endswith("|full") and "acc_1" in v}
     v1s = [l for l in shares if l in v1]
     if v1s:
-        ax.plot([int(l[3:]) for l in v1s], [v1[l]["acc_1"] for l in v1s], color=SLOT[1], marker="s",
+        ax.plot([int(l[3:]) for l in v1s], [100 * v1[l]["acc_1"] for l in v1s], color=SLOT[1], marker="s",
                 linestyle="none", label="v1" if axes is not None else "v1 rebuilt")
     if "ott" in v1:
-        ax.plot([top], [v1["ott"]["acc_1"]], color=SLOT[1], marker="s", linestyle="none")
-    ax.plot([top], [d["baselines"]["ott"]["floquet"]["acc_1"]], color=SLOT[2], marker="o", markersize=3, linestyle="none")
+        ax.plot([top], [100 * v1["ott"]["acc_1"]], color=SLOT[1], marker="s", linestyle="none")
+    ax.plot([top], [100 * d["baselines"]["ott"]["floquet"]["acc_1"]], color=SLOT[2], marker="o", markersize=3, linestyle="none")
     ax.axvline(10, color=AXIS, linewidth=0.8, zorder=0)
     ax.set_xticks(list(x) + [top], [str(v) for v in x] + ["top"])
     # the preprint explains the "top" tick in its caption; its two x labels would otherwise run into each other
     ax.set_xlabel("Threshold (% of the total energy)" if lag_panel else
                   "Threshold (% of the total energy); \"top\": first pendulum over the top")
-    ax.set_ylabel("Within ±1 of the label (test)")
-    ax.set_ylim(0.25, 1.01)
+    ax.set_ylabel("Within ±1 of the label (%)")
+    ax.set_ylim(25, 101)
     ax.legend(loc="lower left", ncol=2, fontsize=7.5, columnspacing=1.2)
     if lag_panel:
         fig_threshold_lag(bx, d)
@@ -1077,29 +1083,32 @@ def fig_settings(axes=None, which="abcdef"):
     pa = [e for e in B.get("per_amplitude", {}).values() if e.get("pool")]
     if pa:
         x = np.array([e["efold_time"] for e in pa])
-        y = np.array([e["pool"]["median_time_L"] for e in pa])
-        c = B["ampwide"]["overall_L"]["median"] if B.get("ampwide") else float(np.median(y * 1 / x))
+        y = np.array([e["pool"]["median_time_ott"] for e in pa])  # the event-timed label is read at this moment
+        c = B["ampwide"]["overall_ott"]["median"] if B.get("ampwide") else float(np.median(y * 1 / x))
         grid = np.linspace(0, x.max() * 1.05, 20)
         ax_b.plot(grid, c * grid, color=MUTED, linewidth=0.9, linestyle="--", label=f"{c:.2f}/σ₁")
-        ax_b.plot(x, y, color=SLOT[0], marker="o", linestyle="none", label="median time of the label")
+        ax_b.plot(x, y, color=SLOT[0], marker="o", linestyle="none", label=r"$\tilde h$ = 0.5, fixed A")
         for i, (e, xi, yi) in enumerate(zip(pa, x, y)):
-            below = i % 2 == 1 and e["A"] >= 1.85   # the crowded high-amplitude end: alternate above-left and below-right
+            if paper and round(e["A"], 2) in (1.8, 1.85, 1.9):  # the crowded high-amplitude end: the paper labels its last point only
+                continue
+            below = not paper and i % 2 == 1 and e["A"] >= 1.85  # report: alternate above-left and below-right
             ax_b.annotate(f"{e['A']:g}", (xi, yi), xytext=(4, -9) if below else (-4, 4), textcoords="offset points",
                           ha="left" if below else "right", fontsize=7, color=INK2)
         other = [m for fam in d.get("E", {}).get("families", {}).values() for m in fam["members"].values()
                  if m["kind"] != "reference" and round(m["h"], 2) != 0.5]
         if other:  # chains at other global couplings (part E) on the same line
-            ax_b.plot([1 / m["sigma1"] for m in other], [m["pool"]["median_time_L"] for m in other], linestyle="none", marker="D",
-                      color=SLOT[1], markersize=3.5, markeredgecolor="white", markeredgewidth=0.4, label="h = 0.3–0.7")
+            ax_b.plot([1 / m["sigma1"] for m in other], [m["pool"]["median_time_ott"] for m in other], linestyle="none", marker="D",
+                      color=SLOT[1], markersize=3.5, markeredgecolor="white", markeredgewidth=0.4, label=r"$\tilde h$ = 0.3–0.7")
         ax_b.set_xlim(0, x.max() * 1.08)
         ax_b.set_ylim(0, y.max() * 1.1)
         ax_b.legend(loc="upper left", fontsize=None if not paper else 6.5)
     ax_b.set_xlabel("e-folding time 1/σ₁ (points: amplitude A)" if not paper else "e-folding time 1/σ₁")
-    ax_b.set_ylabel("Median time of the label")
+    ax_b.set_ylabel("Median time over the top")
 
     # (c) measured against predicted delay, one point per (scale, amplitude bin)
     D = d.get("D", {})
     cols = {0.125: SLOT[0], 0.25: SLOT[2], 0.5: SLOT[3], 2: SLOT[1], 4: "#8a3ffc"}
+    fractions = {0.125: "1/8", 0.25: "1/4", 0.5: "1/2"}
     allv = []
     for e in D.get("per_scale", {}).values():
         dl = e.get("delay")
@@ -1109,7 +1118,7 @@ def fig_settings(axes=None, which="abcdef"):
         if pts:
             allv += [v for p_ in pts for v in p_]
             ax_c.plot(*zip(*pts), linestyle="none", marker="o", color=cols.get(e["scale"], INK2), markeredgecolor=SURFACE if not paper else "white",
-                      markeredgewidth=0.6, label=f"scale {e['scale']:g}")
+                      markeredgewidth=0.6, label=f"s = {fractions.get(e['scale'], format(e['scale'], 'g'))}")
     if allv:
         lim = (min(allv) - 1, max(allv) + 1)
         ax_c.plot(lim, lim, color=MUTED, linewidth=0.9, linestyle="--", zorder=0)
@@ -1121,7 +1130,7 @@ def fig_settings(axes=None, which="abcdef"):
 
     # (d) Floquet filter and v2 against r = eta_max / (A - A_c)
     fr = d.get("floquet_vs_ratio", {}).get("points", [])
-    names = (("fixed", "o", "fixed A"), ("offset", "s", "offset bins")) if paper else (("fixed", "o", "fixed amplitude"), ("offset", "s", "offset-pool bin"))
+    names = (("fixed", "o", "fixed A"), ("offset", "s", "scaled offsets")) if paper else (("fixed", "o", "fixed amplitude"), ("offset", "s", "offset-pool bin"))
     for kind, marker, name in names:
         q = [p_ for p_ in fr if p_["kind"] == kind]
         if q:
@@ -1136,11 +1145,11 @@ def fig_settings(axes=None, which="abcdef"):
           if m["kind"] == "twin" and g_(m, "floquet", "acc_1") is not None and m.get("eta_over_distance")]
     if tw:  # the trained twins at h = 0.4, 0.6, with A_c of their own coupling
         ax_d.plot([m["eta_over_distance"] for m in tw], [100 * m["floquet"]["acc_1"] for m in tw], linestyle="none", marker="D",
-                  color=SLOT[1], markersize=4, markeredgecolor="white", markeredgewidth=0.4, label="Floquet filter, h = 0.4, 0.6")
+                  color=SLOT[1], markersize=4, markeredgecolor="white", markeredgewidth=0.4, label=r"Floquet filter, $\tilde h$ = 0.4, 0.6")
         tv = [m for m in tw if g_(m, "model", "test", "acc_1") is not None]
         if tv:
             ax_d.plot([m["eta_over_distance"] for m in tv], [100 * m["model"]["test"]["acc_1"] for m in tv], linestyle="none",
-                      marker="D", markerfacecolor="none", color=SLOT[1], markersize=4, label="v2, h = 0.4, 0.6")
+                      marker="D", markerfacecolor="none", color=SLOT[1], markersize=4, label=r"v2, $\tilde h$ = 0.4, 0.6")
     ax_d.set_xscale("log")
     ax_d.set_ylim(0, 103)
     ax_d.set_xlabel(r"Offset size over distance above threshold, $\eta_{\max}/(A - A_c)$" if not paper else r"$\eta_{\max}\,/\,(A - A_c)$")
@@ -1169,9 +1178,10 @@ def fig_settings(axes=None, which="abcdef"):
                               arrowprops={"arrowstyle": "->", "color": color, "linewidth": 0.8, "shrinkA": 0, "shrinkB": 0},
                               annotation_clip=False)
     ax_e.set_ylim(lo, 100.5)
-    ax_e.set_xlabel("Swing amplitude A (rad); band: 1.65–1.85")
+    ax_e.text(1.75, lo + 0.5, "range of the main pools", ha="center", va="bottom", fontsize=7, color=INK2)
+    ax_e.set_xlabel("Swing amplitude A (rad)")
     ax_e.set_ylabel("Within ±1 on test (%)")
-    ax_e.legend(loc="lower center", fontsize=7.5)
+    ax_e.legend(loc="lower center", bbox_to_anchor=(0.5, 0.09), fontsize=7.5)
 
     # (f) ring size: each network scored on each ring (results/ring_transfer.json, within ±1 on test, seed means).
     # Outlined: the ring it was trained on. Asterisk: a ring whose size divides the training ring's, on which a
@@ -1218,8 +1228,9 @@ def fig_settings(axes=None, which="abcdef"):
         plt.close(spare)
 
 
-COUPLING_KINDS = (("shift", "h = 0.5, other A", MUTED), ("twin", "h = 0.4, 0.6, same spectrum", SLOT[1]),
-                  ("s1match", "h = 0.4, 0.6, same σ₁ only", SLOT[2]), ("twin_far", "h = 0.3, 0.7, closest spectrum", SLOT[3]))
+COUPLING_KINDS = (("shift", r"$\tilde h$ = 0.5, other A", MUTED), ("twin", r"$\tilde h$ = 0.4, 0.6, same spectrum", SLOT[1]),
+                  ("s1match", r"$\tilde h$ = 0.4, 0.6, same σ₁ only", SLOT[2]),
+                  ("twin_far", r"$\tilde h$ = 0.3, 0.7, closest spectrum", SLOT[3]))
 FAMILY_MARKERS = {1.65: "o", 1.75: "s", 1.85: "^"}
 
 
@@ -1253,7 +1264,7 @@ def fig_coupling(axes=None, which="abc"):
                           marker=marker, color=color, markersize=5, markeredgecolor="white", markeredgewidth=0.5,
                           label=name if a_ref == 1.75 else None)
     ax_a.set_xlabel("Distance between growth spectra (% of σ₁)")
-    ax_a.set_ylabel("Site within ±1 of the h = 0.5 run (%)" if not paper else "Same site within ±1 (%)")
+    ax_a.set_ylabel(r"Site within ±1 of the $\tilde h$ = 0.5 run (%)" if not paper else "Same site within ±1 (%)")
     ax_a.set_ylim(0, 102)
     ax_a.set_xlim(left=0)
     if members:
@@ -1269,7 +1280,7 @@ def fig_coupling(axes=None, which="abc"):
         y = [e["pool"]["median_time_ott"] for e in pa]
         xs += x
         ys += y
-        ax_b.plot(x, y, linestyle="none", marker="o", color=SLOT[0], markersize=5, label="h = 0.5, fixed A")
+        ax_b.plot(x, y, linestyle="none", marker="o", color=SLOT[0], markersize=5, label=r"$\tilde h$ = 0.5, fixed A")
     for kind, name, color in COUPLING_KINDS[1:]:
         q = [m for _, m in members if coupling_kind(m) == kind]
         if q:
@@ -1292,14 +1303,14 @@ def fig_coupling(axes=None, which="abc"):
     fr = [p_ for p_ in d.get("floquet_vs_ratio", {}).get("points", []) if p_["kind"] == "fixed"]
     if fr:
         ax_c.plot([p_["r"] for p_ in fr], [100 * p_["floquet_acc_1"] for p_ in fr], linestyle="none", marker="o", color=SLOT[0],
-                  markersize=5, label="h = 0.5, fixed A")
+                  markersize=5, label=r"$\tilde h$ = 0.5, fixed A")
     tw = [m for _, m in members if m["kind"] == "twin" and g_(m, "floquet", "acc_1") is not None]
     if tw:
         ax_c.plot([m["eta_over_distance"] for m in tw], [100 * m["floquet"]["acc_1"] for m in tw], linestyle="none", marker="D",
                   color=SLOT[1], markersize=4.5, markeredgecolor="white", markeredgewidth=0.5, label=COUPLING_KINDS[1][1])
     ax_c.set_xscale("log")
     ax_c.set_ylim(0, 103)
-    ax_c.set_xlabel(r"$\eta_{\max}\,/\,(A - A_c(h))$")
+    ax_c.set_xlabel(r"$\eta_{\max}\,/\,(A - A_c(\tilde h))$")
     ax_c.set_ylabel("Floquet filter within ±1 (%)")
     if fr or tw:
         ax_c.legend(loc="lower left", fontsize=7 if not paper else 6.5)
